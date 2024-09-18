@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from "react";
-import {
-  Box,
-  useDisclosure,
-  Drawer,
-  DrawerContent,
-} from "@chakra-ui/react";
+import { Box, useDisclosure, Drawer, DrawerContent } from "@chakra-ui/react";
 
 const Collections: React.FC = () => {
   const [collections, setCollections] = useState<any[]>([]);
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen, onClose } = useDisclosure();
 
   useEffect(() => {
     async function fetchCollections() {

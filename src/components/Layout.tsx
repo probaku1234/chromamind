@@ -13,21 +13,11 @@ import {
   useDisclosure,
   BoxProps,
   FlexProps,
-  Button,
-  useColorMode,
 } from "@chakra-ui/react";
-import {
-  FiHome,
-  FiTrendingUp,
-  FiCompass,
-  FiStar,
-  FiSettings,
-  FiMenu,
-  FiList,
-} from "react-icons/fi";
+import { FiHome, FiSettings, FiMenu, FiList } from "react-icons/fi";
 import { IconType } from "react-icons";
 import { ReactText } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import { CurrentMenuState, updateMenu } from "../slices/currentMenuSlice";
 
 interface LinkItemProps {
@@ -49,8 +39,6 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
-  const currentMenu = useSelector((state: any) => state.currentMenu);
-
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   return (

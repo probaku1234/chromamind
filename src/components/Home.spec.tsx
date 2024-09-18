@@ -1,5 +1,5 @@
 import Home from "./Home";
-import { describe, expect, test, beforeAll, afterEach } from "vitest";
+import { describe, test, beforeAll, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
 import { InvokeArgs } from "@tauri-apps/api/core";
@@ -12,7 +12,10 @@ afterEach(() => {
 
 describe("Home", () => {
   test("should render the Home component", () => {
-    const mockCommandHandler = <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> => {
+    const mockCommandHandler = <T,>(
+      cmd: string,
+      _: InvokeArgs | undefined
+    ): Promise<T> => {
       if (cmd === "get_chroma_version") {
         return Promise.resolve("0.1.0" as unknown as T); // casting string to T
       } else {

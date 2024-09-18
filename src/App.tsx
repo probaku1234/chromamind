@@ -16,9 +16,8 @@ import {
 } from "@chakra-ui/react";
 import { invoke } from "@tauri-apps/api/core";
 import reactLogo from "./assets/react.svg";
-import { useNavigate } from "react-router";
 import { CheckCircleIcon } from "@chakra-ui/icons";
-import { Window, getAllWindows, getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 
 function App() {
@@ -26,7 +25,6 @@ function App() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const navigate = useNavigate();
 
   async function greet() {
     setLoading(true);
@@ -83,7 +81,7 @@ function App() {
 
       <Box
         as="form"
-        onSubmit={(e) => {
+        onSubmit={(e: { preventDefault: () => void; }) => {
           e.preventDefault();
           greet();
         }}

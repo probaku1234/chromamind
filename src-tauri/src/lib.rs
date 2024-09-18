@@ -1,6 +1,6 @@
-use chromadb::v1::client::{ChromaAuthMethod, ChromaClientOptions};
+use chromadb::v1::client::ChromaClientOptions;
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
+// use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
 use tauri::State;
 
@@ -12,15 +12,15 @@ struct AppState {
     client: ChromaClient,
 }
 
-impl AppState {
-    fn new(url: String) -> Self {
-        let client = ChromaClient::new(ChromaClientOptions {
-            url,
-            auth: chromadb::v1::client::ChromaAuthMethod::None,
-        });
-        AppState { client }
-    }
-}
+// impl AppState {
+//     fn new(url: String) -> Self {
+//         let client = ChromaClient::new(ChromaClientOptions {
+//             url,
+//             auth: chromadb::v1::client::ChromaAuthMethod::None,
+//         });
+//         AppState { client }
+//     }
+// }
 
 #[tauri::command]
 fn create_client(url: &str, state: State<WrappedState>) {
@@ -58,9 +58,9 @@ fn health_check(state: State<WrappedState>) -> bool {
 #[tauri::command]
 async fn create_window(app: tauri::AppHandle) {
     // set title as URL
-  let webview_window = tauri::WebviewWindowBuilder::new(&app, "label", tauri::WebviewUrl::App("/home".into()))
-    .build()
-    .unwrap();
+    let _ = tauri::WebviewWindowBuilder::new(&app, "label", tauri::WebviewUrl::App("/home".into()))
+        .build()
+        .unwrap();
 }
 
 // tauri command get chroma version
@@ -74,7 +74,13 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Mutex::new(None::<AppState>))
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![greet, create_client, health_check, create_window, get_chroma_version])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            create_client,
+            health_check,
+            create_window,
+            get_chroma_version
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
