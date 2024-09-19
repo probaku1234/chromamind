@@ -182,7 +182,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           <Icon as={isCollectionsOpen ? FiChevronUp : FiChevronDown} />
         </Flex>
         <Collapse in={isCollectionsOpen} animateOpacity>
-          <Box pl="8" mt="2">
+          <Box pl="8" mt="2" overflowY={'scroll'} maxHeight={'50vh'}>
             {collections.map((collection) => (
               <CollectionNavItem key={collection.id} name={collection.name}>
                 {collection.name}
