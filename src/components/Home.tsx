@@ -15,7 +15,14 @@ const Home: React.FC = () => {
   }, []);
 
   return (
-    <Box>
+    <Box
+      display="flex"
+      flexDirection="column"
+      justifyContent="center"
+      alignItems="center"
+      height="100vh"
+      textAlign="center"
+    >
       {chromaVersion ? (
         <Text fontSize="lg" color="gray.500">
           Chroma Version: {chromaVersion}
