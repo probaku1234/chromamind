@@ -1,45 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { Box, useDisclosure, Drawer, DrawerContent } from "@chakra-ui/react";
+import React from "react";
+import { Box } from "@chakra-ui/react";
+import { useSelector } from "react-redux";
+import { State } from "../types";
 
 const Collections: React.FC = () => {
-  const [collections, setCollections] = useState<any[]>([]);
-  const { isOpen, onClose } = useDisclosure();
-
-  useEffect(() => {
-    async function fetchCollections() {
-      //   const response = await fetch("https://api.example.com/collections");
-      //   const data = await response.json();
-      //   setCollections(data);
-      setCollections([
-        { id: 1, name: "Collection 1" },
-        { id: 2, name: "Collection 2" },
-        { id: 3, name: "Collection 3" },
-      ]);
-    }
-    fetchCollections();
-  }, []);
+  const currentCollection = useSelector<State, string>(
+    (state: State) => state.currentCollection
+  );
 
   return (
     <Box minH="100vh" width={"100%"}>
-      <Drawer
-        isOpen={isOpen}
-        onClose={onClose}
-        placement="left"
-        onOverlayClick={onClose}
-        size={"full"}
-        returnFocusOnClose={false}
-      >
-        <DrawerContent>
-          sex
-          <Box>
-            {collections.map((collection) => (
-              <Box key={collection.id}>{collection.name}</Box>
-            ))}
-            asdfasdfasdfasdfasdfasdfasdf
-          </Box>
-        </DrawerContent>
-      </Drawer>
-      asefasdf
+      {currentCollection}
     </Box>
   );
 };
