@@ -6,10 +6,8 @@ use tauri::State;
 
 use std::sync::Mutex;
 
-type WrappedState = Mutex<Option<AppState>>;
-
 struct AppState {
-    client: ChromaClient,
+    client: Mutex<Option<ChromaClient>>,
 }
 
 // impl AppState {
@@ -23,13 +21,12 @@ struct AppState {
 // }
 
 #[tauri::command]
-fn create_client(url: &str, state: State<WrappedState>) {
-    let mut app_state = state.lock().unwrap();
+fn create_client(url: &str, state: State<AppState>) {
     let client = ChromaClient::new(ChromaClientOptions {
         url: url.to_string(),
         auth: chromadb::v1::client::ChromaAuthMethod::None,
     });
-    *app_state = Some(AppState { client });
+    *state.client.lock().unwrap() = Some(client);
 }
 
 #[tauri::command]
@@ -46,12 +43,17 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn health_check(state: State<WrappedState>) -> bool {
-    let app_state = state.lock().unwrap();
-    if let Some(ref app_state) = *app_state {
-        app_state.client.heartbeat().is_ok()
-    } else {
-        false
+fn health_check(state: State<AppState>) -> Result<u64, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+    match client.heartbeat() {
+        Ok(timestamp) => Ok(timestamp),
+        Err(e) => Err(format!("Error checking health: {}", e)),
     }
 }
 
@@ -69,18 +71,72 @@ async fn get_chroma_version() -> String {
     "0.1.0".to_string()
 }
 
+#[tauri::command]
+fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+    match client.reset() {
+        Ok(_) => Ok(true),
+        Err(e) => Err(format!("Error resetting chroma: {}", e)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(Mutex::new(None::<AppState>))
+        .manage(AppState {
+            client: Mutex::new(None),
+        })
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             create_client,
             health_check,
             create_window,
-            get_chroma_version
+            get_chroma_version,
+            reset_chroma,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+    // use tauri::test::{mock_builder, mock_context, noop_assets};
+
+    // fn before_each<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
+    //     builder
+    //         .invoke_handler(tauri::generate_handler![greet])
+    //         // remove the string argument to use your app's config file
+    //         .build(mock_context(noop_assets()))
+    //         .expect("failed to build app")
+    // }
+
+    // #[test]
+    // fn test_greet() {
+    //     let app = before_each(mock_builder());
+    //     let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+    //         .build()
+    //         .unwrap();
+
+    //     tauri::test::assert_ipc_response(
+    //         &webview,
+    //         tauri::webview::InvokeRequest {
+    //             cmd: "greet".into(),
+    //             callback: tauri::ipc::CallbackFn(0),
+    //             error: tauri::ipc::CallbackFn(1),
+    //             url: "http://tauri.localhost".parse().unwrap(),
+    //             body: tauri::ipc::InvokeBody::default(),
+    //             headers: Default::default(),
+    //             invoke_key: tauri::test::INVOKE_KEY.to_string(),
+    //         },
+    //         Ok("p"),
+    //     );
+    // }
 }
