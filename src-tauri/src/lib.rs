@@ -1,7 +1,10 @@
+pub mod structs;
+
 use chromadb::v1::client::ChromaClientOptions;
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
+use structs::EmbeddingData;
 use tauri::State;
 
 use std::sync::Mutex;
@@ -86,6 +89,25 @@ fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
     }
 }
 
+#[tauri::command]
+fn fetch_embeddings(_: State<AppState>) -> Result<Vec<EmbeddingData>, String> {
+    // return json vector
+    Ok(vec![
+        EmbeddingData {
+            id: "1".to_string(),
+            metadata: vec![None],
+            document: "Some document about 9 octopus recipies".to_string(),
+            embedding: vec![0.0_f32; 768],
+        },
+        EmbeddingData {
+            id: "2".to_string(),
+            metadata: vec![None],
+            document: "Some other document about DCEU Superman Vs CW Superman".to_string(),
+            embedding: vec![0.0_f32; 768],
+        },
+    ])
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -100,6 +122,7 @@ pub fn run() {
             create_window,
             get_chroma_version,
             reset_chroma,
+            fetch_embeddings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -107,7 +130,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use chromadb::v1::collection::{CollectionEntries, GetOptions};
+
+    use super::*;
     // use tauri::test::{mock_builder, mock_context, noop_assets};
 
     // fn before_each<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
@@ -138,5 +163,40 @@ mod tests {
     //         },
     //         Ok("p"),
     //     );
+    // }
+    // #[test]
+    // fn collection() {
+    //     let client = ChromaClient::new(ChromaClientOptions::default());
+    //     let collection = client.get_collection("test-collection-1").unwrap();
+
+    //     // let collection_entries = CollectionEntries {
+    //     //     ids: vec!["demo-id-1", "demo-id-2"],
+    //     //     embeddings: Some(vec![vec![0.0_f32; 768], vec![0.0_f32; 768]]),
+    //     //     metadatas: None,
+    //     //     documents: Some(vec![
+    //     //         "Some document about 9 octopus recipies",
+    //     //         "Some other document about DCEU Superman Vs CW Superman"
+    //     //     ])
+    //     //  };
+
+    //     //  let result = collection.upsert(collection_entries, None).unwrap();
+    //     //  println!("{:?}", result);
+    //     println!("{:?}", collection.count().unwrap());
+    //     println!("{:?}", collection.get(GetOptions::default()).unwrap());
+    //     let get_query = GetOptions {
+    //         ids: vec![],
+    //         where_metadata: None,
+    //         limit: None,
+    //         offset: None,
+    //         where_document: None,
+    //         include: Some(vec![
+    //             "documents".into(),
+    //             "embeddings".into(),
+    //             "metadatas".into(),
+    //         ]),
+    //     };
+
+    //     let get_result = collection.get(get_query).unwrap();
+    //     println!("{:?}", get_result);
     // }
 }
