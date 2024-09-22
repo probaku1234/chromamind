@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React from "react";
 import {
   Box,
   Button,
@@ -28,11 +28,10 @@ const Settings: React.FC = () => {
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   const resetChroma = async () => {
-    try {
-      const result = await invoke("reset_chroma");
-      console.log(result);
+    invoke("reset_chroma")
+      .then((result) => {
+        console.log(result);
 
-      if (result) {
         toast({
           title: "Success",
           description: "Chroma reset successfully.",
@@ -40,21 +39,20 @@ const Settings: React.FC = () => {
           duration: 5000,
           isClosable: true,
         });
-      } else {
-        throw new Error("Failed to reset Chroma.");
-      }
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Error",
-        description: `Failed to reset chroma: ${error}`,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
+      })
+      .catch((error) => {
+        console.error(error);
+        toast({
+          title: "Error",
+          description: `Failed to reset chroma: ${error}`,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      })
+      .finally(() => {
+        onClose();
       });
-    } finally {
-      onClose();
-    }
   };
 
   return (
