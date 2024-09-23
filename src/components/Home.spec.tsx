@@ -1,6 +1,6 @@
 import Home from "./Home";
-import { describe, test, beforeAll, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, test, beforeAll, afterEach, expect, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
 import { InvokeArgs } from "@tauri-apps/api/core";
 
@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("Home", () => {
-  test("should render the Home component", () => {
+  test("should render the Home component", async () => {
     const mockCommandHandler = <T,>(
       cmd: string,
       _: InvokeArgs | undefined
@@ -25,8 +25,14 @@ describe("Home", () => {
 
     mockIPC(mockCommandHandler);
 
+    // @ts-ignore
+    const mock = vi.spyOn(window.__TAURI_INTERNALS__, "invoke");
+    
     render(<Home />);
 
-    screen.debug();
+    await waitFor(() => expect(mock).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Chroma Version: 0.1.0")).toBeInTheDocument();
+
+    // screen.debug();
   });
 });
