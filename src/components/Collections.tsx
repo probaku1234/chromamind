@@ -37,7 +37,7 @@ const Collections: React.FC = () => {
   const {
     isDragging: isTerminalDragging,
     position: terminalH,
-    splitterProps: terminalDragBarProps,
+    separatorProps: terminalDragBarProps,
   } = useResizable({
     axis: "y",
     initial: 10,
