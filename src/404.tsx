@@ -1,7 +1,7 @@
-import React from "react";
-import { Link as RouterLink } from "react-router-dom";
-import { Box, Heading, Text, Link } from "@chakra-ui/react";
-import Layout from "./components/Layout";
+import React from 'react'
+import { Link as RouterLink } from 'react-router-dom'
+import { Box, Heading, Text, Link } from '@chakra-ui/react'
+import Layout from './components/Layout'
 
 const NotFoundPage: React.FC = () => {
   return (
@@ -25,7 +25,7 @@ const NotFoundPage: React.FC = () => {
         </Link>
       </Box>
     </Layout>
-  );
-};
+  )
+}
 
-export default NotFoundPage;
+export default NotFoundPage

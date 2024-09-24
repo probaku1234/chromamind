@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react'
 import {
   Box,
   Button,
@@ -18,42 +18,42 @@ import {
   Flex,
   Text,
   useToast,
-} from "@chakra-ui/react";
-import { invoke } from "@tauri-apps/api/core";
+} from '@chakra-ui/react'
+import { invoke } from '@tauri-apps/api/core'
 
 const Settings: React.FC = () => {
-  const { toggleColorMode } = useColorMode();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const toast = useToast();
-  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const { toggleColorMode } = useColorMode()
+  const { isOpen, onOpen, onClose } = useDisclosure()
+  const toast = useToast()
+  const cancelRef = React.useRef<HTMLButtonElement>(null)
 
   const resetChroma = async () => {
-    invoke("reset_chroma")
+    invoke('reset_chroma')
       .then((result) => {
-        console.log(result);
+        console.log(result)
 
         toast({
-          title: "Success",
-          description: "Chroma reset successfully.",
-          status: "success",
+          title: 'Success',
+          description: 'Chroma reset successfully.',
+          status: 'success',
           duration: 5000,
           isClosable: true,
-        });
+        })
       })
       .catch((error) => {
-        console.error(error);
+        console.error(error)
         toast({
-          title: "Error",
+          title: 'Error',
           description: `Failed to reset chroma: ${error}`,
-          status: "error",
+          status: 'error',
           duration: 5000,
           isClosable: true,
-        });
+        })
       })
       .finally(() => {
-        onClose();
-      });
-  };
+        onClose()
+      })
+  }
 
   return (
     <Box>
@@ -64,7 +64,7 @@ const Settings: React.FC = () => {
         <Switch
           id="email-alerts"
           onChange={toggleColorMode}
-          size={"lg"}
+          size={'lg'}
           mr={1}
         />
         <FormLabel htmlFor="email-alerts" mb="0">
@@ -78,7 +78,7 @@ const Settings: React.FC = () => {
         <Button colorScheme="red" onClick={onOpen} mr={4}>
           Reset Chroma
         </Button>
-        <Text fontSize={"xl"} alignSelf={"center"}>
+        <Text fontSize={'xl'} alignSelf={'center'}>
           delete all collections and entries.
         </Text>
       </Flex>
@@ -95,7 +95,7 @@ const Settings: React.FC = () => {
             </AlertDialogHeader>
 
             <AlertDialogBody>
-              Are you sure? You can't undo this action afterwards.
+              Are you sure? You can&apos;t undo this action afterwards.
             </AlertDialogBody>
 
             <AlertDialogFooter>
@@ -110,7 +110,7 @@ const Settings: React.FC = () => {
         </AlertDialogOverlay>
       </AlertDialog>
     </Box>
-  );
-};
+  )
+}
 
-export default Settings;
+export default Settings

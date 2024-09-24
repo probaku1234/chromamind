@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { Box, Text } from "@chakra-ui/react";
-import { invoke } from "@tauri-apps/api/core";
-import { Skeleton } from "@chakra-ui/react";
+import React, { useState, useEffect } from 'react'
+import { Box, Text } from '@chakra-ui/react'
+import { invoke } from '@tauri-apps/api/core'
+import { Skeleton } from '@chakra-ui/react'
 
 const Home: React.FC = () => {
-  const [chromaVersion, setChromaVersion] = useState<string | null>(null);
+  const [chromaVersion, setChromaVersion] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchChromaVersion() {
-      const version = await invoke("get_chroma_version");
-      setChromaVersion(version as string);
+      const version = await invoke('get_chroma_version')
+      setChromaVersion(version as string)
     }
-    fetchChromaVersion();
-  }, []);
+    fetchChromaVersion()
+  }, [])
 
   return (
     <Box
@@ -31,7 +31,7 @@ const Home: React.FC = () => {
         <Skeleton height="20px" width="200px" />
       )}
     </Box>
-  );
-};
+  )
+}
 
-export default Home;
+export default Home

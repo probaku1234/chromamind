@@ -1,5 +1,5 @@
-import React, { ReactNode, useEffect, useState } from "react";
-import { Collapse, Container, Divider } from "@chakra-ui/react";
+import React, { ReactNode, useEffect, useState } from 'react'
+import { Collapse, Container, Divider } from '@chakra-ui/react'
 import {
   IconButton,
   Box,
@@ -13,7 +13,7 @@ import {
   useDisclosure,
   BoxProps,
   FlexProps,
-} from "@chakra-ui/react";
+} from '@chakra-ui/react'
 import {
   FiHome,
   FiSettings,
@@ -22,45 +22,45 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiCheck,
-} from "react-icons/fi";
-import { IconType } from "react-icons";
-import { ReactText } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { CurrentMenuState, updateMenu } from "../slices/currentMenuSlice";
-import { updateCollection } from "../slices/currentCollectionSlice";
-import { State } from "../types";
+} from 'react-icons/fi'
+import { IconType } from 'react-icons'
+import { ReactText } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { CurrentMenuState, updateMenu } from '../slices/currentMenuSlice'
+import { updateCollection } from '../slices/currentCollectionSlice'
+import { State } from '../types'
 
 interface LinkItemProps {
-  name: CurrentMenuState;
-  icon: IconType;
-  path: string;
+  name: CurrentMenuState
+  icon: IconType
+  path: string
 }
 const LinkItems: Array<LinkItemProps> = [
-  { name: "Home", icon: FiHome, path: "/home" },
+  { name: 'Home', icon: FiHome, path: '/home' },
   // { name: "Trending", icon: FiTrendingUp, path: "/trending" },
   // { name: "Explore", icon: FiCompass, path: "/explore" },
   // { name: "Favorites", icon: FiStar, path: "/favorites" },
   // { name: "Collections", icon: FiList, path: "/collections" },
   // { name: "Settings", icon: FiSettings, path: "/settings" },
-];
+]
 
 interface LayoutProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen, onOpen, onClose } = useDisclosure()
 
   return (
     <Container maxW="100vw" centerContent height="100vh" margin={0} padding={0}>
       <Box
         minH="100vh"
-        bg={useColorModeValue("gray.100", "gray.900")}
-        width={"100%"}
+        bg={useColorModeValue('gray.100', 'gray.900')}
+        width={'100%'}
       >
         <SidebarContent
           onClose={() => onClose}
-          display={{ base: "none", md: "block" }}
+          display={{ base: 'none', md: 'block' }}
         />
         <Drawer
           isOpen={isOpen}
@@ -75,24 +75,26 @@ const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
           </DrawerContent>
         </Drawer>
         {/* mobilenav */}
-        <MobileNav display={{ base: "flex", md: "none" }} onOpen={onOpen} />
+        <MobileNav display={{ base: 'flex', md: 'none' }} onOpen={onOpen} />
         <Box ml={{ base: 0, md: 60 }} pr={4} pl={4}>
           {/* Content */}
           {children}
         </Box>
       </Box>
     </Container>
-  );
-};
+  )
+}
 
 interface SidebarProps extends BoxProps {
-  onClose: () => void;
+  onClose: () => void
 }
 
 const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
-  const [isCollectionsOpen, setIsCollectionsOpen] = useState(false); // state to toggle collapse
-  const toggleCollections = () => setIsCollectionsOpen(!isCollectionsOpen);
-  const [collections, setCollections] = useState<any[]>([]);
+  const [isCollectionsOpen, setIsCollectionsOpen] = useState(false) // state to toggle collapse
+  const toggleCollections = () => setIsCollectionsOpen(!isCollectionsOpen)
+  const [collections, setCollections] = useState<
+    { id: number; name: string }[]
+  >([])
 
   useEffect(() => {
     async function fetchCollections() {
@@ -100,50 +102,50 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       //   const data = await response.json();
       //   setCollections(data);
       setCollections([
-        { id: 1, name: "Collection 1" },
-        { id: 2, name: "Collection 2" },
-        { id: 3, name: "Collection 3" },
+        { id: 1, name: 'Collection 1' },
+        { id: 2, name: 'Collection 2' },
+        { id: 3, name: 'Collection 3' },
         // 10 more collections
-        { id: 4, name: "Collection 4" },
-        { id: 5, name: "Collection 5" },
-        { id: 6, name: "Collection 6" },
-        { id: 7, name: "Collection 7" },
-        { id: 8, name: "Collection 8" },
-        { id: 9, name: "Collection 9" },
-        { id: 10, name: "Collection 10" },
-        { id: 11, name: "Collection 11" },
-        { id: 12, name: "Collection 12" },
-        { id: 13, name: "Collection 13" },
-        { id: 14, name: "Collection 14" },
-        { id: 15, name: "Collection 15" },
-        { id: 16, name: "Collection 16" },
-        { id: 17, name: "Collection 17" },
-        { id: 18, name: "Collection 18" },
-        { id: 19, name: "Collection 19" },
-        { id: 20, name: "Collection 20" },
-      ]);
+        { id: 4, name: 'Collection 4' },
+        { id: 5, name: 'Collection 5' },
+        { id: 6, name: 'Collection 6' },
+        { id: 7, name: 'Collection 7' },
+        { id: 8, name: 'Collection 8' },
+        { id: 9, name: 'Collection 9' },
+        { id: 10, name: 'Collection 10' },
+        { id: 11, name: 'Collection 11' },
+        { id: 12, name: 'Collection 12' },
+        { id: 13, name: 'Collection 13' },
+        { id: 14, name: 'Collection 14' },
+        { id: 15, name: 'Collection 15' },
+        { id: 16, name: 'Collection 16' },
+        { id: 17, name: 'Collection 17' },
+        { id: 18, name: 'Collection 18' },
+        { id: 19, name: 'Collection 19' },
+        { id: 20, name: 'Collection 20' },
+      ])
     }
-    fetchCollections();
-  }, []);
+    fetchCollections()
+  }, [])
 
   return (
     <Box
-      bg={useColorModeValue("white", "gray.900")}
+      bg={useColorModeValue('white', 'gray.900')}
       flexDirection="column"
       justifyContent="space-between"
       borderRight="1px"
-      borderRightColor={useColorModeValue("gray.200", "gray.700")}
-      w={{ base: "full", md: 60 }}
+      borderRightColor={useColorModeValue('gray.200', 'gray.700')}
+      w={{ base: 'full', md: 60 }}
       pos="fixed"
       h="full"
-      style={{display: "flex !important"}} 
+      style={{ display: 'flex !important' }}
       {...rest}
     >
       <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
         <Text fontSize="2xl" fontFamily="monospace" fontWeight="bold">
           ChromaMind
         </Text>
-        <CloseButton display={{ base: "flex", md: "none" }} onClick={onClose} />
+        <CloseButton display={{ base: 'flex', md: 'none' }} onClick={onClose} />
       </Flex>
       <Box flexGrow={1}>
         {LinkItems.map((link) => (
@@ -166,15 +168,15 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           cursor="pointer"
           onClick={toggleCollections}
           _hover={{
-            bg: "cyan.400",
-            color: "white",
+            bg: 'cyan.400',
+            color: 'white',
           }}
         >
           <Icon
             mr="4"
             fontSize="16"
             _groupHover={{
-              color: "white",
+              color: 'white',
             }}
             as={FiList}
           />
@@ -203,24 +205,24 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
         </NavItem>
       </Box>
     </Box>
-  );
-};
+  )
+}
 
 interface NavItemProps extends FlexProps {
-  icon: IconType;
-  children: ReactText;
-  path: string;
-  name: CurrentMenuState;
+  icon: IconType
+  children: ReactText
+  path: string
+  name: CurrentMenuState
 }
-const NavItem = ({ icon, children, path, name, ...rest }: NavItemProps) => {
-  const dispatch = useDispatch();
+const NavItem = ({ icon, children, name, ...rest }: NavItemProps) => {
+  const dispatch = useDispatch()
 
   return (
     <Box
       as="a"
       href="#"
-      style={{ textDecoration: "none" }}
-      _focus={{ boxShadow: "none" }}
+      style={{ textDecoration: 'none' }}
+      _focus={{ boxShadow: 'none' }}
       onClick={
         () => dispatch(updateMenu(name)) /* dispatch(updateMenu(name)) */
       } // dispatch action
@@ -233,8 +235,8 @@ const NavItem = ({ icon, children, path, name, ...rest }: NavItemProps) => {
         role="group"
         cursor="pointer"
         _hover={{
-          bg: "cyan.400",
-          color: "white",
+          bg: 'cyan.400',
+          color: 'white',
         }}
         {...rest}
       >
@@ -243,7 +245,7 @@ const NavItem = ({ icon, children, path, name, ...rest }: NavItemProps) => {
             mr="4"
             fontSize="16"
             _groupHover={{
-              color: "white",
+              color: 'white',
             }}
             as={icon}
           />
@@ -251,11 +253,11 @@ const NavItem = ({ icon, children, path, name, ...rest }: NavItemProps) => {
         {children}
       </Flex>
     </Box>
-  );
-};
+  )
+}
 
 interface MobileProps extends FlexProps {
-  onOpen: () => void;
+  onOpen: () => void
 }
 const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
   return (
@@ -264,9 +266,9 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
       px={{ base: 4, md: 24 }}
       height="20"
       alignItems="center"
-      bg={useColorModeValue("white", "gray.900")}
+      bg={useColorModeValue('white', 'gray.900')}
       borderBottomWidth="1px"
-      borderBottomColor={useColorModeValue("gray.200", "gray.700")}
+      borderBottomColor={useColorModeValue('gray.200', 'gray.700')}
       justifyContent="flex-start"
       {...rest}
     >
@@ -281,12 +283,12 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
         Logo
       </Text>
     </Flex>
-  );
-};
+  )
+}
 
 interface CollectionNavItemProps extends FlexProps {
-  children: ReactNode;
-  name: string;
+  children: ReactNode
+  name: string
 }
 
 const CollectionNavItem = ({
@@ -294,20 +296,20 @@ const CollectionNavItem = ({
   name,
   ...rest
 }: CollectionNavItemProps) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch()
   const currentCollection = useSelector<State, string>(
-    (state: State) => state.currentCollection
-  );
+    (state: State) => state.currentCollection,
+  )
 
   return (
     <Box
       as="a"
       href="#"
-      style={{ textDecoration: "none" }}
-      _focus={{ boxShadow: "none" }}
+      style={{ textDecoration: 'none' }}
+      _focus={{ boxShadow: 'none' }}
       onClick={() => {
-        dispatch(updateCollection(name));
-        dispatch(updateMenu("Collections"));
+        dispatch(updateCollection(name))
+        dispatch(updateMenu('Collections'))
       }} // dispatch action
     >
       <Flex
@@ -318,8 +320,8 @@ const CollectionNavItem = ({
         role="group"
         cursor="pointer"
         _hover={{
-          bg: "cyan.400",
-          color: "white",
+          bg: 'cyan.400',
+          color: 'white',
         }}
         {...rest}
       >
@@ -329,15 +331,15 @@ const CollectionNavItem = ({
             ml="4"
             fontSize="16"
             _groupHover={{
-              color: "white",
+              color: 'white',
             }}
-            color={"green.500"}
+            color={'green.500'}
             as={FiCheck}
           />
         )}
       </Flex>
     </Box>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

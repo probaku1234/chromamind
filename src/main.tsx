@@ -1,31 +1,31 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 
-import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";
-import { Provider } from "react-redux";
-import store from "./store";
-import theme from "./theme";
-import NotFoundPage from "./404";
-import MainPage from "./MainPage";
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
+import { Provider } from 'react-redux'
+import store from './store'
+import theme from './theme'
+import NotFoundPage from './404'
+import MainPage from './MainPage'
 
 const router = createBrowserRouter([
   {
-    path: "/",
+    path: '/',
     element: <App />,
   },
   {
-    path: "/home",
+    path: '/home',
     element: <MainPage />,
   },
   {
-    path: "*",
+    path: '*',
     element: <NotFoundPage />,
   },
-]);
+])
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ChakraProvider theme={theme}>
       <Provider store={store}>
@@ -34,5 +34,5 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         {/* <App /> */}
       </Provider>
     </ChakraProvider>
-  </React.StrictMode>
-);
+  </React.StrictMode>,
+)
