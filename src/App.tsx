@@ -20,7 +20,7 @@ import { CheckCircleIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import './App.css'
 
-function App() {
+const App: React.FC = () => {
   const [greetMsg, setGreetMsg] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
