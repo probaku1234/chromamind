@@ -1,32 +1,85 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
-  Box,
-  // Table,
-  // Thead,
-  // Tbody,
-  // Tfoot,
-  // Tr,
-  // Th,
-  // Td,
-  // TableCaption,
-  // TableContainer,
-  Heading,
+  Table as CKTable,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Tfoot,
+  HStack,
+  Button,
+  Select,
+  Text,
+  Input,
+  Spacer,
   Flex,
+  TableContainer,
+  Icon,
+  // Checkbox,
+  // Divider,
+  Heading,
+  // IconButton,
+  // Menu,
+  // MenuButton,
+  // MenuItem,
+  // MenuList,
+  // VStack,
+  // UseDisclosureReturn,
+  // useDisclosure,
+  Box,
+  Spinner,
+  // CheckboxGroup,
+  // Tooltip,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
 import { EmbeddingsData, State } from '../types'
 import { invoke } from '@tauri-apps/api/core'
 import {
-  createColumnHelper,
+  useReactTable,
   flexRender,
   getCoreRowModel,
-  useReactTable,
+  // ColumnDef,
+  SortingState,
+  getSortedRowModel,
+  getPaginationRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFacetedMinMaxValues,
+  ColumnFiltersState,
+  // Table as RETable,
+  // Column,
+  getFilteredRowModel,
+  VisibilityState,
+  // Row,
+  createColumnHelper,
 } from '@tanstack/react-table'
+import {
+  ArrowBackIcon,
+  ArrowForwardIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  // HamburgerIcon,
+  // Search2Icon,
+  // SearchIcon,
+  // TriangleDownIcon,
+  // TriangleUpIcon,
+  WarningTwoIcon,
+} from '@chakra-ui/icons'
+import {
+  // GoFilter,
+  GoInbox,
+  // GoLinkExternal,
+  // GoTasklist
+} from 'react-icons/go'
+// import { FaFileCsv, FaPrint, FaRegFilePdf, FaTrash } from 'react-icons/fa6'
 import { useResizable } from 'react-resizable-layout'
 import { cn } from '../utils/cn'
 import '../styles/collection.css'
 import { embeddingToString } from '../utils/embeddingToString'
 import { MiddleTruncate } from '@re-dev/react-truncate'
+
+const DEFAULT_PAGES = [10, 25, 50, 100]
 
 const Collections: React.FC = () => {
   const currentCollection = useSelector<State, string>(
@@ -44,6 +97,10 @@ const Collections: React.FC = () => {
     min: 30,
     reverse: true,
   })
+  const [error, setError] = useState<string | undefined>()
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
   const columnHelper = createColumnHelper<EmbeddingsData>()
 
@@ -69,10 +126,38 @@ const Collections: React.FC = () => {
   ]
 
   const table = useReactTable({
-    data: embeddings,
     columns,
+    data: embeddings || [],
+    initialState: { pagination: { pageSize: DEFAULT_PAGES[0] } },
+    autoResetPageIndex: false,
+    state: {
+      sorting,
+      columnVisibility,
+      columnFilters,
+    },
     getCoreRowModel: getCoreRowModel(),
+    // sorting
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    // pagination
+    getPaginationRowModel: getPaginationRowModel(),
+    // column visible
+    onColumnVisibilityChange: setColumnVisibility,
+    // column filter
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnFiltersChange: setColumnFilters,
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getFacetedMinMaxValues: getFacetedMinMaxValues(),
   })
+
+  const countMaxColumns = useMemo(() => {
+    return Math.max(
+      ...table.getHeaderGroups().map((headerGroup) => {
+        return headerGroup.headers.length
+      }),
+    )
+  }, [table])
 
   useEffect(() => {
     const fetchEmbeddings = async () => {
@@ -89,6 +174,7 @@ const Collections: React.FC = () => {
         setEmbeddings(embeddings)
       } catch (error) {
         console.error(error)
+        setError(error as string)
       } finally {
         setLoading(false)
       }
@@ -100,9 +186,15 @@ const Collections: React.FC = () => {
   return (
     <Box minH="100vh" width={'100%'}>
       {loading ? (
-        <Heading>Loading...</Heading>
+        <Box height={'100vh'}>
+          <LoadingDataDisplay />
+        </Box>
+      ) : error ? (
+        <Box height={'100vh'}>
+          <ErrorDisplay message={error} />
+        </Box>
       ) : embeddings.length === 0 ? (
-        <Heading>It&apos;s empty.</Heading>
+        <NoDataDisplay />
       ) : (
         <Box
           className={
@@ -115,56 +207,182 @@ const Collections: React.FC = () => {
                 <Box>collection id</Box>
                 <Box>dimensions: {embeddings[0].embedding.length}</Box>
               </Flex>
-              <table width={'100%'}>
-                <thead>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody>
-                  {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  {table.getFooterGroups().map((footerGroup) => (
-                    <tr key={footerGroup.id}>
-                      {footerGroup.headers.map((header) => (
-                        <th key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.footer,
-                                header.getContext(),
-                              )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </tfoot>
-              </table>
+              <TableContainer w="full" whiteSpace="normal">
+                <CKTable size="sm" variant="striped">
+                  <Thead>
+                    {table.getHeaderGroups().map((headerGroup, hgIndex) => {
+                      return (
+                        <Tr key={`header-group-${headerGroup.id}-${hgIndex}`}>
+                          {headerGroup.headers.map((header, headerIndex) => {
+                            // eslint-disable-next-line
+                            const meta: any = header.column.columnDef
+                            console.log('meta', meta)
+                            return (
+                              <Th
+                                key={`header-column-${headerGroup.id}-${header.id}-${headerIndex}`}
+                                isNumeric={meta?.isNumeric}
+                                colSpan={header.colSpan}
+                                minW={`${meta?.minSize}px`}
+                              >
+                                <Flex
+                                  direction="row"
+                                  justify="space-between"
+                                  gap="0.5rem"
+                                >
+                                  <HStack gap="0.5rem" w="full" h="2rem">
+                                    <Text>
+                                      {flexRender(
+                                        header.column.columnDef.header,
+                                        header.getContext(),
+                                      )}
+                                    </Text>
+                                  </HStack>
+                                </Flex>
+                              </Th>
+                            )
+                          })}
+                        </Tr>
+                      )
+                    })}
+                  </Thead>
+                  {loading ? (
+                    <Tbody>
+                      <Tr>
+                        <Td colSpan={countMaxColumns}>
+                          <LoadingDataDisplay />
+                        </Td>
+                      </Tr>
+                    </Tbody>
+                  ) : error ? (
+                    <Tbody>
+                      <Tr>
+                        <Td colSpan={countMaxColumns}>
+                          <ErrorDisplay message={error ?? undefined} />
+                        </Td>
+                      </Tr>
+                    </Tbody>
+                  ) : embeddings == null ||
+                    embeddings == undefined ||
+                    embeddings?.length == 0 ? (
+                    <Tbody>
+                      <Tr>
+                        <Td colSpan={countMaxColumns}>
+                          <NoDataDisplay />
+                        </Td>
+                      </Tr>
+                    </Tbody>
+                  ) : (
+                    embeddings &&
+                    embeddings?.length > 0 && (
+                      <Tbody>
+                        {table.getRowModel().rows?.map((row, index) => (
+                          <Tr
+                            key={`body-${row.id}-${index}`}
+                            _hover={{ shadow: 'md', bg: 'blackAlpha.50' }}
+                          >
+                            {row.getVisibleCells().map((cell, indexCell) => {
+                              return (
+                                <Td
+                                  key={`body-cell-${row.id}-${cell.id}-${indexCell}`}
+                                  whiteSpace="normal"
+                                >
+                                  {flexRender(
+                                    cell.column.columnDef.cell,
+                                    cell.getContext(),
+                                  )}
+                                </Td>
+                              )
+                            })}
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    )
+                  )}
+                  <Tfoot>
+                    <Tr>
+                      <Td colSpan={countMaxColumns}>
+                        <Flex w="full">
+                          <HStack>
+                            <Button
+                              size="sm"
+                              onClick={() => table.setPageIndex(0)}
+                              isDisabled={!table.getCanPreviousPage()}
+                            >
+                              <ArrowBackIcon />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => table.previousPage()}
+                              isDisabled={!table.getCanPreviousPage()}
+                            >
+                              <ChevronLeftIcon />
+                            </Button>
+                            <HStack minW="fit-content" justify="center">
+                              <Text>
+                                {`Page ${
+                                  table.getState().pagination.pageIndex + 1
+                                } / ${table.getPageCount()}`}
+                              </Text>
+                            </HStack>
+                            <Button
+                              size="sm"
+                              onClick={() => table.nextPage()}
+                              isDisabled={!table.getCanNextPage()}
+                            >
+                              <ChevronRightIcon />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                table.setPageIndex(table.getPageCount() - 1)
+                              }
+                              isDisabled={!table.getCanNextPage()}
+                            >
+                              <ArrowForwardIcon />
+                            </Button>
+                          </HStack>
+                          <HStack ml={4}>
+                            <Text minW="fit-content">Go To : </Text>
+                            <Input
+                              type="number"
+                              defaultValue={
+                                table.getState().pagination.pageIndex + 1
+                              }
+                              onChange={(e) => {
+                                const page = e.target.value
+                                  ? Number(e.target.value) - 1
+                                  : 0
+                                table.setPageIndex(page)
+                              }}
+                              size="sm"
+                            />
+                          </HStack>
+                          <Spacer />
+                          <Flex justify="end">
+                            <Select
+                              minW="fit-content"
+                              value={table.getState().pagination.pageSize}
+                              size="sm"
+                              onChange={(e) => {
+                                table.setPageSize(Number(e.target.value))
+                              }}
+                            >
+                              {DEFAULT_PAGES.map((pageSize, index) => (
+                                <option key={`page-${index}`} value={pageSize}>
+                                  Show {pageSize} rows
+                                </option>
+                              ))}
+                            </Select>
+                          </Flex>
+                        </Flex>
+                      </Td>
+                    </Tr>
+                  </Tfoot>
+                </CKTable>
+              </TableContainer>
             </Box>
           </Box>
+          {/* bottom box */}
           <Splitter
             {...terminalDragBarProps}
             dir="horizontal"
@@ -205,5 +423,64 @@ const Splitter = ({ id = 'drag-bar', dir, isDragging, ...props }: any) => {
       onBlur={() => setIsFocused(false)}
       {...props}
     />
+  )
+}
+
+const NoDataDisplay = () => {
+  return (
+    <Flex
+      direction="column"
+      p={4}
+      align="center"
+      justify="center"
+      bgColor="gray.100"
+      height={'100vh'}
+    >
+      <Icon as={GoInbox} boxSize="150px" mb={3} color="gray.400" />
+      <Heading>Collection is empty</Heading>
+      <Text fontSize={'2xl'} textColor={'gray.500'}>
+        Upload more documents
+      </Text>
+    </Flex>
+  )
+}
+
+const LoadingDataDisplay = () => {
+  return (
+    <Flex
+      direction="column"
+      p={4}
+      align="center"
+      justify="center"
+      bgColor="gray.100"
+      height={'100%'}
+    >
+      <Spinner
+        size="xl"
+        boxSize="70px"
+        thickness="0.25rem"
+        mb={3}
+        color="gray.400"
+      />
+      <Text>Fetching Embeddings</Text>
+    </Flex>
+  )
+}
+
+const ErrorDisplay = ({ message }: { message: string }) => {
+  const DEFAULT_ERROR_MESSAGE = 'Error'
+
+  return (
+    <Flex
+      direction="column"
+      p={4}
+      align="center"
+      justify="center"
+      bgColor="gray.100"
+      height={'100%'}
+    >
+      <Icon as={WarningTwoIcon} boxSize="150px" mb={3} color="red.500" />
+      <Heading>{message ?? DEFAULT_ERROR_MESSAGE}</Heading>
+    </Flex>
   )
 }
