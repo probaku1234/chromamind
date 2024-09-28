@@ -29,11 +29,13 @@ import {
   // useDisclosure,
   Box,
   Spinner,
+  Badge,
+  Skeleton,
   // CheckboxGroup,
   // Tooltip,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
-import { EmbeddingsData, State } from '../types'
+import { CollectionData, EmbeddingsData, Metadata, State } from '../types'
 import { invoke } from '@tauri-apps/api/core'
 import {
   useReactTable,
@@ -86,6 +88,8 @@ const Collections: React.FC = () => {
     (state: State) => state.currentCollection,
   )
   const [embeddings, setEmbeddings] = React.useState<EmbeddingsData[]>([])
+  const [collectionId, setCollectionId] = React.useState<string | null>(null)
+  const [metadata, setMetadata] = React.useState<Metadata>({})
   const [loading, setLoading] = React.useState(true)
   const {
     isDragging: isTerminalDragging,
@@ -102,28 +106,31 @@ const Collections: React.FC = () => {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
-  const columnHelper = createColumnHelper<EmbeddingsData>()
+  const columnHelper = useMemo(() => createColumnHelper<EmbeddingsData>(), [])
 
-  const columns = [
-    columnHelper.accessor('id', {
-      cell: (info) => info.getValue(),
-      footer: (info) => info.column.id,
-    }),
-    columnHelper.accessor('document', {
-      cell: (info) => (
-        <MiddleTruncate end={0}>{info.getValue()}</MiddleTruncate>
-      ),
-      footer: (info) => info.column.id,
-    }),
-    columnHelper.accessor('embedding', {
-      cell: (info) => (
-        <MiddleTruncate end={0}>
-          {embeddingToString(info.getValue())}
-        </MiddleTruncate>
-      ),
-      footer: (info) => info.column.id,
-    }),
-  ]
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('id', {
+        cell: (info) => info.getValue(),
+        footer: (info) => info.column.id,
+      }),
+      columnHelper.accessor('document', {
+        cell: (info) => (
+          <MiddleTruncate end={0}>{info.getValue()}</MiddleTruncate>
+        ),
+        footer: (info) => info.column.id,
+      }),
+      columnHelper.accessor('embedding', {
+        cell: (info) => (
+          <MiddleTruncate end={0}>
+            {embeddingToString(info.getValue())}
+          </MiddleTruncate>
+        ),
+        footer: (info) => info.column.id,
+      }),
+    ],
+    [columnHelper],
+  )
 
   const table = useReactTable({
     columns,
@@ -170,7 +177,7 @@ const Collections: React.FC = () => {
           collection: currentCollection,
         })
 
-        console.log(embeddings)
+        // console.log(embeddings)
         setEmbeddings(embeddings)
       } catch (error) {
         console.error(error)
@@ -180,7 +187,26 @@ const Collections: React.FC = () => {
       }
     }
 
-    fetchEmbeddings()
+    const fetchCollectionData = async () => {
+      try {
+        const collectionData: CollectionData = await invoke(
+          'fetch_collection_data',
+          {
+            collectionName: currentCollection,
+          },
+        )
+        // console.log('collection data', collectionData)
+        setCollectionId(collectionData.id)
+        setMetadata(collectionData.metadata)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    if (!isTerminalDragging) {
+      Promise.all([fetchEmbeddings(), fetchCollectionData()])
+    }
+    console.log(isTerminalDragging)
   }, [currentCollection])
 
   return (
@@ -201,12 +227,26 @@ const Collections: React.FC = () => {
             'flex flex-column h-screen bg-dark font-mono color-white overflow-hidden'
           }
         >
-          <Box className={'flex grow'}>
+          <Box className={'flex grow'} overflowY={'auto'}>
             <Box width={'100%'}>
-              <Flex>
-                <Box>collection id</Box>
-                <Box>dimensions: {embeddings[0].embedding.length}</Box>
-              </Flex>
+              {collectionId ? (
+                <Flex>
+                  <Badge colorScheme="green" fontSize={'1em'} ml={2} mr={2}>
+                    collection id: {collectionId}
+                  </Badge>
+                  <Badge colorScheme="teal" fontSize={'1em'} ml={2} mr={2}>
+                    {JSON.stringify(metadata || {})}
+                  </Badge>
+                  <Spacer />
+                  <Badge colorScheme="purple" fontSize={'1em'} ml={2} mr={2}>
+                    dimensions: {embeddings[0].embedding.length}
+                  </Badge>
+                </Flex>
+              ) : (
+                <Box>
+                  <Skeleton height={'1em'} />
+                </Box>
+              )}
               <TableContainer w="full" whiteSpace="normal">
                 <CKTable size="sm" variant="striped">
                   <Thead>
@@ -216,7 +256,6 @@ const Collections: React.FC = () => {
                           {headerGroup.headers.map((header, headerIndex) => {
                             // eslint-disable-next-line
                             const meta: any = header.column.columnDef
-                            console.log('meta', meta)
                             return (
                               <Th
                                 key={`header-column-${headerGroup.id}-${header.id}-${headerIndex}`}
@@ -403,7 +442,7 @@ const Collections: React.FC = () => {
   )
 }
 
-export default Collections
+export default React.memo(Collections)
 
 // eslint-disable-next-line
 const Splitter = ({ id = 'drag-bar', dir, isDragging, ...props }: any) => {
