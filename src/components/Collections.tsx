@@ -31,11 +31,18 @@ import {
   Spinner,
   Badge,
   Skeleton,
+  SimpleGrid,
   // CheckboxGroup,
   // Tooltip,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
-import { CollectionData, EmbeddingsData, Metadata, State } from '../types'
+import {
+  CollectionData,
+  EmbeddingsData,
+  EmbeddingsDataValueType,
+  Metadata,
+  State,
+} from '../types'
 import { invoke } from '@tauri-apps/api/core'
 import {
   useReactTable,
@@ -44,7 +51,6 @@ import {
   // ColumnDef,
   SortingState,
   getSortedRowModel,
-  getPaginationRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFacetedMinMaxValues,
@@ -80,6 +86,8 @@ import { cn } from '../utils/cn'
 import '../styles/collection.css'
 import { embeddingToString } from '../utils/embeddingToString'
 import { MiddleTruncate } from '@re-dev/react-truncate'
+import { JsonEditor } from 'json-edit-react'
+import { match, P } from 'ts-pattern'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
 
@@ -105,6 +113,13 @@ const Collections: React.FC = () => {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGES[0])
+  const [rowCount, setRowCount] = useState<number | undefined>()
+  const [selectedCell, setSelectedCell] = useState<string | undefined>()
+  const [detailViewContent, setDetailViewContent] = useState<
+    EmbeddingsDataValueType | undefined
+  >()
 
   const columnHelper = useMemo(() => createColumnHelper<EmbeddingsData>(), [])
 
@@ -128,6 +143,9 @@ const Collections: React.FC = () => {
         ),
         footer: (info) => info.column.id,
       }),
+      columnHelper.accessor('metadata', {
+        cell: (info) => JSON.stringify(info.getValue()),
+      }),
     ],
     [columnHelper],
   )
@@ -135,19 +153,23 @@ const Collections: React.FC = () => {
   const table = useReactTable({
     columns,
     data: embeddings || [],
-    initialState: { pagination: { pageSize: DEFAULT_PAGES[0] } },
+    // initialState: { pagination: { pageSize: DEFAULT_PAGES[0] } },
     autoResetPageIndex: false,
     state: {
       sorting,
       columnVisibility,
       columnFilters,
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
     },
     getCoreRowModel: getCoreRowModel(),
     // sorting
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     // pagination
-    getPaginationRowModel: getPaginationRowModel(),
+    // getPaginationRowModel: getPaginationRowModel(),
     // column visible
     onColumnVisibilityChange: setColumnVisibility,
     // column filter
@@ -156,6 +178,8 @@ const Collections: React.FC = () => {
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
+    manualPagination: true,
+    rowCount,
   })
 
   const countMaxColumns = useMemo(() => {
@@ -166,29 +190,11 @@ const Collections: React.FC = () => {
     )
   }, [table])
 
+  // fetch collection data
   useEffect(() => {
-    const fetchEmbeddings = async () => {
-      console.log('fetching embeddings')
-      // Fetch embeddings
-      try {
-        setLoading(true)
-
-        const embeddings: EmbeddingsData[] = await invoke('fetch_embeddings', {
-          collection: currentCollection,
-        })
-
-        // console.log(embeddings)
-        setEmbeddings(embeddings)
-      } catch (error) {
-        console.error(error)
-        setError(error as string)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     const fetchCollectionData = async () => {
       try {
+        console.log('fetching collection data')
         const collectionData: CollectionData = await invoke(
           'fetch_collection_data',
           {
@@ -203,11 +209,54 @@ const Collections: React.FC = () => {
       }
     }
 
-    if (!isTerminalDragging) {
-      Promise.all([fetchEmbeddings(), fetchCollectionData()])
-    }
-    console.log(isTerminalDragging)
+    fetchCollectionData()
   }, [currentCollection])
+
+  // fetch total row count
+  useEffect(() => {
+    const fetchRowCount = async () => {
+      try {
+        console.log('fetching row count')
+        const rowCount: number = await invoke('fetch_row_count', {
+          collectionName: currentCollection,
+          limit: pageSize,
+          offset: pageIndex,
+        })
+        setRowCount(rowCount)
+      } catch (error) {
+        console.error(error)
+        setError(error as string)
+      }
+    }
+
+    fetchRowCount()
+  }, [pageSize, currentCollection])
+
+  // fetch embeddings
+  useEffect(() => {
+    const fetchEmbeddings = async () => {
+      console.log('fetching embeddings')
+      try {
+        setLoading(true)
+
+        const embeddings: EmbeddingsData[] = await invoke('fetch_embeddings', {
+          collectionName: currentCollection,
+          limit: pageSize,
+          offset: pageIndex,
+        })
+
+        console.log(embeddings)
+        setEmbeddings(embeddings)
+      } catch (error) {
+        console.error(error)
+        setError(error as string)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchEmbeddings()
+  }, [pageIndex, pageSize, currentCollection])
 
   return (
     <Box minH="100vh" width={'100%'}>
@@ -231,9 +280,11 @@ const Collections: React.FC = () => {
             <Box width={'100%'}>
               {collectionId ? (
                 <Flex>
+                  {/* TODO: click copy value */}
                   <Badge colorScheme="green" fontSize={'1em'} ml={2} mr={2}>
                     collection id: {collectionId}
                   </Badge>
+                  {/* TODO: click show json value  react-json-view*/}
                   <Badge colorScheme="teal" fontSize={'1em'} ml={2} mr={2}>
                     {JSON.stringify(metadata || {})}
                   </Badge>
@@ -324,6 +375,21 @@ const Collections: React.FC = () => {
                                 <Td
                                   key={`body-cell-${row.id}-${cell.id}-${indexCell}`}
                                   whiteSpace="normal"
+                                  onClick={() => {
+                                    setSelectedCell(
+                                      selectedCell === cell.id
+                                        ? undefined
+                                        : cell.id,
+                                    )
+                                    setDetailViewContent(
+                                      selectedCell === cell.id
+                                        ? undefined
+                                        : row.getValue(cell.column.id),
+                                    )
+                                  }}
+                                  backgroundColor={
+                                    selectedCell === cell.id ? 'blue.200' : ''
+                                  }
                                 >
                                   {flexRender(
                                     cell.column.columnDef.cell,
@@ -344,14 +410,17 @@ const Collections: React.FC = () => {
                           <HStack>
                             <Button
                               size="sm"
-                              onClick={() => table.setPageIndex(0)}
+                              onClick={() => {
+                                table.setPageIndex(0)
+                                setPageIndex(0)
+                              }}
                               isDisabled={!table.getCanPreviousPage()}
                             >
                               <ArrowBackIcon />
                             </Button>
                             <Button
                               size="sm"
-                              onClick={() => table.previousPage()}
+                              onClick={() => setPageIndex(pageIndex - 1)}
                               isDisabled={!table.getCanPreviousPage()}
                             >
                               <ChevronLeftIcon />
@@ -365,16 +434,17 @@ const Collections: React.FC = () => {
                             </HStack>
                             <Button
                               size="sm"
-                              onClick={() => table.nextPage()}
+                              onClick={() => setPageIndex(pageIndex + 1)}
                               isDisabled={!table.getCanNextPage()}
                             >
                               <ChevronRightIcon />
                             </Button>
                             <Button
                               size="sm"
-                              onClick={() =>
+                              onClick={() => {
                                 table.setPageIndex(table.getPageCount() - 1)
-                              }
+                                setPageIndex(table.getPageCount() - 1)
+                              }}
                               isDisabled={!table.getCanNextPage()}
                             >
                               <ArrowForwardIcon />
@@ -384,14 +454,13 @@ const Collections: React.FC = () => {
                             <Text minW="fit-content">Go To : </Text>
                             <Input
                               type="number"
-                              defaultValue={
-                                table.getState().pagination.pageIndex + 1
-                              }
+                              defaultValue={pageIndex + 1}
                               onChange={(e) => {
                                 const page = e.target.value
                                   ? Number(e.target.value) - 1
                                   : 0
                                 table.setPageIndex(page)
+                                setPageIndex(page)
                               }}
                               size="sm"
                             />
@@ -400,10 +469,11 @@ const Collections: React.FC = () => {
                           <Flex justify="end">
                             <Select
                               minW="fit-content"
-                              value={table.getState().pagination.pageSize}
+                              value={pageSize}
                               size="sm"
                               onChange={(e) => {
                                 table.setPageSize(Number(e.target.value))
+                                setPageSize(Number(e.target.value))
                               }}
                             >
                               {DEFAULT_PAGES.map((pageSize, index) => (
@@ -433,8 +503,10 @@ const Collections: React.FC = () => {
               isTerminalDragging && 'dragging',
             )}
             style={{ height: terminalH }}
+            backgroundColor={'whitesmoke'}
+            overflowY={'auto'}
           >
-            Placeholder
+            <DetailView detailViewContent={detailViewContent} />
           </Box>
         </Box>
       )}
@@ -522,4 +594,30 @@ const ErrorDisplay = ({ message }: { message: string }) => {
       <Heading>{message ?? DEFAULT_ERROR_MESSAGE}</Heading>
     </Flex>
   )
+}
+
+const DetailView: React.FC<{
+  detailViewContent: EmbeddingsDataValueType | undefined
+}> = ({ detailViewContent }) => {
+  return match(detailViewContent)
+    .with(undefined, () => 'Click on a cell to view details')
+    .with(P.string, (content) => (
+      <Box>
+        <Text style={{ whiteSpace: 'pre-wrap' }}>{content}</Text>
+      </Box>
+    ))
+    .with(P.array(P.number), (content) => (
+      <Box>
+        <SimpleGrid columns={[1, 5, 10]} spacing={10}>
+          {content.map((value, index) => (
+            <Text key={index}>{value},</Text>
+          ))}
+        </SimpleGrid>
+      </Box>
+    ))
+    .otherwise((content) => (
+      <Box>
+        <JsonEditor data={content[0]} maxWidth={'100%'} />
+      </Box>
+    ))
 }

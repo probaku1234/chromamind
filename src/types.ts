@@ -7,7 +7,18 @@ export interface State {
 
 export interface EmbeddingsData {
   id: string
-  metadata: Record<string, string>
+  metadata: Record<string, string | number | boolean>
   document: string
   embedding: number[]
 }
+
+export type Metadata = {
+  [key: string]: string | number | boolean
+}
+
+export type CollectionData = {
+  id: string
+  metadata: Metadata
+}
+
+export type EmbeddingsDataValueType = EmbeddingsData[keyof EmbeddingsData]

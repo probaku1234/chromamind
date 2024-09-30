@@ -1,9 +1,10 @@
 pub mod structs;
 
-use chromadb::v1::client::ChromaClientOptions;
+use chromadb::v1::{client::ChromaClientOptions, collection};
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
+use serde_json::{json, Value};
 use structs::EmbeddingData;
 use tauri::State;
 
@@ -90,22 +91,65 @@ fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn fetch_embeddings(_: State<AppState>) -> Result<Vec<EmbeddingData>, String> {
+fn fetch_row_count(collection_name: &str, limit: usize, offset: usize, _: State<AppState>) -> Result<usize, String> {
+    Ok(100)
+}
+
+#[tauri::command]
+fn fetch_embeddings(collection_name: &str, limit: usize, offset: usize, _: State<AppState>) -> Result<Vec<EmbeddingData>, String> {
     // return json vector
-    Ok(vec![
-        EmbeddingData {
-            id: "1".to_string(),
+    // create 20 embeddings
+
+    // Ok(vec![
+    //     EmbeddingData {
+    //         id: "1".to_string(),
+    //         metadata: vec![None],
+    //         document: "Some document about 9 octopus recipies".to_string(),
+    //         embedding: vec![0.0_f32; 768],
+    //     },
+    //     EmbeddingData {
+    //         id: "2".to_string(),
+    //         metadata: vec![None],
+    //         document: "Some other document about DCEU Superman Vs CW Superman".to_string(),
+    //         embedding: vec![0.0_f32; 768],
+    //     },
+    // ])
+    let mut embeddings = Vec::new();
+    for i in 0..limit {
+        embeddings.push(EmbeddingData {
+            id: (i + limit * offset).to_string(),
             metadata: vec![None],
-            document: "Some document about 9 octopus recipies".to_string(),
+            document: format!("Document number {}", i),
             embedding: vec![0.0_f32; 768],
-        },
-        EmbeddingData {
-            id: "2".to_string(),
-            metadata: vec![None],
-            document: "Some other document about DCEU Superman Vs CW Superman".to_string(),
-            embedding: vec![0.0_f32; 768],
-        },
-    ])
+        });
+    }
+    Ok(embeddings)
+}
+
+#[tauri::command]
+fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Result<Value, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    let collection = client.get_collection("test-collection-1");
+
+    if collection.is_err() {
+        return Err("Error fetching collection".to_string());
+    }
+    let collection = collection.unwrap();
+
+    let collection_id = collection.id();
+    let collection_metadata = collection.metadata();
+    let x = json!({
+        "id": collection_id,
+        "metadata": collection_metadata
+    });
+    Ok(x)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -123,6 +167,8 @@ pub fn run() {
             get_chroma_version,
             reset_chroma,
             fetch_embeddings,
+            fetch_collection_data,
+            fetch_row_count
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
