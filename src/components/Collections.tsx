@@ -685,7 +685,7 @@ const DetailView: React.FC<{
     ))
     .otherwise((content) => (
       <Box>
-        <JsonEditor data={content[0]} maxWidth={'100%'} />
+        <JsonEditor data={content} maxWidth={'100%'} />
       </Box>
     ))
 }
