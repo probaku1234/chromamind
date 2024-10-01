@@ -19,7 +19,7 @@ import {
   // Checkbox,
   // Divider,
   Heading,
-  // IconButton,
+  IconButton,
   // Menu,
   // MenuButton,
   // MenuItem,
@@ -34,6 +34,7 @@ import {
   SimpleGrid,
   // CheckboxGroup,
   // Tooltip,
+  useToast,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
 import {
@@ -80,6 +81,7 @@ import {
   // GoLinkExternal,
   // GoTasklist
 } from 'react-icons/go'
+import { FiClipboard } from 'react-icons/fi'
 // import { FaFileCsv, FaPrint, FaRegFilePdf, FaTrash } from 'react-icons/fa6'
 import { useResizable } from 'react-resizable-layout'
 import { cn } from '../utils/cn'
@@ -88,6 +90,7 @@ import { embeddingToString } from '../utils/embeddingToString'
 import { MiddleTruncate } from '@re-dev/react-truncate'
 import { JsonEditor } from 'json-edit-react'
 import { match, P } from 'ts-pattern'
+import { copyClipboard } from '../utils/copyToClipboard'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
 
@@ -599,15 +602,79 @@ const ErrorDisplay = ({ message }: { message: string }) => {
 const DetailView: React.FC<{
   detailViewContent: EmbeddingsDataValueType | undefined
 }> = ({ detailViewContent }) => {
+  const toast = useToast()
+
   return match(detailViewContent)
     .with(undefined, () => 'Click on a cell to view details')
     .with(P.string, (content) => (
       <Box>
+        <IconButton
+          variant="outline"
+          colorScheme="teal"
+          aria-label="copy to clipboard"
+          fontSize="20px"
+          icon={<FiClipboard />}
+          position={'absolute'}
+          right={'2em'}
+          marginTop={'0.5em'}
+          onClick={() => {
+            copyClipboard(
+              content,
+              () => {
+                toast({
+                  title: 'Copied to clipboard',
+                  status: 'success',
+                  duration: 2000,
+                  isClosable: true,
+                })
+              },
+              () => {
+                toast({
+                  title: 'Failed to copy to clipboard',
+                  status: 'error',
+                  duration: 2000,
+                  isClosable: true,
+                })
+              },
+            )
+          }}
+        />
         <Text style={{ whiteSpace: 'pre-wrap' }}>{content}</Text>
       </Box>
     ))
     .with(P.array(P.number), (content) => (
       <Box>
+        <IconButton
+          variant="outline"
+          colorScheme="teal"
+          aria-label="copy to clipboard"
+          fontSize="20px"
+          icon={<FiClipboard />}
+          position={'absolute'}
+          right={'2em'}
+          marginTop={'0.5em'}
+          onClick={() => {
+            copyClipboard(
+              content.join(','),
+              () => {
+                toast({
+                  title: 'Copied to clipboard',
+                  status: 'success',
+                  duration: 2000,
+                  isClosable: true,
+                })
+              },
+              () => {
+                toast({
+                  title: 'Failed to copy to clipboard',
+                  status: 'error',
+                  duration: 2000,
+                  isClosable: true,
+                })
+              },
+            )
+          }}
+        />
         <SimpleGrid columns={[1, 5, 10]} spacing={10}>
           {content.map((value, index) => (
             <Text key={index}>{value},</Text>
