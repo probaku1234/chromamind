@@ -196,6 +196,7 @@ const Collections: React.FC = () => {
   // fetch collection data
   useEffect(() => {
     const fetchCollectionData = async () => {
+      setError(undefined)
       try {
         console.log('fetching collection data')
         const collectionData: CollectionData = await invoke(
