@@ -1,13 +1,15 @@
 pub mod structs;
 
+use chromadb::v1::collection::GetOptions;
 use chromadb::v1::{client::ChromaClientOptions, collection};
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use structs::EmbeddingData;
 use tauri::State;
 
+use std::fmt::format;
 use std::sync::Mutex;
 
 struct AppState {
@@ -71,8 +73,24 @@ async fn create_window(app: tauri::AppHandle) {
 
 // tauri command get chroma version
 #[tauri::command]
-async fn get_chroma_version() -> String {
-    "0.1.0".to_string()
+fn get_chroma_version(state: State<AppState>) -> Result<String, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    let version = client.version();
+    if version.is_err() {
+        return Err(format!(
+            "Error fetching chroma version: {}",
+            version.err().unwrap()
+        ));
+    }
+
+    Ok(version.unwrap())
 }
 
 #[tauri::command]
@@ -91,39 +109,152 @@ fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn fetch_row_count(collection_name: &str, limit: usize, offset: usize, _: State<AppState>) -> Result<usize, String> {
-    Ok(100)
+fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    let collections = client.list_collections();
+    if collections.is_err() {
+        return Err(format!(
+            "Error fetching collections: {}",
+            collections.err().unwrap()
+        ));
+    }
+
+    let collections = collections.unwrap();
+    let collections_list = collections
+        .into_iter()
+        .map(|collection| {
+            json!({
+                "id": collection.id(),
+                "name": collection.name(),
+            })
+        })
+        .collect();
+
+    Ok(collections_list)
 }
 
 #[tauri::command]
-fn fetch_embeddings(collection_name: &str, limit: usize, offset: usize, _: State<AppState>) -> Result<Vec<EmbeddingData>, String> {
-    // return json vector
-    // create 20 embeddings
+fn fetch_row_count(
+    collection_name: &str,
+    limit: usize,
+    offset: usize,
+    state: State<AppState>,
+) -> Result<usize, String> {
+    let client = state.client.lock().unwrap();
 
-    // Ok(vec![
-    //     EmbeddingData {
-    //         id: "1".to_string(),
-    //         metadata: vec![None],
-    //         document: "Some document about 9 octopus recipies".to_string(),
-    //         embedding: vec![0.0_f32; 768],
-    //     },
-    //     EmbeddingData {
-    //         id: "2".to_string(),
-    //         metadata: vec![None],
-    //         document: "Some other document about DCEU Superman Vs CW Superman".to_string(),
-    //         embedding: vec![0.0_f32; 768],
-    //     },
-    // ])
-    let mut embeddings = Vec::new();
-    for i in 0..limit {
-        embeddings.push(EmbeddingData {
-            id: (i + limit * offset).to_string(),
-            metadata: vec![None],
-            document: format!("Document number {}", i),
-            embedding: vec![0.0_f32; 768],
-        });
+    if client.is_none() {
+        return Err("No client found".to_string());
     }
-    Ok(embeddings)
+
+    let client = client.as_ref().unwrap();
+
+    let collection = client.get_collection(collection_name);
+    if collection.is_err() {
+        return Err(format!(
+            "Error fetching collection: {}",
+            collection.err().unwrap()
+        ));
+    }
+
+    let collection = collection.unwrap();
+    let count = collection.get(GetOptions {
+        ids: vec![],
+        where_metadata: None,
+        limit: Some(limit),
+        offset: Some(offset),
+        where_document: None,
+        include: Some(vec![]),
+    });
+
+    if count.is_err() {
+        return Err(format!(
+            "Error fetching row count: {}",
+            count.err().unwrap()
+        ));
+    }
+
+    Ok(count.unwrap().ids.len())
+}
+
+#[tauri::command]
+fn fetch_embeddings(
+    collection_name: &str,
+    limit: usize,
+    offset: usize,
+    state: State<AppState>,
+) -> Result<Vec<EmbeddingData>, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    let collection = client.get_collection(collection_name);
+    if collection.is_err() {
+        return Err(format!(
+            "Error fetching collection: {}",
+            collection.err().unwrap()
+        ));
+    }
+
+    let collection = collection.unwrap();
+
+    let get_query = GetOptions {
+        ids: vec![],
+        where_metadata: None,
+        limit: Some(limit),
+        offset: Some(offset * limit),
+        where_document: None,
+        include: Some(vec![
+            "embeddings".into(),
+            "documents".into(),
+            "metadatas".into(),
+        ]),
+    };
+
+    let get_result = collection.get(get_query);
+    if get_result.is_err() {
+        return Err(format!(
+            "Error fetching embeddings: {}",
+            get_result.err().unwrap()
+        ));
+    }
+
+    let get_result = get_result.unwrap();
+    let ids = get_result.ids;
+    let embeddings = get_result.embeddings.unwrap_or(vec![]);
+    let documents = get_result.documents.unwrap_or(vec![]);
+    let metadatas = get_result.metadatas.unwrap_or(vec![]);
+
+    if ids.len() != embeddings.len() || ids.len() != documents.len() || ids.len() != metadatas.len()
+    {
+        return Err("Error fetching embeddings: Mismatch in data".to_string());
+    }
+
+    let embeddings_list: Vec<EmbeddingData> = ids.into_iter()
+        .zip(embeddings.into_iter())
+        .zip(documents.into_iter())
+        .zip(metadatas.into_iter())
+        .map(|(((id, embedding), document), metadata)| {
+            EmbeddingData {
+                id,
+                metadata: metadata.unwrap_or_default(),
+                document: document.unwrap_or_default(),
+                embedding: embedding.unwrap_or_default(),
+            }
+        })
+        .collect();
+
+    Ok(embeddings_list)
 }
 
 #[tauri::command]
@@ -136,7 +267,7 @@ fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Resul
 
     let client = client.as_ref().unwrap();
 
-    let collection = client.get_collection("test-collection-1");
+    let collection = client.get_collection(collection_name);
 
     if collection.is_err() {
         return Err("Error fetching collection".to_string());
@@ -168,7 +299,8 @@ pub fn run() {
             reset_chroma,
             fetch_embeddings,
             fetch_collection_data,
-            fetch_row_count
+            fetch_row_count,
+            fetch_collections
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

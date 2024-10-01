@@ -390,8 +390,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 [[package]]
 name = "chromadb"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9529b9b0d36805be7174ef96022e9140e1aa1a72ee744347a4dddd430f95a662"
+source = "git+https://github.com/probaku1234/chromadb-rs?branch=my-imple#6dfdfa6f94df5e9914f532c62cc38c2eeeca30ce"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -405,6 +404,7 @@ name = "chromamind"
 version = "0.1.0"
 dependencies = [
  "chromadb",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "tauri",
