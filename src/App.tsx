@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   Box,
   Button,
@@ -22,20 +22,29 @@ import './App.css'
 
 const App: React.FC = () => {
   const [greetMsg, setGreetMsg] = useState('')
-  const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const urlRef = useRef<HTMLInputElement>(null)
+  const tenantRef = useRef<HTMLInputElement>(null)
+  const dbRef = useRef<HTMLInputElement>(null)
 
   async function greet() {
     setLoading(true)
     setSuccess(false)
-    await invoke('create_client', { url: name })
+
+    const args = {
+      url: urlRef.current?.value || 'http://localhost:8000',
+      tenant: tenantRef.current?.value || 'default_tenant',
+      db: dbRef.current?.value || 'default_database',
+    }
+    console.debug('args', args)
+    await invoke('create_client', args)
+
     setGreetMsg(await invoke('health_check'))
     setLoading(false)
     setSuccess(true)
 
     setTimeout(() => {
-      // navigate("/new-page", { replace: true });
       invoke('create_window')
       const currentWindow = getCurrentWindow()
       currentWindow.close()
@@ -89,13 +98,13 @@ const App: React.FC = () => {
       >
         <FormControl id="name" mb={4}>
           <FormLabel>URL</FormLabel>
-          <Input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <Input type="text" ref={urlRef} required />
+          <FormLabel>Tenant</FormLabel>
+          <Input type="text" ref={tenantRef} placeholder="default_tenant" />
+          <FormLabel>Database</FormLabel>
+          <Input type="text" ref={dbRef} placeholder="default_database" />
         </FormControl>
-        <Button type="submit" colorScheme="teal" disabled={loading}>
+        <Button type="submit" colorScheme="teal" disabled={loading} isLoading={loading}>
           Connect
         </Button>
       </Box>
