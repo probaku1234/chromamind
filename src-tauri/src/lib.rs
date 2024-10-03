@@ -64,11 +64,28 @@ fn health_check(state: State<AppState>) -> Result<u64, String> {
 }
 
 #[tauri::command]
-async fn create_window(app: tauri::AppHandle) {
+fn check_tenant_and_database(tenant: &str, database: &str, state: State<AppState>) -> Result<bool, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    Ok(client.tenant_exists(tenant) && client.database_exists(database))
+}
+
+#[tauri::command]
+async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), String> {
     // set title as URL
     let _ = tauri::WebviewWindowBuilder::new(&app, "label", tauri::WebviewUrl::App("/home".into()))
+        .min_inner_size(1100.0, 600.0)
+        .title(format!("ChromaMind: {}", url))
         .build()
         .unwrap();
+
+    Ok(())
 }
 
 // tauri command get chroma version
@@ -300,7 +317,8 @@ pub fn run() {
             fetch_embeddings,
             fetch_collection_data,
             fetch_row_count,
-            fetch_collections
+            fetch_collections,
+            check_tenant_and_database
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
