@@ -1,15 +1,14 @@
 pub mod structs;
 
 use chromadb::v1::collection::GetOptions;
-use chromadb::v1::{client::ChromaClientOptions, collection};
+use chromadb::v1::client::ChromaClientOptions;
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use structs::EmbeddingData;
 use tauri::State;
 
-use std::fmt::format;
 use std::sync::Mutex;
 
 struct AppState {
@@ -324,9 +323,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use chromadb::v1::collection::{CollectionEntries, GetOptions};
+    // use chromadb::v1::collection::{CollectionEntries, GetOptions};
 
-    use super::*;
+    // use super::*;
     // use tauri::test::{mock_builder, mock_context, noop_assets};
 
     // fn before_each<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
