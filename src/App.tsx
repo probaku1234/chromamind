@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   Box,
   Button,
@@ -11,15 +11,16 @@ import {
   Spinner,
   Text,
 } from '@chakra-ui/react'
-import { invoke } from '@tauri-apps/api/core'
-import { CheckCircleIcon } from '@chakra-ui/icons'
+import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { TauriCommand } from './types'
+import { invokeWrapper } from './utils/invokeTauri'
 import './App.css'
 
 const App: React.FC = () => {
-  const [greetMsg, setGreetMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>('asdf')
   const urlRef = useRef<HTMLInputElement>(null)
   const tenantRef = useRef<HTMLInputElement>(null)
   const dbRef = useRef<HTMLInputElement>(null)
@@ -28,24 +29,60 @@ const App: React.FC = () => {
     setLoading(true)
     setSuccess(false)
 
-    const args = {
-      url: urlRef.current?.value || 'http://localhost:8000',
-      tenant: tenantRef.current?.value || 'default_tenant',
-      db: dbRef.current?.value || 'default_database',
-    }
-    console.debug('args', args)
-    await invoke('create_client', args)
+    const url = urlRef.current?.value || 'http://localhost:8000'
+    const tenant = tenantRef.current?.value || 'default_tenant'
+    const database = dbRef.current?.value || 'default_database'
 
-    setGreetMsg(await invoke('health_check'))
+    await invokeWrapper(TauriCommand.CREATE_CLIENT, {
+      url,
+    })
+
+    // error handling
+    let [result, error] = await invokeWrapper(TauriCommand.HEALTH_CHECK)
+    if (error) {
+      console.error(error)
+      setError(error)
+      return
+    }
+
+    ;[result, error] = await invokeWrapper(
+      TauriCommand.CHECK_TENANT_AND_DATABASE,
+      {
+        tenant,
+        database,
+      },
+    )
+    if (error) {
+      console.error(error)
+      setError(error)
+      setLoading(true)
+      return
+    }
+    if (!result) {
+      console.error(`${tenant} ${database} not found`)
+      setError(`${tenant} ${database} not found`)
+      setLoading(true)
+      return
+    }
+
     setLoading(false)
+    setError(null)
     setSuccess(true)
 
     setTimeout(() => {
-      invoke('create_window')
-      const currentWindow = getCurrentWindow()
-      currentWindow.close()
+      invokeWrapper(TauriCommand.CREATE_WINDOW, {
+        url,
+      })
     }, 2000) // Delay to show the check icon before navigating
   }
+
+  useEffect(() => {
+    const currentWindow = getCurrentWindow()
+
+    currentWindow.listen("tauri://window-created", (event) => {
+      currentWindow.close()
+    })
+  }, [])
 
   return (
     <Container maxW="container.md" centerContent height={'100vh'}>
@@ -53,9 +90,7 @@ const App: React.FC = () => {
         Connect to your Chroma
       </Heading>
 
-      <Text my={4}>
-        Type the url of your chroma
-      </Text>
+      <Text my={4}>Type the url of your chroma</Text>
 
       <Box
         as="form"
@@ -73,7 +108,12 @@ const App: React.FC = () => {
           <FormLabel>Database</FormLabel>
           <Input type="text" ref={dbRef} placeholder="default_database" />
         </FormControl>
-        <Button type="submit" colorScheme="teal" disabled={loading} isLoading={loading}>
+        <Button
+          type="submit"
+          colorScheme="teal"
+          disabled={loading}
+          isLoading={loading}
+        >
           Connect
         </Button>
       </Box>
@@ -83,8 +123,14 @@ const App: React.FC = () => {
       {success && (
         <Icon as={CheckCircleIcon} w={16} h={16} color="green.500" mt={4} />
       )}
-
-      {greetMsg && <Text mt={4}>{greetMsg}</Text>}
+      {error && (
+        <Box mt={4} textAlign={'center'}>
+          <Icon as={CloseIcon} w={16} h={16} color="red.500" />
+          <Text textColor={'red.500'} mt={2}>
+            {error}
+          </Text>
+        </Box>
+      )}
     </Container>
   )
 }
