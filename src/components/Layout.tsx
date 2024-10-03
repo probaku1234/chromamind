@@ -29,6 +29,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { CurrentMenuState, updateMenu } from '../slices/currentMenuSlice'
 import { updateCollection } from '../slices/currentCollectionSlice'
 import { State } from '../types'
+import { invoke } from '@tauri-apps/api/core'
 
 interface LinkItemProps {
   name: CurrentMenuState
@@ -98,33 +99,15 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
 
   useEffect(() => {
     async function fetchCollections() {
-      //   const response = await fetch("https://api.example.com/collections");
-      //   const data = await response.json();
-      //   setCollections(data);
-      setCollections([
-        { id: 1, name: 'Collection 1' },
-        { id: 2, name: 'Collection 2' },
-        { id: 3, name: 'Collection 3' },
-        // 10 more collections
-        { id: 4, name: 'Collection 4' },
-        { id: 5, name: 'Collection 5' },
-        { id: 6, name: 'Collection 6' },
-        { id: 7, name: 'Collection 7' },
-        { id: 8, name: 'Collection 8' },
-        { id: 9, name: 'Collection 9' },
-        { id: 10, name: 'Collection 10' },
-        { id: 11, name: 'Collection 11' },
-        { id: 12, name: 'Collection 12' },
-        { id: 13, name: 'Collection 13' },
-        { id: 14, name: 'Collection 14' },
-        { id: 15, name: 'Collection 15' },
-        { id: 16, name: 'Collection 16' },
-        { id: 17, name: 'Collection 17' },
-        { id: 18, name: 'Collection 18' },
-        { id: 19, name: 'Collection 19' },
-        { id: 20, name: 'Collection 20' },
-      ])
+      try {
+        const collections: { id: number; name: string }[] =
+          await invoke('fetch_collections')
+        setCollections(collections)
+      } catch (error) {
+        console.error(error)
+      }
     }
+
     fetchCollections()
   }, [])
 
