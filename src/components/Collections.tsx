@@ -293,15 +293,63 @@ const Collections: React.FC = () => {
               {collectionId ? (
                 <Flex>
                   {/* TODO: click copy value */}
-                  <Badge colorScheme="green" fontSize={'1em'} ml={2} mr={2}>
+                  <Badge
+                    colorScheme="green"
+                    fontSize={'1em'}
+                    ml={2}
+                    mr={2}
+                    borderRadius={'10px'}
+                    onClick={() => {
+                      copyClipboard(
+                        collectionId,
+                        () => {
+                          toast({
+                            title: 'Copied to clipboard',
+                            status: 'success',
+                            duration: 2000,
+                            isClosable: true,
+                          })
+                        },
+                        () => {
+                          toast({
+                            title: 'Failed to copy to clipboard',
+                            status: 'error',
+                            duration: 2000,
+                            isClosable: true,
+                          })
+                        },
+                      )
+                    }}
+                  >
                     collection id: {collectionId}
                   </Badge>
                   {/* TODO: click show json value  react-json-view*/}
-                  <Badge colorScheme="teal" fontSize={'1em'} ml={2} mr={2}>
+                  <Badge
+                    colorScheme="teal"
+                    fontSize={'1em'}
+                    ml={2}
+                    mr={2}
+                    borderRadius={'10px'}
+                  >
                     {JSON.stringify(metadata || {})}
                   </Badge>
+                  <Badge
+                    colorScheme="blue"
+                    fontSize={'1em'}
+                    ml={2}
+                    mr={2}
+                    borderRadius={'10px'}
+                  >
+                    total embeddings: {rowCount}
+                  </Badge>
                   <Spacer />
-                  <Badge colorScheme="purple" fontSize={'1em'} ml={2} mr={2}>
+                  <Badge
+                    colorScheme="purple"
+                    fontSize={'1em'}
+                    ml={2}
+                    mr={2}
+                    borderRadius={'10px'}
+                  >
                     dimensions: {embeddings[0].embedding.length}
                   </Badge>
                 </Flex>
