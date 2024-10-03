@@ -8,9 +8,14 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     async function fetchChromaVersion() {
-      const version = await invoke('get_chroma_version')
-      setChromaVersion(version as string)
+      try {
+        const version: string = await invoke('get_chroma_version')
+        setChromaVersion(version)
+      } catch (error) {
+        console.error(error)
+      }
     }
+
     fetchChromaVersion()
   }, [])
 
