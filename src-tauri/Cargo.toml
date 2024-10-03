@@ -12,12 +12,12 @@ name = "chromamind_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-rc", features = [] }
+tauri-build = { version = "2.0.0", features = [] }
 testcontainers = { version = "0.22.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0-rc", features = ["test"] }
-tauri-plugin-shell = "2.0.0-rc"
+tauri = { version = "2.0.0", features = ["test"] }
+tauri-plugin-shell = "2.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chromadb = { git="https://github.com/probaku1234/chromadb-rs", branch = "my-imple"}
