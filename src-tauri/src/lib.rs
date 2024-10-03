@@ -160,8 +160,6 @@ fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
 #[tauri::command]
 fn fetch_row_count(
     collection_name: &str,
-    limit: usize,
-    offset: usize,
     state: State<AppState>,
 ) -> Result<usize, String> {
     let client = state.client.lock().unwrap();
@@ -184,8 +182,8 @@ fn fetch_row_count(
     let count = collection.get(GetOptions {
         ids: vec![],
         where_metadata: None,
-        limit: Some(limit),
-        offset: Some(offset),
+        limit: None,
+        offset: None,
         where_document: None,
         include: Some(vec![]),
     });

@@ -241,8 +241,6 @@ const Collections: React.FC = () => {
         console.log('fetching row count')
         const rowCount: number = await invoke('fetch_row_count', {
           collectionName: currentCollection,
-          limit: pageSize,
-          offset: pageIndex,
         })
         setRowCount(rowCount)
       } catch (error) {
