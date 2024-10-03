@@ -79,7 +79,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const currentWindow = getCurrentWindow()
 
-    currentWindow.listen("tauri://window-created", (event) => {
+    currentWindow.listen("tauri://window-created", () => {
       currentWindow.close()
     })
   }, [])
