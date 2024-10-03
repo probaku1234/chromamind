@@ -93,6 +93,7 @@ import { match, P } from 'ts-pattern'
 import { copyClipboard } from '../utils/copyToClipboard'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
+const TERMINAL_HEIGHT_KEY = 'chromamaind-terminal-height'
 
 const Collections: React.FC = () => {
   const currentCollection = useSelector<State, string>(
@@ -102,16 +103,6 @@ const Collections: React.FC = () => {
   const [collectionId, setCollectionId] = React.useState<string | null>(null)
   const [metadata, setMetadata] = React.useState<Metadata>({})
   const [loading, setLoading] = React.useState(true)
-  const {
-    isDragging: isTerminalDragging,
-    position: terminalH,
-    separatorProps: terminalDragBarProps,
-  } = useResizable({
-    axis: 'y',
-    initial: 10,
-    min: 30,
-    reverse: true,
-  })
   const [error, setError] = useState<string | undefined>()
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -123,7 +114,24 @@ const Collections: React.FC = () => {
   const [detailViewContent, setDetailViewContent] = useState<
     EmbeddingsDataValueType | undefined
   >()
-
+  const toast = useToast()
+  const initialHeight = parseFloat(
+    localStorage.getItem(TERMINAL_HEIGHT_KEY) || '10',
+  )
+  const {
+    isDragging: isTerminalDragging,
+    position: terminalH,
+    separatorProps: terminalDragBarProps,
+  } = useResizable({
+    axis: 'y',
+    initial: initialHeight,
+    min: 30,
+    reverse: true,
+    onResizeEnd: (args) => {
+      console.debug('Terminal position:', args.position)
+      localStorage.setItem(TERMINAL_HEIGHT_KEY, args.position.toString())
+    },
+  })
   const columnHelper = useMemo(() => createColumnHelper<EmbeddingsData>(), [])
 
   const columns = useMemo(
