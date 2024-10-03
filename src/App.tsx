@@ -20,7 +20,7 @@ import './App.css'
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>('asdf')
+  const [error, setError] = useState<string | null>()
   const urlRef = useRef<HTMLInputElement>(null)
   const tenantRef = useRef<HTMLInputElement>(null)
   const dbRef = useRef<HTMLInputElement>(null)
