@@ -35,6 +35,14 @@ import {
   // CheckboxGroup,
   // Tooltip,
   useToast,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
 import {
@@ -115,6 +123,8 @@ const Collections: React.FC = () => {
     EmbeddingsDataValueType | undefined
   >()
   const toast = useToast()
+  const { isOpen, onOpen, onClose } = useDisclosure()
+
   const initialHeight = parseFloat(
     localStorage.getItem(TERMINAL_HEIGHT_KEY) || '10',
   )
@@ -324,14 +334,21 @@ const Collections: React.FC = () => {
                     collection id: {collectionId}
                   </Badge>
                   {/* TODO: click show json value  react-json-view*/}
+                  <CollectionMetadataModal
+                    isOpen={isOpen}
+                    onOpen={onOpen}
+                    onClose={onClose}
+                    metadata={metadata}
+                  />
                   <Badge
                     colorScheme="teal"
                     fontSize={'1em'}
                     ml={2}
                     mr={2}
                     borderRadius={'10px'}
+                    onClick={onOpen}
                   >
-                    {JSON.stringify(metadata || {})}
+                    Metadata
                   </Badge>
                   <Badge
                     colorScheme="blue"
@@ -744,4 +761,37 @@ const DetailView: React.FC<{
         <JsonEditor data={content} maxWidth={'100%'} />
       </Box>
     ))
+}
+
+const CollectionMetadataModal = ({
+  isOpen,
+  onClose,
+  metadata,
+}: {
+  isOpen: boolean
+  onOpen: () => void
+  onClose: () => void
+  metadata: Metadata
+}) => {
+  return (
+    <>
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Collection Metadata</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <JsonEditor data={metadata} />
+          </ModalBody>
+
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={onClose}>
+              Close
+            </Button>
+            <Button variant="ghost">Secondary Action</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
+  )
 }
