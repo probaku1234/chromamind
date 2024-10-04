@@ -1,5 +1,5 @@
-import { describe, test, beforeAll, afterEach, expect, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { describe, test, afterEach, expect } from 'vitest'
+import { screen } from '@testing-library/react'
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 import MainPage from './MainPage'
 import renderWithProvider from './utils/renderWithProvider'
