@@ -1,29 +1,33 @@
-import React, { ReactElement } from 'react';
-import { Provider } from 'react-redux';
-import { render, RenderOptions } from '@testing-library/react';
-import configureMockStore from 'redux-mock-store';
-import { Store } from 'redux';
+import React, { ReactElement, ReactNode } from 'react'
+import { Provider } from 'react-redux'
+import { render, RenderOptions } from '@testing-library/react'
+import configureMockStore from 'redux-mock-store'
+import { Store } from 'redux'
+import { State } from '../types'
 
-const mockStore = configureMockStore();
+const mockStore = configureMockStore()
 
 interface RenderWithProviderOptions extends Omit<RenderOptions, 'queries'> {
-  initialState?: any;
-  store?: Store;
+  initialState?: State
+  store?: Store
 }
 
+interface RenderWithProviderProps {
+  children: ReactNode
+}
 const renderWithProvider = (
   ui: ReactElement,
   {
     initialState,
     store = mockStore(initialState),
     ...renderOptions
-  }: RenderWithProviderOptions = {}
+  }: RenderWithProviderOptions = {},
 ) => {
-  const Wrapper: React.FC = ({ children }) => (
+  const Wrapper: React.FC<RenderWithProviderProps> = ({ children }) => (
     <Provider store={store}>{children}</Provider>
-  );
+  )
 
-  return render(ui, { wrapper: Wrapper, ...renderOptions });
-};
+  return render(ui, { wrapper: Wrapper, ...renderOptions })
+}
 
-export default renderWithProvider;
+export default renderWithProvider
