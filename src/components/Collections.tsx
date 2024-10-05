@@ -331,12 +331,12 @@ const Collections: React.FC = () => {
                   >
                     collection id: {collectionId}
                   </Badge>
-                  {/* TODO: click show json value  react-json-view*/}
                   <CollectionMetadataModal
                     isOpen={isOpen}
                     onOpen={onOpen}
                     onClose={onClose}
                     metadata={metadata}
+                    
                   />
                   <Badge
                     colorScheme="teal"
@@ -345,6 +345,7 @@ const Collections: React.FC = () => {
                     mr={2}
                     borderRadius={'10px'}
                     onClick={onOpen}
+                    data-testid='collection-metadata-badge'
                   >
                     Metadata
                   </Badge>
@@ -373,7 +374,7 @@ const Collections: React.FC = () => {
                   <Skeleton height={'1em'} />
                 </Box>
               )}
-              <TableContainer w="full" whiteSpace="normal">
+              <TableContainer w="full" whiteSpace="normal" data-testid={"data-view-table"}>
                 <CKTable size="sm" variant="striped">
                   <Thead>
                     {table.getHeaderGroups().map((headerGroup, hgIndex) => {
@@ -449,6 +450,7 @@ const Collections: React.FC = () => {
                               return (
                                 <Td
                                   key={`body-cell-${row.id}-${cell.id}-${indexCell}`}
+                                  data-testid={cell.id}
                                   whiteSpace="normal"
                                   onClick={() => {
                                     setSelectedCell(
@@ -497,6 +499,7 @@ const Collections: React.FC = () => {
                               size="sm"
                               onClick={() => setPageIndex(pageIndex - 1)}
                               isDisabled={!table.getCanPreviousPage()}
+                              data-testid={'data-view-previous-button'}
                             >
                               <ChevronLeftIcon />
                             </Button>
@@ -511,6 +514,7 @@ const Collections: React.FC = () => {
                               size="sm"
                               onClick={() => setPageIndex(pageIndex + 1)}
                               isDisabled={!table.getCanNextPage()}
+                              data-testid={'data-view-next-button'}
                             >
                               <ChevronRightIcon />
                             </Button>
@@ -679,7 +683,7 @@ const DetailView: React.FC<{
   return match(detailViewContent)
     .with(undefined, () => 'Click on a cell to view details')
     .with(P.string, (content) => (
-      <Box>
+      <Box data-testid="detail-view-string">
         <IconButton
           variant="outline"
           colorScheme="teal"
@@ -715,7 +719,7 @@ const DetailView: React.FC<{
       </Box>
     ))
     .with(P.array(P.number), (content) => (
-      <Box>
+      <Box data-testid="detail-view-embedding">
         <IconButton
           variant="outline"
           colorScheme="teal"
@@ -755,7 +759,7 @@ const DetailView: React.FC<{
       </Box>
     ))
     .otherwise((content) => (
-      <Box>
+      <Box data-testid="detail-view-metadata">
         <JsonEditor data={content} maxWidth={'100%'} />
       </Box>
     ))
