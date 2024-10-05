@@ -18,11 +18,12 @@ describe('MainPage', () => {
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
-      if (cmd === 'get_chroma_version') {
-        return Promise.resolve('0.1.0' as unknown as T) // casting string to T
-      } else {
-        return Promise.resolve('unknown command' as unknown as T) // casting string to T
-      }
+      return match(cmd)
+        .with('get_chroma_version', () =>
+          Promise.resolve('0.1.0' as unknown as T),
+        )
+        .with('fetch_collections', () => Promise.resolve([] as unknown as T))
+        .otherwise(() => Promise.resolve('unknown command' as unknown as T))
     }
 
     mockIPC(mockCommandHandler)
