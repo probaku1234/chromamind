@@ -1,0 +1,28 @@
+on: push
+name: Clippy check
+
+# Make sure CI fails on all warnings, including Clippy lints
+env:
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  clippy_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+            components: clippy
+
+      - uses: auguwu/clippy-action@1.4.0
+        with:
+            token: ${{secrets.GITHUB_TOKEN}}
+
+    permissions:
+        checks: write
