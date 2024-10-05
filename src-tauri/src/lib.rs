@@ -246,9 +246,9 @@ fn fetch_embeddings(
 
     let get_result = get_result.unwrap();
     let ids = get_result.ids;
-    let embeddings = get_result.embeddings.unwrap_or(vec![]);
-    let documents = get_result.documents.unwrap_or(vec![]);
-    let metadatas = get_result.metadatas.unwrap_or(vec![]);
+    let embeddings = get_result.embeddings.unwrap_or_default();
+    let documents = get_result.documents.unwrap_or_default();
+    let metadatas = get_result.metadatas.unwrap_or_default();
 
     if ids.len() != embeddings.len() || ids.len() != documents.len() || ids.len() != metadatas.len()
     {
@@ -257,9 +257,9 @@ fn fetch_embeddings(
 
     let embeddings_list: Vec<EmbeddingData> = ids
         .into_iter()
-        .zip(embeddings.into_iter())
-        .zip(documents.into_iter())
-        .zip(metadatas.into_iter())
+        .zip(embeddings)
+        .zip(documents)
+        .zip(metadatas)
         .map(|(((id, embedding), document), metadata)| EmbeddingData {
             id,
             metadata: metadata.unwrap_or_default(),
@@ -321,6 +321,7 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
+#[allow(clippy::all)]
 #[cfg(test)]
 mod tests {
     use super::*;
