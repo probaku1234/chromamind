@@ -1,9 +1,12 @@
-import { describe, test, afterEach, expect } from 'vitest'
-import { screen } from '@testing-library/react'
+import { describe, test, afterEach, expect, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 import MainPage from './MainPage'
 import renderWithProvider from './utils/renderWithProvider'
 import { InvokeArgs } from '@tauri-apps/api/core'
+import { Provider } from 'react-redux'
+import { match } from 'ts-pattern'
+import store from './store'
 
 afterEach(() => {
   clearMocks()
@@ -45,45 +48,42 @@ describe('MainPage', () => {
     expect(screen.getByText('Reset Chroma')).toBeInTheDocument()
   })
 
-  // FIXME: This test is not working as expected
-  // test('should render the correct component when currentMenu state changed', async () => {
-  //   const mockCommandHandler = <T,>(
-  //     cmd: string,
-  //     _: InvokeArgs | undefined,
-  //   ): Promise<T> => {
-  //     if (cmd === 'get_chroma_version') {
-  //       return Promise.resolve('0.1.0' as unknown as T) // casting string to T
-  //     } else {
-  //       return Promise.resolve('unknown command' as unknown as T) // casting string to T
-  //     }
-  //   }
+  test('should render the correct component when currentMenu state changed', async () => {
+    const mockCommandHandler = <T,>(
+      cmd: string,
+      _: InvokeArgs | undefined,
+    ): Promise<T> => {
+      return match(cmd)
+        .with('get_chroma_version', () =>
+          Promise.resolve('0.1.0' as unknown as T),
+        )
+        .with('fetch_collections', () => Promise.resolve([] as unknown as T))
+        .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+    }
 
-  //   mockIPC(mockCommandHandler)
+    mockIPC(mockCommandHandler)
 
-  //   // @ts-ignore
-  //   // const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+    // @ts-ignore
+    const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-  //   renderWithProvider(<MainPage />, {
-  //     initialState: {
-  //       currentMenu: 'Settings',
-  //       currentCollection: 'test',
-  //     },
-  //   })
+    render(
+      <Provider store={store}>
+        <MainPage />
+      </Provider>,
+    )
 
-  //   screen.debug(screen.getAllByRole('group')[0])
-  //   fireEvent(
-  //     screen.getByTestId('nav-item-Home'),
-  //     new MouseEvent('click', {
-  //       bubbles: true,
-  //       cancelable: true,
-  //     }),
-  //   )
-  //   // await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
-  //   //   timeout: 5000,
-  //   // })
-  //   const box = await screen.findByTestId('home-main-box')
-  //   expect(box).toBeInTheDocument()
+    fireEvent(
+      screen.getByText('Settings'),
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await waitFor(() => expect(mock).toHaveBeenCalledTimes(2), {
+      timeout: 5000,
+    })
 
-  //   // screen.debug(screen.getByText('Chroma Version: 0.1.0'), 5000)
-  // })
+    const box = await screen.findByLabelText('Toggle color mode')
+    expect(box).toBeInTheDocument()
+  })
 })
