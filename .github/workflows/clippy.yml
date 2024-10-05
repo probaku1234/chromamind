@@ -10,5 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+            components: clippy
+
+      - uses: auguwu/clippy-action@1.4.0
+        with:
+            token: ${{secrets.GITHUB_TOKEN}}
+
+    permissions:
+        checks: write
