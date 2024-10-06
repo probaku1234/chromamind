@@ -42,6 +42,7 @@ const App: React.FC = () => {
     if (error) {
       console.error(error)
       setError(error)
+      setLoading(false)
       return
     }
 
@@ -55,13 +56,13 @@ const App: React.FC = () => {
     if (error) {
       console.error(error)
       setError(error)
-      setLoading(true)
+      setLoading(false)
       return
     }
     if (!result) {
       console.error(`${tenant} ${database} not found`)
       setError(`${tenant} ${database} not found`)
-      setLoading(true)
+      setLoading(false)
       return
     }
 
@@ -99,6 +100,7 @@ const App: React.FC = () => {
           greet()
         }}
         my={4}
+        aria-label="form"
       >
         <FormControl id="name" mb={4}>
           <FormLabel>URL</FormLabel>
