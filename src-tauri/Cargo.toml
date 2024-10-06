@@ -24,4 +24,4 @@ chromadb = { git="https://github.com/probaku1234/chromadb-rs", branch = "my-impl
 
 [dev-dependencies]
 rand = "0.8.5"
-testcontainers = {version = "0.23.1", features = ['http_wait', 'blocking']}
+testcontainers = {version = "0.23.1", features = ['http_wait', 'blocking'] }
