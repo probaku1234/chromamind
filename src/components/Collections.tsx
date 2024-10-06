@@ -179,9 +179,12 @@ const Collections: React.FC = () => {
   useEffect(() => {
     const fetchCollectionData = async () => {
       setError(undefined)
-      const result = await invokeWrapper<CollectionData>(TauriCommand.FETCH_COLLECTION_DATA, {
-        collectionName: currentCollection,
-      })
+      const result = await invokeWrapper<CollectionData>(
+        TauriCommand.FETCH_COLLECTION_DATA,
+        {
+          collectionName: currentCollection,
+        },
+      )
 
       match(result)
         .with({ type: 'error' }, ({ error }) => {
@@ -227,11 +230,14 @@ const Collections: React.FC = () => {
     const fetchEmbeddings = async () => {
       console.log('fetching embeddings')
       setLoading(true)
-      const result = await invokeWrapper<EmbeddingsData[]>(TauriCommand.FETCH_EMBEDDINGS, {
-        collectionName: currentCollection,
-        limit: pageSize,
-        offset: pageIndex,
-      })
+      const result = await invokeWrapper<EmbeddingsData[]>(
+        TauriCommand.FETCH_EMBEDDINGS,
+        {
+          collectionName: currentCollection,
+          limit: pageSize,
+          offset: pageIndex,
+        },
+      )
 
       match(result)
         .with({ type: 'error' }, ({ error }) => {
@@ -307,7 +313,6 @@ const Collections: React.FC = () => {
                     onOpen={onOpen}
                     onClose={onClose}
                     metadata={metadata}
-
                   />
                   <Badge
                     colorScheme="teal"
@@ -345,7 +350,11 @@ const Collections: React.FC = () => {
                   <Skeleton height={'1em'} />
                 </Box>
               )}
-              <TableContainer w="full" whiteSpace="normal" data-testid={'data-view-table'}>
+              <TableContainer
+                w="full"
+                whiteSpace="normal"
+                data-testid={'data-view-table'}
+              >
                 <CKTable size="sm" variant="striped">
                   <Thead>
                     {table.getHeaderGroups().map((headerGroup, hgIndex) => {

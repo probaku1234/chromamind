@@ -101,7 +101,9 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
 
   useEffect(() => {
     async function fetchCollections() {
-      const result = await invokeWrapper<{ id: number; name: string }[]>(TauriCommand.FETCH_COLLECTIONS)
+      const result = await invokeWrapper<{ id: number; name: string }[]>(
+        TauriCommand.FETCH_COLLECTIONS,
+      )
       match(result)
         .with({ type: 'error' }, ({ error }) => {
           console.error(error)
