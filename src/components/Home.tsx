@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react'
-import { Box, Text } from '@chakra-ui/react'
-import { invoke } from '@tauri-apps/api/core'
-import { Skeleton } from '@chakra-ui/react'
+import React, { useEffect, useState } from 'react'
+import { Box, Skeleton, Text } from '@chakra-ui/react'
+import { invokeWrapper } from '../utils/invokeTauri.ts'
+import { TauriCommand } from '../types.ts'
+import { match } from 'ts-pattern'
 
 const Home: React.FC = () => {
   const [chromaVersion, setChromaVersion] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchChromaVersion() {
-      try {
-        const version: string = await invoke('get_chroma_version')
-        setChromaVersion(version)
-      } catch (error) {
-        console.error(error)
-      }
+      const result = await invokeWrapper<string>(TauriCommand.GET_CHROMA_VERSION)
+      match(result)
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          return
+        })
+        .with({ type: 'success' }, ({ result }) => {
+          setChromaVersion(result)
+        })
+        .exhaustive()
     }
 
     fetchChromaVersion()

@@ -1,94 +1,56 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  Table as CKTable,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Tfoot,
-  HStack,
-  Button,
-  Select,
-  Text,
-  Input,
-  Spacer,
-  Flex,
-  TableContainer,
-  Icon,
-  // Checkbox,
-  // Divider,
-  Heading,
-  IconButton,
-  // Menu,
-  // MenuButton,
-  // MenuItem,
-  // MenuList,
-  // VStack,
-  // UseDisclosureReturn,
-  // useDisclosure,
-  Box,
-  Spinner,
   Badge,
-  Skeleton,
-  SimpleGrid,
-  // CheckboxGroup,
-  // Tooltip,
-  useToast,
-  useDisclosure,
+  Box,
+  Button,
+  Flex,
+  Heading,
+  HStack,
+  Icon,
+  IconButton,
+  Input,
   Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
   ModalBody,
-  ModalFooter,
   ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Select,
+  SimpleGrid,
+  Skeleton,
+  Spacer,
+  Spinner,
+  Table as CKTable,
+  TableContainer,
+  Tbody,
+  Td,
+  Text,
+  Tfoot,
+  Th,
+  Thead,
+  Tr,
+  useDisclosure,
+  useToast,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
+import { CollectionData, EmbeddingsData, EmbeddingsDataValueType, Metadata, State } from '../types'
 import {
-  CollectionData,
-  EmbeddingsData,
-  EmbeddingsDataValueType,
-  Metadata,
-  State,
-} from '../types'
-import { invoke } from '@tauri-apps/api/core'
-import {
-  useReactTable,
+  ColumnFiltersState,
+  createColumnHelper,
   flexRender,
   getCoreRowModel,
-  // ColumnDef,
-  SortingState,
-  getSortedRowModel,
+  getFacetedMinMaxValues,
   getFacetedRowModel,
   getFacetedUniqueValues,
-  getFacetedMinMaxValues,
-  ColumnFiltersState,
-  // Table as RETable,
-  // Column,
   getFilteredRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
   VisibilityState,
-  // Row,
-  createColumnHelper,
 } from '@tanstack/react-table'
-import {
-  ArrowBackIcon,
-  ArrowForwardIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  // HamburgerIcon,
-  // Search2Icon,
-  // SearchIcon,
-  // TriangleDownIcon,
-  // TriangleUpIcon,
-  WarningTwoIcon,
-} from '@chakra-ui/icons'
-import {
-  // GoFilter,
-  GoInbox,
-  // GoLinkExternal,
-  // GoTasklist
-} from 'react-icons/go'
+import { ArrowBackIcon, ArrowForwardIcon, ChevronLeftIcon, ChevronRightIcon, WarningTwoIcon } from '@chakra-ui/icons'
+import { GoInbox } from 'react-icons/go'
 import { FiClipboard } from 'react-icons/fi'
 // import { FaFileCsv, FaPrint, FaRegFilePdf, FaTrash } from 'react-icons/fa6'
 import { useResizable } from 'react-resizable-layout'
@@ -99,6 +61,8 @@ import { MiddleTruncate } from '@re-dev/react-truncate'
 import { JsonEditor } from 'json-edit-react'
 import { match, P } from 'ts-pattern'
 import { copyClipboard } from '../utils/copyToClipboard'
+import { invokeWrapper } from '../utils/invokeTauri.ts'
+import { TauriCommand } from '../types.ts'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
 const TERMINAL_HEIGHT_KEY = 'chromamaind-terminal-height'
@@ -215,20 +179,21 @@ const Collections: React.FC = () => {
   useEffect(() => {
     const fetchCollectionData = async () => {
       setError(undefined)
-      try {
-        console.log('fetching collection data')
-        const collectionData: CollectionData = await invoke(
-          'fetch_collection_data',
-          {
-            collectionName: currentCollection,
-          },
-        )
-        // console.log('collection data', collectionData)
-        setCollectionId(collectionData.id)
-        setMetadata(collectionData.metadata)
-      } catch (error) {
-        console.error(error)
-      }
+      const result = await invokeWrapper<CollectionData>(TauriCommand.FETCH_COLLECTION_DATA, {
+        collectionName: currentCollection,
+      })
+
+      match(result)
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          setError(error)
+          return
+        })
+        .with({ type: 'success' }, ({ result }) => {
+          setCollectionId(result.id)
+          setMetadata(result.metadata)
+        })
+        .exhaustive()
     }
 
     fetchCollectionData()
@@ -237,16 +202,21 @@ const Collections: React.FC = () => {
   // fetch total row count
   useEffect(() => {
     const fetchRowCount = async () => {
-      try {
-        console.log('fetching row count')
-        const rowCount: number = await invoke('fetch_row_count', {
-          collectionName: currentCollection,
+      console.log('fetching row count')
+      const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
+        collectionName: currentCollection,
+      })
+
+      match(result)
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          setError(error)
+          return
         })
-        setRowCount(rowCount)
-      } catch (error) {
-        console.error(error)
-        setError(error as string)
-      }
+        .with({ type: 'success' }, ({ result }) => {
+          setRowCount(result)
+        })
+        .exhaustive()
     }
 
     fetchRowCount()
@@ -256,23 +226,24 @@ const Collections: React.FC = () => {
   useEffect(() => {
     const fetchEmbeddings = async () => {
       console.log('fetching embeddings')
-      try {
-        setLoading(true)
+      setLoading(true)
+      const result = await invokeWrapper<EmbeddingsData[]>(TauriCommand.FETCH_EMBEDDINGS, {
+        collectionName: currentCollection,
+        limit: pageSize,
+        offset: pageIndex,
+      })
 
-        const embeddings: EmbeddingsData[] = await invoke('fetch_embeddings', {
-          collectionName: currentCollection,
-          limit: pageSize,
-          offset: pageIndex,
+      match(result)
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          setError(error)
         })
-
-        console.log(embeddings)
-        setEmbeddings(embeddings)
-      } catch (error) {
-        console.error(error)
-        setError(error as string)
-      } finally {
-        setLoading(false)
-      }
+        .with({ type: 'success' }, ({ result }) => {
+          console.log(embeddings)
+          setEmbeddings(result)
+        })
+        .exhaustive()
+      setLoading(false)
     }
 
     fetchEmbeddings()
@@ -336,7 +307,7 @@ const Collections: React.FC = () => {
                     onOpen={onOpen}
                     onClose={onClose}
                     metadata={metadata}
-                    
+
                   />
                   <Badge
                     colorScheme="teal"
@@ -345,7 +316,7 @@ const Collections: React.FC = () => {
                     mr={2}
                     borderRadius={'10px'}
                     onClick={onOpen}
-                    data-testid='collection-metadata-badge'
+                    data-testid="collection-metadata-badge"
                   >
                     Metadata
                   </Badge>
@@ -374,7 +345,7 @@ const Collections: React.FC = () => {
                   <Skeleton height={'1em'} />
                 </Box>
               )}
-              <TableContainer w="full" whiteSpace="normal" data-testid={"data-view-table"}>
+              <TableContainer w="full" whiteSpace="normal" data-testid={'data-view-table'}>
                 <CKTable size="sm" variant="striped">
                   <Thead>
                     {table.getHeaderGroups().map((headerGroup, hgIndex) => {
@@ -428,8 +399,8 @@ const Collections: React.FC = () => {
                       </Tr>
                     </Tbody>
                   ) : embeddings == null ||
-                    embeddings == undefined ||
-                    embeddings?.length == 0 ? (
+                  embeddings == undefined ||
+                  embeddings?.length == 0 ? (
                     <Tbody>
                       <Tr>
                         <Td colSpan={countMaxColumns}>
@@ -766,10 +737,10 @@ const DetailView: React.FC<{
 }
 
 const CollectionMetadataModal = ({
-  isOpen,
-  onClose,
-  metadata,
-}: {
+                                   isOpen,
+                                   onClose,
+                                   metadata,
+                                 }: {
   isOpen: boolean
   onOpen: () => void
   onClose: () => void

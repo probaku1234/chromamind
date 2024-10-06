@@ -29,7 +29,9 @@ import { useDispatch, useSelector } from 'react-redux'
 import { CurrentMenuState, updateMenu } from '../slices/currentMenuSlice'
 import { updateCollection } from '../slices/currentCollectionSlice'
 import { State } from '../types'
-import { invoke } from '@tauri-apps/api/core'
+import { invokeWrapper } from '../utils/invokeTauri.ts'
+import { TauriCommand } from '../types.ts'
+import { match } from 'ts-pattern'
 
 interface LinkItemProps {
   name: CurrentMenuState
@@ -99,13 +101,16 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
 
   useEffect(() => {
     async function fetchCollections() {
-      try {
-        const collections: { id: number; name: string }[] =
-          await invoke('fetch_collections')
-        setCollections(collections)
-      } catch (error) {
-        console.error(error)
-      }
+      const result = await invokeWrapper<{ id: number; name: string }[]>(TauriCommand.FETCH_COLLECTIONS)
+      match(result)
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          return
+        })
+        .with({ type: 'success' }, ({ result }) => {
+          setCollections(result)
+        })
+        .exhaustive()
     }
 
     fetchCollections()

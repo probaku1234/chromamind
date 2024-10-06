@@ -21,6 +21,7 @@ import {
 } from '@chakra-ui/react'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
 import { TauriCommand } from '../types.ts'
+import { match } from 'ts-pattern'
 
 const Settings: React.FC = () => {
   const { toggleColorMode } = useColorMode()
@@ -29,27 +30,30 @@ const Settings: React.FC = () => {
   const cancelRef = React.useRef<HTMLButtonElement>(null)
 
   const resetChroma = async () => {
-    const [result, error] = await invokeWrapper(TauriCommand.RESET_CHROMA)
+    const result = await invokeWrapper<boolean>(TauriCommand.RESET_CHROMA)
 
-    if (error) {
-      console.error(error)
-      toast({
-        title: 'Error',
-        description: `Failed to reset chroma: ${error}`,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        toast({
+          title: 'Error',
+          description: `Failed to reset chroma: ${error}`,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        })
       })
-    } else {
-      console.log(result)
-      toast({
-        title: 'Success',
-        description: 'Chroma reset successfully.',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
+      .with({ type: 'success' }, ({ result }) => {
+        console.log(result)
+        toast({
+          title: 'Success',
+          description: 'Chroma reset successfully.',
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        })
       })
-    }
+      .exhaustive()
 
     onClose()
   }

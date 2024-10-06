@@ -1,21 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react'
-import {
-  Box,
-  Button,
-  Container,
-  FormControl,
-  FormLabel,
-  Heading,
-  Icon,
-  Input,
-  Spinner,
-  Text,
-} from '@chakra-ui/react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Box, Button, Container, FormControl, FormLabel, Heading, Icon, Input, Spinner, Text } from '@chakra-ui/react'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { TauriCommand } from './types'
 import { invokeWrapper } from './utils/invokeTauri'
 import './App.css'
+import { match } from 'ts-pattern'
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false)
@@ -33,38 +23,40 @@ const App: React.FC = () => {
     const tenant = tenantRef.current?.value || 'default_tenant'
     const database = dbRef.current?.value || 'default_database'
 
-    await invokeWrapper(TauriCommand.CREATE_CLIENT, {
+
+    match(await invokeWrapper(TauriCommand.CREATE_CLIENT, {
       url,
+    })).with({ type: 'error' }, ({ error }) => {
+      console.error(error)
     })
 
-    // error handling
-    let [result, error] = await invokeWrapper(TauriCommand.HEALTH_CHECK)
-    if (error) {
-      console.error(error)
-      setError(error)
-      setLoading(false)
-      return
-    }
+    match(await invokeWrapper(TauriCommand.HEALTH_CHECK))
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        setError(error)
+        setLoading(false)
+        return
+      })
 
-    ;[result, error] = await invokeWrapper(
-      TauriCommand.CHECK_TENANT_AND_DATABASE,
-      {
-        tenant,
-        database,
-      },
-    )
-    if (error) {
-      console.error(error)
-      setError(error)
-      setLoading(false)
-      return
-    }
-    if (!result) {
-      console.error(`${tenant} ${database} not found`)
-      setError(`${tenant} ${database} not found`)
-      setLoading(false)
-      return
-    }
+    const result = await invokeWrapper<boolean>(TauriCommand.CHECK_TENANT_AND_DATABASE, {
+      tenant,
+      database,
+    })
+
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        setError(error)
+        setLoading(false)
+      })
+      .with({ type: 'success' }, ({ result }) => {
+        if (!result) {
+          console.error(`${tenant} ${database} not found`)
+          setError(`${tenant} ${database} not found`)
+          setLoading(false)
+        }
+      })
+      .exhaustive()
 
     setLoading(false)
     setError(null)
@@ -80,7 +72,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const currentWindow = getCurrentWindow()
 
-    currentWindow.listen("tauri://window-created", () => {
+    currentWindow.listen('tauri://window-created', () => {
       currentWindow.close()
     })
   }, [])
