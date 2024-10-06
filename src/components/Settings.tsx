@@ -1,25 +1,26 @@
 import React from 'react'
 import {
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
   Box,
   Button,
   Divider,
+  Flex,
   FormControl,
   FormLabel,
   Heading,
   Switch,
-  useColorMode,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
-  useDisclosure,
-  Flex,
   Text,
+  useColorMode,
+  useDisclosure,
   useToast,
 } from '@chakra-ui/react'
-import { invoke } from '@tauri-apps/api/core'
+import { invokeWrapper } from '../utils/invokeTauri.ts'
+import { TauriCommand } from '../types.ts'
 
 const Settings: React.FC = () => {
   const { toggleColorMode } = useColorMode()
@@ -28,31 +29,29 @@ const Settings: React.FC = () => {
   const cancelRef = React.useRef<HTMLButtonElement>(null)
 
   const resetChroma = async () => {
-    invoke('reset_chroma')
-      .then((result) => {
-        console.log(result)
+    const [result, error] = await invokeWrapper(TauriCommand.RESET_CHROMA)
 
-        toast({
-          title: 'Success',
-          description: 'Chroma reset successfully.',
-          status: 'success',
-          duration: 5000,
-          isClosable: true,
-        })
+    if (error) {
+      console.error(error)
+      toast({
+        title: 'Error',
+        description: `Failed to reset chroma: ${error}`,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
       })
-      .catch((error) => {
-        console.error(error)
-        toast({
-          title: 'Error',
-          description: `Failed to reset chroma: ${error}`,
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
+    } else {
+      console.log(result)
+      toast({
+        title: 'Success',
+        description: 'Chroma reset successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
       })
-      .finally(() => {
-        onClose()
-      })
+    }
+
+    onClose()
   }
 
   return (
