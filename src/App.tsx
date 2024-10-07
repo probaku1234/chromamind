@@ -48,12 +48,14 @@ const App: React.FC = () => {
         console.error(error)
         setError(error)
         setLoading(false)
+        return
       })
       .with({ type: 'success' }, ({ result }) => {
         if (!result) {
           console.error(`${tenant} ${database} not found`)
           setError(`${tenant} ${database} not found`)
           setLoading(false)
+          return
         }
       })
       .exhaustive()
