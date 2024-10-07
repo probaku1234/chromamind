@@ -75,6 +75,7 @@ const Collections: React.FC = () => {
   const [collectionId, setCollectionId] = React.useState<string | null>(null)
   const [metadata, setMetadata] = React.useState<Metadata>({})
   const [loading, setLoading] = React.useState(true)
+  const [tableLoading, setTableLoading] = React.useState(true)
   const [error, setError] = useState<string | undefined>()
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -206,6 +207,7 @@ const Collections: React.FC = () => {
   useEffect(() => {
     const fetchRowCount = async () => {
       console.log('fetching row count')
+      setLoading(true)
       const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
         collectionName: currentCollection,
       })
@@ -220,6 +222,7 @@ const Collections: React.FC = () => {
           setRowCount(result)
         })
         .exhaustive()
+      setLoading(false)
     }
 
     fetchRowCount()
@@ -229,7 +232,7 @@ const Collections: React.FC = () => {
   useEffect(() => {
     const fetchEmbeddings = async () => {
       console.log('fetching embeddings')
-      setLoading(true)
+      setTableLoading(true)
       const result = await invokeWrapper<EmbeddingsData[]>(
         TauriCommand.FETCH_EMBEDDINGS,
         {
@@ -249,7 +252,7 @@ const Collections: React.FC = () => {
           setEmbeddings(result)
         })
         .exhaustive()
-      setLoading(false)
+      setTableLoading(false)
     }
 
     fetchEmbeddings()
@@ -391,12 +394,14 @@ const Collections: React.FC = () => {
                       )
                     })}
                   </Thead>
-                  {loading ? (
-                    <Tbody>
-                      <Tr>
+                  {tableLoading ? (
+                    <Tbody >
+                      <Tr className={'loading-border-animation'}>
+                        {/*<Divider />*/}
                         <Td colSpan={countMaxColumns}>
                           <LoadingDataDisplay />
                         </Td>
+                        {/*<Divider />*/}
                       </Tr>
                     </Tbody>
                   ) : error ? (
