@@ -7,6 +7,9 @@ use chromadb::v1::collection::GetOptions;
 use chromadb::v1::ChromaClient;
 use serde_json::{json, Value};
 use structs::EmbeddingData;
+use tauri::menu::{
+    AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID,
+};
 use tauri::State;
 
 use std::sync::Mutex;
@@ -80,13 +83,87 @@ fn check_tenant_and_database(
 }
 
 #[tauri::command]
-async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), String> {
+async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Error> {
+    let pkg_info = &app.package_info();
+    let config = &app.config();
+    let about_metadata = AboutMetadata {
+        name: Some(pkg_info.name.clone()),
+        version: Some(pkg_info.version.to_string()),
+        copyright: config.bundle.copyright.clone(),
+        authors: config.bundle.publisher.clone().map(|p| vec![p]),
+        ..Default::default()
+    };
+
+    let window_menu = Submenu::with_id_and_items(
+        &app,
+        WINDOW_SUBMENU_ID,
+        "Window",
+        true,
+        &[
+            #[cfg(not(target_os = "macos"))]
+            &PredefinedMenuItem::about(&app, None, Some(about_metadata))?,
+            &PredefinedMenuItem::minimize(&app, None)?,
+            &PredefinedMenuItem::maximize(&app, None)?,
+            #[cfg(target_os = "macos")]
+            &PredefinedMenuItem::separator(&app)?,
+            &PredefinedMenuItem::close_window(&app, None)?,
+        ],
+    )?;
+
+    let menu = Menu::with_items(
+        &app,
+        &[
+            #[cfg(target_os = "macos")]
+            &Submenu::with_items(
+                &app,
+                pkg_info.name.clone(),
+                true,
+                &[
+                    &PredefinedMenuItem::about(&app, None, Some(about_metadata))?,
+                    &PredefinedMenuItem::separator(&app)?,
+                    &PredefinedMenuItem::services(&app, None)?,
+                    &PredefinedMenuItem::separator(&app)?,
+                    &PredefinedMenuItem::hide(&app, None)?,
+                    &PredefinedMenuItem::hide_others(&app, None)?,
+                    &PredefinedMenuItem::separator(&app)?,
+                    &PredefinedMenuItem::quit(&app, None)?,
+                ],
+            )?,
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            )))]
+            &Submenu::with_items(
+                &app,
+                "File",
+                true,
+                &[
+                    &PredefinedMenuItem::close_window(&app, None)?,
+                    #[cfg(not(target_os = "macos"))]
+                    &PredefinedMenuItem::quit(&app, None)?,
+                ],
+            )?,
+            #[cfg(target_os = "macos")]
+            &Submenu::with_items(
+                &app,
+                "View",
+                true,
+                &[&PredefinedMenuItem::fullscreen(&app, None)?],
+            )?,
+            &window_menu,
+        ],
+    )?;
+
     // set title as URL
     let _ = tauri::WebviewWindowBuilder::new(&app, "label", tauri::WebviewUrl::App("/home".into()))
         .min_inner_size(1100.0, 600.0)
         .title(format!("ChromaMind: {}", url))
+        .menu(menu)
         .build()
-        .unwrap();
+        .expect("fail to build new window");
 
     Ok(())
 }
@@ -1034,7 +1111,10 @@ mod tests {
         let res = res.unwrap();
         let expected = ids.clone();
 
-        assert_eq!(expected, res.iter().map(|x| x.id.clone()).collect::<Vec<_>>());
+        assert_eq!(
+            expected,
+            res.iter().map(|x| x.id.clone()).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -1098,9 +1178,17 @@ mod tests {
 
         let collecton_name = "test_collection";
         let collection = client
-            .get_or_create_collection(collecton_name, Some(json!({
-                "foo": "bar"
-            }).as_object().unwrap().clone()))
+            .get_or_create_collection(
+                collecton_name,
+                Some(
+                    json!({
+                        "foo": "bar"
+                    })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                ),
+            )
             .unwrap();
 
         let res = tauri::test::get_ipc_response(
@@ -1134,6 +1222,9 @@ mod tests {
             "metadata": collection.metadata()
         });
 
-        assert_eq!(expected, res, "fetch_collection_data result is not equal to expected");
+        assert_eq!(
+            expected, res,
+            "fetch_collection_data result is not equal to expected"
+        );
     }
 }
