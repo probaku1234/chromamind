@@ -7,9 +7,7 @@ use chromadb::v1::collection::GetOptions;
 use chromadb::v1::ChromaClient;
 use serde_json::{json, Value};
 use structs::EmbeddingData;
-use tauri::menu::{
-    AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID,
-};
+use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::State;
 
 use std::sync::Mutex;
@@ -374,6 +372,39 @@ fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Resul
     Ok(x)
 }
 
+#[tauri::command]
+fn create_collection(
+    collection_name: &str,
+    metadata: Option<Value>,
+    state: State<AppState>,
+) -> Result<Value, String> {
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    let metadata_map = metadata.and_then(|m| m.as_object().cloned());
+    let result = client.create_collection(collection_name, metadata_map, false);
+
+    if result.is_err() {
+        return Err(format!(
+            "Error creating collection: {}",
+            result.err().unwrap()
+        ));
+    }
+
+    let collection = result.unwrap();
+
+    Ok(json!({
+        "id": collection.id(),
+        "name": collection.name(),
+        "metadata": collection.metadata()
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -392,7 +423,8 @@ pub fn run() {
             fetch_collection_data,
             fetch_row_count,
             fetch_collections,
-            check_tenant_and_database
+            check_tenant_and_database,
+            create_collection
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -426,7 +458,8 @@ mod tests {
                 fetch_collection_data,
                 fetch_row_count,
                 fetch_collections,
-                check_tenant_and_database
+                check_tenant_and_database,
+                create_collection
             ])
             // remove the string argument to use your app's config file
             .build(mock_context(noop_assets()))
@@ -1226,5 +1259,91 @@ mod tests {
             expected, res,
             "fetch_collection_data result is not equal to expected"
         );
+    }
+
+    #[test]
+    fn test_create_collection() {
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_collection".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "collectionName": "test_collection"
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_err(), "fetch_collection_data should fail");
+
+        assert_eq!(
+            res.err().unwrap(),
+            "No client found",
+            "fetch_collection_data failed with different error"
+        );
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_client".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "url": connect_url.clone()
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let collection_name: &str = "test_collection";
+        let metadata = json!({
+            "foo": "bar"
+        });
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_collection".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "collectionName": collection_name,
+                    "metadata": metadata
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_ok(), "create_collection failed: {:?}", res.err());
+
+        let client = ChromaClient::new(ChromaClientOptions {
+            url: format!("http://{}:{}", host, port),
+            auth: chromadb::v1::client::ChromaAuthMethod::None,
+        });
+        let collection = client.get_collection(collection_name).unwrap();
+
+        assert_eq!(collection_name, collection.name());
+        assert_eq!(metadata, json!(collection.metadata()));
     }
 }
