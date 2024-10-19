@@ -32,9 +32,16 @@ import {
   Tr,
   useDisclosure,
   useToast,
+  Tooltip,
 } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
-import { CollectionData, EmbeddingsData, EmbeddingsDataValueType, Metadata, State } from '../types'
+import {
+  CollectionData,
+  EmbeddingsData,
+  EmbeddingsDataValueType,
+  Metadata,
+  State,
+} from '../types'
 import {
   ColumnFiltersState,
   createColumnHelper,
@@ -49,9 +56,15 @@ import {
   useReactTable,
   VisibilityState,
 } from '@tanstack/react-table'
-import { ArrowBackIcon, ArrowForwardIcon, ChevronLeftIcon, ChevronRightIcon, WarningTwoIcon } from '@chakra-ui/icons'
+import {
+  ArrowBackIcon,
+  ArrowForwardIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  WarningTwoIcon,
+} from '@chakra-ui/icons'
 import { GoInbox } from 'react-icons/go'
-import { FiClipboard } from 'react-icons/fi'
+import { FiClipboard, FiCopy } from 'react-icons/fi'
 // import { FaFileCsv, FaPrint, FaRegFilePdf, FaTrash } from 'react-icons/fa6'
 import { useResizable } from 'react-resizable-layout'
 import { cn } from '../utils/cn'
@@ -280,37 +293,42 @@ const Collections: React.FC = () => {
             <Box width={'100%'}>
               {collectionId ? (
                 <Flex>
-                  {/* TODO: click copy value */}
-                  <Badge
-                    colorScheme="green"
-                    fontSize={'1em'}
-                    ml={2}
-                    mr={2}
-                    borderRadius={'10px'}
-                    onClick={() => {
-                      copyClipboard(
-                        collectionId,
-                        () => {
-                          toast({
-                            title: 'Copied to clipboard',
-                            status: 'success',
-                            duration: 2000,
-                            isClosable: true,
-                          })
-                        },
-                        () => {
-                          toast({
-                            title: 'Failed to copy to clipboard',
-                            status: 'error',
-                            duration: 2000,
-                            isClosable: true,
-                          })
-                        },
-                      )
-                    }}
-                  >
-                    collection id: {collectionId}
-                  </Badge>
+                  
+                  <Tooltip label={`${collectionId}`} aria-label="A tooltip">
+                    <Badge
+                      colorScheme="green"
+                      fontSize={'1em'}
+                      ml={2}
+                      mr={2}
+                      borderRadius={'10px'}
+                      onClick={() => {
+                        copyClipboard(
+                          collectionId,
+                          () => {
+                            toast({
+                              title: 'Copied to clipboard',
+                              status: 'success',
+                              duration: 2000,
+                              isClosable: true,
+                            })
+                          },
+                          () => {
+                            toast({
+                              title: 'Failed to copy to clipboard',
+                              status: 'error',
+                              duration: 2000,
+                              isClosable: true,
+                            })
+                          },
+                        )
+                      }}
+                      display={'flex'}
+                    >
+                      <Icon as={FiCopy} alignSelf={'center'} mr={'1'}/>
+                      collection id
+                    </Badge>
+                  </Tooltip>
+
                   <CollectionMetadataModal
                     isOpen={isOpen}
                     onOpen={onOpen}
@@ -395,7 +413,7 @@ const Collections: React.FC = () => {
                     })}
                   </Thead>
                   {tableLoading ? (
-                    <Tbody >
+                    <Tbody>
                       <Tr className={'loading-border-animation'}>
                         {/*<Divider />*/}
                         <Td colSpan={countMaxColumns}>
@@ -413,8 +431,8 @@ const Collections: React.FC = () => {
                       </Tr>
                     </Tbody>
                   ) : embeddings == null ||
-                  embeddings == undefined ||
-                  embeddings?.length == 0 ? (
+                    embeddings == undefined ||
+                    embeddings?.length == 0 ? (
                     <Tbody>
                       <Tr>
                         <Td colSpan={countMaxColumns}>
@@ -751,10 +769,10 @@ const DetailView: React.FC<{
 }
 
 const CollectionMetadataModal = ({
-                                   isOpen,
-                                   onClose,
-                                   metadata,
-                                 }: {
+  isOpen,
+  onClose,
+  metadata,
+}: {
   isOpen: boolean
   onOpen: () => void
   onClose: () => void

@@ -221,7 +221,7 @@ describe('Collections', () => {
       })
 
       expect(
-        screen.getByText(`collection id: ${collectionId}`),
+        screen.getByText(`collection id`),
       ).toBeInTheDocument()
       expect(screen.getByText(`Metadata`)).toBeInTheDocument()
       expect(
@@ -253,7 +253,7 @@ describe('Collections', () => {
       })
 
       fireEvent(
-        screen.getByText(`collection id: ${collectionId}`),
+        screen.getByText(`collection id`),
         new MouseEvent('click', {
           bubbles: true,
           cancelable: true,
