@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { InvokeArgs } from '@tauri-apps/api/core'
 import { match } from 'ts-pattern'
 import { TauriCommand } from './types.ts'
-import { mockWindows } from '@tauri-apps/api/mocks';
+import { mockWindows } from '@tauri-apps/api/mocks'
 import App from './App.tsx'
 
 afterEach(() => {
@@ -12,14 +12,23 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  const mockCommandHandler = <T, >(
+  const mockCommandHandler = <T,>(
     cmd: string,
     _: InvokeArgs | undefined,
   ): Promise<T> => {
     return match(cmd)
-      .with(TauriCommand.CREATE_CLIENT, () => Promise.resolve(true as unknown as T))
-      .with(TauriCommand.HEALTH_CHECK, () => Promise.resolve(123 as unknown as T))
-      .with(TauriCommand.CHECK_TENANT_AND_DATABASE, () => Promise.resolve(true as unknown as T))
+      .with(TauriCommand.CREATE_CLIENT, () =>
+        Promise.resolve(true as unknown as T),
+      )
+      .with(TauriCommand.HEALTH_CHECK, () =>
+        Promise.resolve(123 as unknown as T),
+      )
+      .with(TauriCommand.CHECK_TENANT_AND_DATABASE, () =>
+        Promise.resolve(true as unknown as T),
+      )
+      .with(TauriCommand.CREATE_WINDOW, () =>
+        Promise.resolve(true as unknown as T),
+      )
       .otherwise(() => {
         // throw new Error(`Unexpected command: ${cmd}`)
         console.log(cmd)
@@ -32,7 +41,7 @@ describe('App', () => {
 
     // @ts-ignore
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
-    mockWindows('main');
+    mockWindows('main')
 
     render(<App />)
 
@@ -45,13 +54,12 @@ describe('App', () => {
     // @ts-ignore
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-    mockWindows('main');
+    mockWindows('main')
 
     render(<App />)
 
     const handleOnSubmitMock = vi.fn()
     screen.getByRole('form').onsubmit = handleOnSubmitMock
-
 
     await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
       timeout: 5000,
@@ -68,7 +76,7 @@ describe('App', () => {
     // @ts-ignore
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-    mockWindows('main');
+    mockWindows('main')
 
     render(<App />)
 
@@ -79,9 +87,115 @@ describe('App', () => {
       timeout: 5000,
     })
 
-    fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'http://localhost:8000' } })
+    fireEvent.change(screen.getByLabelText('URL'), {
+      target: { value: 'http://localhost:8000' },
+    })
     fireEvent.click(screen.getByText('Connect'))
 
     expect(handleOnSubmitMock).toHaveBeenCalled()
+  })
+
+  test('should not open new window if health check fails', async () => {
+    const mockCommandHandler = <T,>(
+      cmd: string,
+      _: InvokeArgs | undefined,
+    ): Promise<T> => {
+      return match(cmd)
+        .with(TauriCommand.CREATE_CLIENT, () =>
+          Promise.resolve(true as unknown as T),
+        )
+        .with(TauriCommand.HEALTH_CHECK, () =>
+          Promise.reject('something wrong' as unknown as T),
+        )
+        .with(TauriCommand.CHECK_TENANT_AND_DATABASE, () =>
+          Promise.resolve(true as unknown as T),
+        )
+        .with(TauriCommand.CREATE_WINDOW, () =>
+          Promise.resolve(true as unknown as T),
+        )
+        .otherwise(() => {
+          // throw new Error(`Unexpected command: ${cmd}`)
+          console.log(cmd)
+          return Promise.resolve(true as unknown as T)
+        })
+    }
+
+    mockIPC(mockCommandHandler)
+
+    // @ts-ignore
+    const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+    mockWindows('main')
+
+    render(<App />)
+
+    await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
+      timeout: 5000,
+    })
+
+    fireEvent.change(screen.getByLabelText('URL'), {
+      target: { value: 'http://localhost:8000' },
+    })
+    fireEvent.click(screen.getByText('Connect'))
+
+    await waitFor(() => expect(mock).toHaveBeenCalled(), {
+      timeout: 5000,
+    })
+
+    expect(mock).not.toHaveBeenCalledWith(TauriCommand.CREATE_WINDOW, {
+      url: 'http://localhost:8000',
+    })
+  })
+
+  test('should not open new window if check tenant database fails', async () => {
+    const mockCommandHandler = <T,>(
+      cmd: string,
+      _: InvokeArgs | undefined,
+    ): Promise<T> => {
+      return match(cmd)
+        .with(TauriCommand.CREATE_CLIENT, () =>
+          Promise.resolve(true as unknown as T),
+        )
+        .with(TauriCommand.HEALTH_CHECK, () =>
+          Promise.resolve(123 as unknown as T),
+        )
+        .with(TauriCommand.CHECK_TENANT_AND_DATABASE, () =>
+          Promise.resolve(false as unknown as T),
+        )
+        .with(TauriCommand.CREATE_WINDOW, () =>
+          Promise.resolve(true as unknown as T),
+        )
+        .otherwise(() => {
+          // throw new Error(`Unexpected command: ${cmd}`)
+          console.log(cmd)
+          return Promise.resolve(true as unknown as T)
+        })
+    }
+
+    mockIPC(mockCommandHandler)
+
+    // @ts-ignore
+    const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+    mockWindows('main')
+
+    render(<App />)
+
+    await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
+      timeout: 5000,
+    })
+
+    fireEvent.change(screen.getByLabelText('URL'), {
+      target: { value: 'http://localhost:8000' },
+    })
+    fireEvent.click(screen.getByText('Connect'))
+
+    await waitFor(() => expect(mock).toHaveBeenCalled(), {
+      timeout: 5000,
+    })
+
+    expect(mock).not.toHaveBeenCalledWith(TauriCommand.CREATE_WINDOW, {
+      url: 'http://localhost:8000',
+    })
   })
 })
