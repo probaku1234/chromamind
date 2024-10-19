@@ -1,0 +1,32 @@
+@keyframes clickAnimation {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes rotateAnimation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.clickable-icon {
+  transition: transform 0.2s;
+}
+
+.clickable-icon:active {
+  animation: clickAnimation 0.2s;
+}
+
+.rotatable-icon:active {
+  animation: rotateAnimation 0.5s;
+}

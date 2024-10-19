@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Box, Button, Container, FormControl, FormLabel, Heading, Icon, Input, Spinner, Text } from '@chakra-ui/react'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { TauriCommand } from './types'
+import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from './types'
 import { invokeWrapper } from './utils/invokeTauri'
 import './App.css'
 import { match } from 'ts-pattern'
@@ -43,28 +43,33 @@ const App: React.FC = () => {
       database,
     })
 
-    match(result)
+    const is_success = match(result)
       .with({ type: 'error' }, ({ error }) => {
         console.error(error)
         setError(error)
         setLoading(false)
-        return
+        return false
       })
       .with({ type: 'success' }, ({ result }) => {
         if (!result) {
           console.error(`${tenant} ${database} not found`)
           setError(`${tenant} ${database} not found`)
           setLoading(false)
-          return
+          return false
         }
       })
       .exhaustive()
+
+    if (is_success == false) {
+      return
+    }
 
     setLoading(false)
     setError(null)
     setSuccess(true)
 
     setTimeout(() => {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`, url)
       invokeWrapper(TauriCommand.CREATE_WINDOW, {
         url,
       })

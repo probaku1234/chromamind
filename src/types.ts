@@ -36,3 +36,5 @@ export enum TauriCommand {
   FETCH_COLLECTIONS = 'fetch_collections',
   CHECK_TENANT_AND_DATABASE = 'check_tenant_and_database',
 }
+
+export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'

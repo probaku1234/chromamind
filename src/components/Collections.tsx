@@ -62,10 +62,10 @@ import { JsonEditor } from 'json-edit-react'
 import { match, P } from 'ts-pattern'
 import { copyClipboard } from '../utils/copyToClipboard'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
-import { TauriCommand } from '../types.ts'
+import { TauriCommand, LOCAL_STORAGE_KEY_PREFIX } from '../types.ts'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
-const TERMINAL_HEIGHT_KEY = 'chromamaind-terminal-height'
+const TERMINAL_HEIGHT_KEY = `${LOCAL_STORAGE_KEY_PREFIX}-terminal-height`
 
 const Collections: React.FC = () => {
   const currentCollection = useSelector<State, string>(
