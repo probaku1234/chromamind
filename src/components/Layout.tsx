@@ -1,7 +1,8 @@
-import React, { ReactNode, ReactText, useEffect, useState } from 'react'
+import React, { ReactNode, ReactText, useEffect, useRef, useState } from 'react'
 import {
   Box,
   BoxProps,
+  Button,
   CloseButton,
   Collapse,
   Container,
@@ -10,13 +11,25 @@ import {
   DrawerContent,
   Flex,
   FlexProps,
+  FormControl,
+  FormLabel,
   Icon,
   IconButton,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Stack,
   Text,
+  Textarea,
   useColorModeValue,
   useDisclosure,
+  FormErrorMessage,
+  Spinner,
 } from '@chakra-ui/react'
 import {
   FiCheck,
@@ -37,7 +50,7 @@ import { LOCAL_STORAGE_KEY_PREFIX, State } from '../types'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
 import { TauriCommand } from '../types.ts'
 import { match } from 'ts-pattern'
-import { RepeatIcon } from '@chakra-ui/icons'
+import { CheckCircleIcon, CloseIcon, RepeatIcon } from '@chakra-ui/icons'
 import '../styles/layout.css'
 import { useLocalStorage } from '@uidotdev/usehooks'
 
@@ -104,7 +117,7 @@ interface SidebarProps extends BoxProps {
 }
 
 const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
-  const url = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`) || ""
+  const url = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`) || ''
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false) // state to toggle collapse
   const toggleCollections = () => setIsCollectionsOpen(!isCollectionsOpen)
   const [collections, setCollections] = useState<
@@ -114,6 +127,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
   const [favoriteCollections, setFavoriteCollections] = useLocalStorage<
     string[]
   >(`${FAVORITE_COLLECTIONS_KEY}:${url}`, [])
+  const { onOpen, isOpen, onClose: onModalClose } = useDisclosure()
 
   async function fetchCollections() {
     const result = await invokeWrapper<{ id: number; name: string }[]>(
@@ -222,6 +236,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
                 boxSize={5}
                 cursor={'pointer'}
                 className="clickable-icon"
+                onClick={onOpen}
               />
               <Icon
                 as={RepeatIcon}
@@ -229,6 +244,12 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
                 cursor={'pointer'}
                 className="clickable-icon"
                 onClick={fetchCollections}
+              />
+              <CollectionModal
+                isOpen={isOpen}
+                onClose={onModalClose}
+                onOpen={onOpen}
+                fetchCollections={fetchCollections}
               />
             </Stack>
 
@@ -437,6 +458,150 @@ const CollectionNavItem = ({
         )}
       </Flex>
     </Box>
+  )
+}
+
+const CollectionModal = ({
+  isOpen,
+  onClose,
+  fetchCollections,
+}: {
+  isOpen: boolean
+  onOpen: () => void
+  onClose: () => void
+  fetchCollections: () => Promise<void>
+}) => {
+  const [isError, setIsError] = useState(false)
+  const [status, setStatus] = useState<{
+    type: 'idle' | 'loading' | 'finished' | 'error'
+    message?: string
+  }>({
+    type: 'idle',
+  })
+  const nameRef = useRef<HTMLInputElement>(null)
+  const metadataRef = useRef<HTMLTextAreaElement>(null)
+
+  const createCollection = async () => {
+    const collectionName = nameRef.current?.value || ''
+    const metadata = metadataRef.current?.value
+
+    // TODO: validate input
+    if (!collectionName) {
+      setIsError(true)
+      return
+    }
+
+    const result = await invokeWrapper<boolean>(
+      TauriCommand.CREATE_COLLECTION,
+      {
+        collectionName,
+        metadata,
+      },
+    )
+
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        setStatus({ type: 'error', message: error })
+      })
+      .with({ type: 'success' }, ({ result }) => {
+        setStatus({ type: 'finished' })
+        fetchCollections()
+        console.log(result)
+      })
+  }
+
+  return (
+    <>
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Create Collection</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <>
+              {match(status)
+                .with({ type: 'idle' }, () => (
+                  <>
+                    <FormControl isRequired isInvalid={isError}>
+                      <FormLabel>Collection Name</FormLabel>
+                      <Input
+                        type="text"
+                        placeholder="collection name"
+                        ref={nameRef}
+                      />
+                      {!isError ? (
+                        <></>
+                      ) : (
+                        <FormErrorMessage>
+                          Collection name is required
+                        </FormErrorMessage>
+                      )}
+                    </FormControl>
+                    <FormControl mt={4}>
+                      <FormLabel>Metadata</FormLabel>
+                      <Textarea placeholder="metadata" ref={metadataRef} />
+                    </FormControl>
+                  </>
+                ))
+                .with({ type: 'loading' }, () => (
+                  <Box textAlign={'center'}>
+                    <Spinner size={'xl'} />
+                  </Box>
+                ))
+                .with({ type: 'finished' }, () => (
+                  <Box textAlign={'center'}>
+                    <Icon
+                      as={CheckCircleIcon}
+                      w={16}
+                      h={16}
+                      color="green.500"
+                      mt={4}
+                    />
+                  </Box>
+                ))
+                .with({ type: 'error' }, ({ message }) => (
+                  <Box mt={4} textAlign={'center'}>
+                    <Icon as={CloseIcon} w={16} h={16} color="red.500" />
+                    <Text textColor={'red.500'} mt={2}>
+                      {message}
+                    </Text>
+                    <Button
+                      onClick={() =>
+                        setStatus({
+                          type: 'idle',
+                        })
+                      }
+                    >
+                      Retry
+                    </Button>
+                  </Box>
+                ))
+                .exhaustive()}
+            </>
+          </ModalBody>
+
+          <ModalFooter display={status.type === 'idle' ? '' : 'none'}>
+            <Button
+              colorScheme="blue"
+              mr={3}
+              onClick={onClose}
+              isLoading={status.type === 'loading'}
+            >
+              Close
+            </Button>
+            <Button
+              type="submit"
+              variant="ghost"
+              onClick={createCollection}
+              isLoading={status.type === 'loading'}
+            >
+              create
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   )
 }
 
