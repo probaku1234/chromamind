@@ -1,5 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Button, Container, FormControl, FormLabel, Heading, Icon, Input, Spinner, Text } from '@chakra-ui/react'
+import {
+  Box,
+  Button,
+  Container,
+  FormControl,
+  FormLabel,
+  Heading,
+  Icon,
+  Input,
+  Spinner,
+  Text,
+} from '@chakra-ui/react'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from './types'
@@ -23,25 +34,31 @@ const App: React.FC = () => {
     const tenant = tenantRef.current?.value || 'default_tenant'
     const database = dbRef.current?.value || 'default_database'
 
-
-    match(await invokeWrapper(TauriCommand.CREATE_CLIENT, {
-      url,
-    })).with({ type: 'error' }, ({ error }) => {
+    match(
+      await invokeWrapper(TauriCommand.CREATE_CLIENT, {
+        url,
+      }),
+    ).with({ type: 'error' }, ({ error }) => {
       console.error(error)
     })
 
-    match(await invokeWrapper(TauriCommand.HEALTH_CHECK))
-      .with({ type: 'error' }, ({ error }) => {
+    match(await invokeWrapper(TauriCommand.HEALTH_CHECK)).with(
+      { type: 'error' },
+      ({ error }) => {
         console.error(error)
         setError(error)
         setLoading(false)
         return
-      })
+      },
+    )
 
-    const result = await invokeWrapper<boolean>(TauriCommand.CHECK_TENANT_AND_DATABASE, {
-      tenant,
-      database,
-    })
+    const result = await invokeWrapper<boolean>(
+      TauriCommand.CHECK_TENANT_AND_DATABASE,
+      {
+        tenant,
+        database,
+      },
+    )
 
     const is_success = match(result)
       .with({ type: 'error' }, ({ error }) => {
@@ -70,6 +87,8 @@ const App: React.FC = () => {
 
     setTimeout(() => {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`, url)
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_tenant`, tenant)
+      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_database`, database)
       invokeWrapper(TauriCommand.CREATE_WINDOW, {
         url,
       })
