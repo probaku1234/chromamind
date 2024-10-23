@@ -80,7 +80,7 @@ describe('MainPage', () => {
         cancelable: true,
       }),
     )
-    await waitFor(() => expect(mock).toHaveBeenCalledTimes(2), {
+    await waitFor(() => expect(mock).toHaveBeenCalledTimes(3), {
       timeout: 5000,
     })
 
