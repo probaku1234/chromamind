@@ -28,8 +28,8 @@ import {
   Textarea,
   useColorModeValue,
   useDisclosure,
-  FormErrorMessage,
   Spinner,
+  FormHelperText,
 } from '@chakra-ui/react'
 import {
   FiCheck,
@@ -237,6 +237,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
                 cursor={'pointer'}
                 className="clickable-icon"
                 onClick={onOpen}
+                title={'Create Collection'}
               />
               <Icon
                 as={RepeatIcon}
@@ -398,7 +399,6 @@ const CollectionNavItem = ({
   const currentCollection = useSelector<State, string>(
     (state: State) => state.currentCollection,
   )
-  console.log(isFavorite)
 
   return (
     <Box
@@ -471,24 +471,36 @@ const CollectionModal = ({
   onClose: () => void
   fetchCollections: () => Promise<void>
 }) => {
-  const [isError, setIsError] = useState(false)
   const [status, setStatus] = useState<{
     type: 'idle' | 'loading' | 'finished' | 'error'
     message?: string
   }>({
     type: 'idle',
   })
+  const [nameValid, setNameValid] = useState<boolean[] | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const metadataRef = useRef<HTMLTextAreaElement>(null)
 
+  useEffect(() => {
+    if (!isOpen) {
+      setStatus({ type: 'idle' })
+      setNameValid(null)
+      if (nameRef.current) nameRef.current.value = ''
+      if (metadataRef.current) metadataRef.current.value = ''
+    }
+  }, [isOpen])
+
   const createCollection = async () => {
     const collectionName = nameRef.current?.value || ''
-    const metadata = metadataRef.current?.value
+    const metadataString = metadataRef.current?.value
+    let metadata = undefined
 
-    // TODO: validate input
-    if (!collectionName) {
-      setIsError(true)
-      return
+    if (metadataString) {
+      try {
+        metadata = JSON.parse(metadataString)
+      } catch (e) {
+        console.error(e)
+      }
     }
 
     const result = await invokeWrapper<boolean>(
@@ -511,6 +523,26 @@ const CollectionModal = ({
       })
   }
 
+  const validateName = () => {
+    const validList = []
+
+    const value = nameRef.current?.value || ''
+
+    // 3-63 characters
+    validList.push(value.length >= 3 && value.length <= 63)
+
+    // starts and ends with an alphanumeric character, otherwise contains only alphanumeric characters, underscores or hyphens
+    validList.push(/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/.test(value))
+
+    // contains no two consecutive periods
+    validList.push(!/\.\./.test(value))
+
+    // not a valid IPv4 address
+    validList.push(!/\d+\.\d+\.\d+\.\d+/.test(value))
+
+    setNameValid(validList)
+  }
+
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose}>
@@ -523,19 +555,51 @@ const CollectionModal = ({
               {match(status)
                 .with({ type: 'idle' }, () => (
                   <>
-                    <FormControl isRequired isInvalid={isError}>
+                    <FormControl
+                      isRequired
+                      isInvalid={
+                        nameValid != null &&
+                        nameValid.some((value) => value == false)
+                      }
+                    >
                       <FormLabel>Collection Name</FormLabel>
                       <Input
                         type="text"
                         placeholder="collection name"
                         ref={nameRef}
+                        onChange={() => {
+                          validateName()
+                        }}
                       />
-                      {!isError ? (
-                        <></>
-                      ) : (
-                        <FormErrorMessage>
-                          Collection name is required
-                        </FormErrorMessage>
+                      {nameValid != null && (
+                        <>
+                          <FormHelperText
+                            textColor={nameValid[0] ? 'green' : 'red'}
+                            title={nameValid[0] ? '0-valid' : '0-invalid'}
+                          >
+                            • contains 3-63 characters
+                          </FormHelperText>
+                          <FormHelperText
+                            textColor={nameValid[1] ? 'green' : 'red'}
+                            title={nameValid[1] ? '1-valid' : '1-invalid'}
+                          >
+                            • starts and ends with an alphanumeric character,
+                            otherwise contains only alphanumeric characters,
+                            underscores or hyphens
+                          </FormHelperText>
+                          <FormHelperText
+                            textColor={nameValid[2] ? 'green' : 'red'}
+                            title={nameValid[2] ? '2-valid' : '2-invalid'}
+                          >
+                            • contains no two consecutive periods
+                          </FormHelperText>
+                          <FormHelperText
+                            textColor={nameValid[3] ? 'green' : 'red'}
+                            title={nameValid[3] ? '3-valid' : '3-invalid'}
+                          >
+                            • not a valid IPv4 address
+                          </FormHelperText>
+                        </>
                       )}
                     </FormControl>
                     <FormControl mt={4}>
@@ -547,10 +611,11 @@ const CollectionModal = ({
                 .with({ type: 'loading' }, () => (
                   <Box textAlign={'center'}>
                     <Spinner size={'xl'} />
+                    <Text>Loading...</Text>
                   </Box>
                 ))
                 .with({ type: 'finished' }, () => (
-                  <Box textAlign={'center'}>
+                  <Box textAlign={'center'} title="finished">
                     <Icon
                       as={CheckCircleIcon}
                       w={16}
@@ -595,6 +660,9 @@ const CollectionModal = ({
               variant="ghost"
               onClick={createCollection}
               isLoading={status.type === 'loading'}
+              isDisabled={
+                nameValid != null && nameValid.some((value) => value == false)
+              }
             >
               create
             </Button>
