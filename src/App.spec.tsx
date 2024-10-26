@@ -5,6 +5,7 @@ import { InvokeArgs } from '@tauri-apps/api/core'
 import { match } from 'ts-pattern'
 import { TauriCommand } from './types.ts'
 import { mockWindows } from '@tauri-apps/api/mocks'
+import { Provider } from '@/components/ui/provider'
 import App from './App.tsx'
 
 afterEach(() => {
@@ -12,7 +13,7 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  const mockCommandHandler = <T,>(
+  const mockCommandHandler = <T, >(
     cmd: string,
     _: InvokeArgs | undefined,
   ): Promise<T> => {
@@ -43,9 +44,9 @@ describe('App', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
     mockWindows('main')
 
-    render(<App />)
+    render(<Provider><App /></Provider>)
 
-    expect(screen.getByText('Connect to your Chroma')).toBeInTheDocument()
+    expect(screen.getByText('Connect to ChromaDB')).toBeInTheDocument()
   })
 
   test('should not submit if url input is empty', async () => {
@@ -56,7 +57,7 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<App />)
+    render(<Provider><App /></Provider>)
 
     const handleOnSubmitMock = vi.fn()
     screen.getByRole('form').onsubmit = handleOnSubmitMock
@@ -78,7 +79,7 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<App />)
+    render(<Provider><App /></Provider>)
 
     const handleOnSubmitMock = vi.fn()
     screen.getByRole('form').onsubmit = handleOnSubmitMock
@@ -87,7 +88,7 @@ describe('App', () => {
       timeout: 5000,
     })
 
-    fireEvent.change(screen.getByLabelText('URL'), {
+    fireEvent.change(screen.getByTestId('url-input'), {
       target: { value: 'http://localhost:8000' },
     })
     fireEvent.click(screen.getByText('Connect'))
@@ -96,7 +97,7 @@ describe('App', () => {
   })
 
   test('should not open new window if health check fails', async () => {
-    const mockCommandHandler = <T,>(
+    const mockCommandHandler = <T, >(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -127,13 +128,13 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<App />)
+    render(<Provider><App /></Provider>)
 
     await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
       timeout: 5000,
     })
 
-    fireEvent.change(screen.getByLabelText('URL'), {
+    fireEvent.change(screen.getByTestId('url-input'), {
       target: { value: 'http://localhost:8000' },
     })
     fireEvent.click(screen.getByText('Connect'))
@@ -148,7 +149,7 @@ describe('App', () => {
   })
 
   test('should not open new window if check tenant database fails', async () => {
-    const mockCommandHandler = <T,>(
+    const mockCommandHandler = <T, >(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -179,13 +180,13 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<App />)
+    render(<Provider><App /></Provider>)
 
     await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
       timeout: 5000,
     })
 
-    fireEvent.change(screen.getByLabelText('URL'), {
+    fireEvent.change(screen.getByTestId('url-input'), {
       target: { value: 'http://localhost:8000' },
     })
     fireEvent.click(screen.getByText('Connect'))

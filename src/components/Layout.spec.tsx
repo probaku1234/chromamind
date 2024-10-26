@@ -5,6 +5,7 @@ import renderWithProvider from '../utils/renderWithProvider'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { match } from 'ts-pattern'
 import { InvokeArgs } from '@tauri-apps/api/core'
+import { Provider } from '@/components/ui/provider'
 import Layout from './Layout.tsx'
 
 afterEach(() => {
@@ -29,7 +30,7 @@ describe('Layout', () => {
     localStorage.removeItem(MOCK_FAVORITE_COLLECTIONS_KEY)
   })
 
-  const mockCommandHandler = <T,>(
+  const mockCommandHandler = <T, >(
     cmd: string,
     _: InvokeArgs | undefined,
   ): Promise<T> => {
@@ -52,9 +53,12 @@ describe('Layout', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
     renderWithProvider(
-      <Layout>
-        <div>hello</div>
-      </Layout>,
+      <Provider>
+        <Layout>
+          <div>hello</div>
+        </Layout>
+      </Provider>
+      ,
       {
         initialState: {
           currentMenu: 'Settings',
@@ -83,9 +87,11 @@ describe('Layout', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
     renderWithProvider(
-      <Layout>
-        <div>hello</div>
-      </Layout>,
+      <Provider>
+        <Layout>
+          <div>hello</div>
+        </Layout>
+      </Provider>,
       {
         initialState: {
           currentMenu: 'Settings',
@@ -101,7 +107,7 @@ describe('Layout', () => {
     fireEvent.click(screen.getByText('Collections'))
 
     const inputField = screen.getByPlaceholderText('collection name')
-    
+
     fireEvent.change(inputField, { target: { value: testCollections[1].name } })
 
     expect(screen.queryByText(testCollections[0].name)).toBeNull()
@@ -114,9 +120,11 @@ describe('Layout', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
     renderWithProvider(
-      <Layout>
-        <div>hello</div>
-      </Layout>,
+      <Provider>
+        <Layout>
+          <div>hello</div>
+        </Layout>
+      </Provider>,
       {
         initialState: {
           currentMenu: 'Settings',
@@ -145,9 +153,11 @@ describe('Layout', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
     renderWithProvider(
-      <Layout>
-        <div>hello</div>
-      </Layout>,
+      <Provider>
+        <Layout>
+          <div>hello</div>
+        </Layout>
+      </Provider>,
       {
         initialState: {
           currentMenu: 'Settings',

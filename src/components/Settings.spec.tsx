@@ -6,6 +6,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { InvokeArgs } from '@tauri-apps/api/core'
 import { match } from 'ts-pattern'
 import { TauriCommand } from '../types.ts'
+import { Provider } from '@/components/ui/provider'
 
 afterEach(() => {
   clearMocks()
@@ -13,7 +14,7 @@ afterEach(() => {
 
 describe('Settings', () => {
   test('should renders Settings component', () => {
-    renderWithProvider(<Settings />, {
+    renderWithProvider(<Provider><Settings /></Provider>, {
       initialState: {
         currentMenu: 'Settings',
         currentCollection: 'test',
@@ -40,7 +41,7 @@ describe('Settings', () => {
     // @ts-ignore
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-    renderWithProvider(<Settings />, {
+    renderWithProvider(<Provider><Settings /></Provider>, {
       initialState: {
         currentMenu: 'Settings',
         currentCollection: 'test',
@@ -48,7 +49,8 @@ describe('Settings', () => {
     })
 
     fireEvent.click(screen.getByText('Reset Chroma'))
-    fireEvent.click(screen.getByText('Delete'))
+    const deleteButton = await screen.findByText('Delete')
+    fireEvent.click(deleteButton)
 
     await waitFor(() => {
       expect(mock).toHaveBeenCalledWith(TauriCommand.RESET_CHROMA, {}, undefined)

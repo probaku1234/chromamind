@@ -7,6 +7,7 @@ import { match } from 'ts-pattern'
 import Collections from './Collections'
 import { TauriCommand } from '../types'
 import { copyClipboard } from '../utils/copyToClipboard'
+import { Provider } from '@/components/ui/provider'
 
 afterEach(() => {
   clearMocks()
@@ -53,7 +54,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -108,14 +109,14 @@ describe('Collections', () => {
       // @ts-ignore
       vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
         },
       })
 
-      expect(screen.getByText('Loading...')).toBeInTheDocument()
+      expect(screen.getByText('Fetching Embeddings')).toBeInTheDocument()
     })
 
     test('should render empty when no data', async () => {
@@ -144,7 +145,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -209,7 +210,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -241,7 +242,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -269,7 +270,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -281,8 +282,9 @@ describe('Collections', () => {
       })
 
       fireEvent.click(screen.getByTestId('collection-metadata-badge'))
-
-      expect(screen.getByText('Collection Metadata')).toBeInTheDocument()
+      const pika = await screen.findByText('Collection Metadata')
+      // expect(screen.getByText('Collection Metadata')).toBeInTheDocument()
+      expect(pika).not.toBeNull()
     })
   })
 
@@ -337,7 +339,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -357,7 +359,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -437,7 +439,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',
@@ -508,7 +510,7 @@ describe('Collections', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      renderWithProvider(<Collections />, {
+      renderWithProvider(<Provider><Collections /></Provider>, {
         initialState: {
           currentMenu: 'Collections',
           currentCollection: 'test',

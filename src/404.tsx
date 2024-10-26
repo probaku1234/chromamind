@@ -20,8 +20,8 @@ const NotFoundPage: React.FC = () => {
         <Text fontSize="xl" color="gray.500" mt="4">
           Sorry, the page you are looking for does not exist.
         </Text>
-        <Link as={RouterLink} to="/home" fontSize="lg" color="blue.500" mt="6">
-          Go back to Home
+        <Link asChild fontSize="lg" color="blue.500" mt="6">
+          <RouterLink to="/home" />
         </Link>
       </Box>
     </Layout>

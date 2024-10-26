@@ -1,15 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   Box,
-  Button,
   Container,
-  FormControl,
-  FormLabel,
   Heading,
   Icon,
   Input,
   Spinner,
   Text,
+  Image
 } from '@chakra-ui/react'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -17,6 +15,8 @@ import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from './types'
 import { invokeWrapper } from './utils/invokeTauri'
 import './App.css'
 import { match } from 'ts-pattern'
+import { Field } from '@/components/ui/field'
+import { Button } from './components/ui/button'
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false)
@@ -105,11 +105,10 @@ const App: React.FC = () => {
 
   return (
     <Container maxW="container.md" centerContent height={'100vh'}>
-      <Heading as="h1" my={4}>
-        Connect to your Chroma
+      <Heading as="h1" my={4} size={'4xl'}>
+        Connect to ChromaDB
       </Heading>
-
-      <Text my={4}>Type the url of your chroma</Text>
+      <Image src={'chroma-seeklogo.svg'} height={'1/4'}/>
 
       <Box
         as="form"
@@ -120,19 +119,24 @@ const App: React.FC = () => {
         my={4}
         aria-label="form"
       >
-        <FormControl id="name" mb={4}>
-          <FormLabel>URL</FormLabel>
-          <Input type="text" ref={urlRef} required />
-          <FormLabel>Tenant</FormLabel>
+        <Field label="URL" required mb={2}>
+          <Input type="text" ref={urlRef} data-testid="url-input" />
+        </Field>
+        <Field label="Tenant" mb={2}>
           <Input type="text" ref={tenantRef} placeholder="default_tenant" />
-          <FormLabel>Database</FormLabel>
+        </Field>
+        <Field label="Database">
           <Input type="text" ref={dbRef} placeholder="default_database" />
-        </FormControl>
+        </Field>
+
         <Button
           type="submit"
-          colorScheme="teal"
+          // colorScheme="teal"
           disabled={loading}
-          isLoading={loading}
+          loading={loading}
+          mt={4}
+          // bg={'brand.400'}
+          // colorPalette={'bg'}
         >
           Connect
         </Button>
@@ -141,12 +145,16 @@ const App: React.FC = () => {
       {loading && <Spinner size="xl" mt={4} />}
 
       {success && (
-        <Icon as={CheckCircleIcon} w={16} h={16} color="green.500" mt={4} />
+        <Icon w={16} h={16} color="green.500" mt={4}>
+          <CheckCircleIcon />
+        </Icon>
       )}
       {error && (
         <Box mt={4} textAlign={'center'}>
-          <Icon as={CloseIcon} w={16} h={16} color="red.500" />
-          <Text textColor={'red.500'} mt={2}>
+          <Icon w={16} h={16} color="red.500">
+            <CloseIcon />
+          </Icon>
+          <Text color={'red.500'} mt={2}>
             {error}
           </Text>
         </Box>

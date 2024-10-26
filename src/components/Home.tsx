@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Button, Flex, Icon, Skeleton, Text } from '@chakra-ui/react'
+import { Box, Flex, Icon, Skeleton, Text } from '@chakra-ui/react'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
 import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from '../types.ts'
 import { match } from 'ts-pattern'
 import '../styles/home.css'
 import { FiCheckCircle, FiXCircle } from 'react-icons/fi'
+import { Button } from '@/components/ui/button'
 
 const Home: React.FC = () => {
   const [chromaVersion, setChromaVersion] = useState<string | null>(null)
@@ -60,15 +61,15 @@ const Home: React.FC = () => {
   }
 
   return (
-    <Box>
-      <Box className="info_box">
-        <Text fontSize={'larger'} mt={2} mb={2} ml={2}>
+    <Box pt={1}>
+      <Box className="info_box" mt={0}>
+        <Text fontSize={'larger'} mb={2} ml={2}>
           {localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`) || ''}
         </Text>
-        <Text textColor={'gray.500'} ml={2}>
+        <Text color={'gray.500'} ml={2}>
           {localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_tenant`) || ''}
         </Text>
-        <Text textColor={'gray.500'} mb={2} ml={2}>
+        <Text color={'gray.500'} mb={2} ml={2}>
           {localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_database`) || ''}
         </Text>
       </Box>
@@ -77,36 +78,38 @@ const Home: React.FC = () => {
           <Text fontSize={'larger'} mt={2} mb={2}>
             Version
           </Text>
-          <Text textColor={'gray.500'} mt={2} mb={2}>
+          <Text color={'gray.500'} mt={2} mb={2}>
             {chromaVersion ? chromaVersion : <Skeleton />}
           </Text>
           <Flex mt={2} mb={2} alignContent={'center'}>
-            <Button onClick={testConnection}>Test Connection</Button>
+            <Button onClick={testConnection} size={'xs'}>Test Connection</Button>
             {match(isSuccess)
               .with(true, () => (
                 <Icon
-                  as={FiCheckCircle}
                   alignSelf={'center'}
                   width={'1.5em'}
                   height={'1.5em'}
                   ml={1}
                   color={'green.400'}
+                  // FIXME: use something else
+                  // @ts-expect-error title no longer exist in prop, but it requires for testing
                   title="success"
                 >
-                  Success
+                  <FiCheckCircle />
                 </Icon>
               ))
               .with(false, () => (
                 <Icon
-                  as={FiXCircle}
                   alignSelf={'center'}
                   width={'1em'}
                   height={'1em'}
                   ml={1}
                   color={'red.400'}
+                  // FIXME: use something else
+                  // @ts-expect-error title no longer exist in prop, but it requires for testing
                   title="fail"
                 >
-                  fail
+                  <FiXCircle />
                 </Icon>
               ))
               .otherwise(() => (
@@ -124,7 +127,7 @@ const Home: React.FC = () => {
             <Text mt={2} mb={2}>
               {collectionsCount}
             </Text>
-            <Text mt={2} mb={2} textColor={'gray'}>
+            <Text mt={2} mb={2} color={'gray'}>
               Collections
             </Text>
           </Box>

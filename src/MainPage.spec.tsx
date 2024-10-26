@@ -4,6 +4,7 @@ import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 import MainPage from './MainPage'
 import renderWithProvider from './utils/renderWithProvider'
 import { InvokeArgs } from '@tauri-apps/api/core'
+import { Provider as ChakraProvider } from '@/components/ui/provider'
 import { Provider } from 'react-redux'
 import { match } from 'ts-pattern'
 import store from './store'
@@ -14,7 +15,7 @@ afterEach(() => {
 
 describe('MainPage', () => {
   test('should render the MainPage component', async () => {
-    const mockCommandHandler = <T,>(
+    const mockCommandHandler = <T, >(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -28,7 +29,7 @@ describe('MainPage', () => {
 
     mockIPC(mockCommandHandler)
 
-    renderWithProvider(<MainPage />, {
+    renderWithProvider(<ChakraProvider><MainPage /> </ChakraProvider>, {
       initialState: {
         currentMenu: 'Home',
         currentCollection: 'test',
@@ -39,7 +40,7 @@ describe('MainPage', () => {
   })
 
   test('should render the correct component based on the currentMenu state', async () => {
-    renderWithProvider(<MainPage />, {
+    renderWithProvider(<ChakraProvider><MainPage /> </ChakraProvider>, {
       initialState: {
         currentMenu: 'Settings',
         currentCollection: 'test',
@@ -50,7 +51,7 @@ describe('MainPage', () => {
   })
 
   test('should render the correct component when currentMenu state changed', async () => {
-    const mockCommandHandler = <T,>(
+    const mockCommandHandler = <T, >(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -68,9 +69,11 @@ describe('MainPage', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
     render(
-      <Provider store={store}>
-        <MainPage />
-      </Provider>,
+      <ChakraProvider>
+        <Provider store={store}>
+          <MainPage />
+        </Provider>,
+      </ChakraProvider>,
     )
 
     fireEvent(
@@ -84,7 +87,7 @@ describe('MainPage', () => {
       timeout: 5000,
     })
 
-    const box = await screen.findByLabelText('Toggle color mode')
+    const box = await screen.findByText('Toggle color mode')
     expect(box).toBeInTheDocument()
   })
 })

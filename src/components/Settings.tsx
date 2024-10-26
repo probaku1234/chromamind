@@ -1,32 +1,32 @@
 import React from 'react'
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Box,
-  Button,
-  Divider,
+
   Flex,
-  FormControl,
-  FormLabel,
   Heading,
-  Switch,
   Text,
-  useColorMode,
   useDisclosure,
-  useToast,
+  Separator,
 } from '@chakra-ui/react'
+import { Switch } from '@/components/ui/switch'
+import { toaster, Toaster } from '@/components/ui/toaster'
+import {
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTitle,
+  DialogBackdrop,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
 import { TauriCommand } from '../types.ts'
 import { match } from 'ts-pattern'
 
 const Settings: React.FC = () => {
-  const { toggleColorMode } = useColorMode()
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const toast = useToast()
+  const { open, onOpen, onClose } = useDisclosure()
   const cancelRef = React.useRef<HTMLButtonElement>(null)
 
   const resetChroma = async () => {
@@ -35,22 +35,20 @@ const Settings: React.FC = () => {
     match(result)
       .with({ type: 'error' }, ({ error }) => {
         console.error(error)
-        toast({
+        toaster.create({
           title: 'Error',
           description: `Failed to reset chroma: ${error}`,
-          status: 'error',
+          type: 'error',
           duration: 5000,
-          isClosable: true,
         })
       })
       .with({ type: 'success' }, ({ result }) => {
         console.log(result)
-        toast({
+        toaster.create({
           title: 'Success',
           description: 'Chroma reset successfully.',
-          status: 'success',
+          type: 'success',
           duration: 5000,
-          isClosable: true,
         })
       })
       .exhaustive()
@@ -60,22 +58,16 @@ const Settings: React.FC = () => {
 
   return (
     <Box>
-      <Heading as="h1" my={4}>
+      <Toaster />
+      <Heading as="h1" my={4} mt={0}>
         Settings
       </Heading>
-      <FormControl display="flex" alignItems="center">
-        <Switch
-          id="email-alerts"
-          onChange={toggleColorMode}
-          size={'lg'}
-          mr={1}
-        />
-        <FormLabel htmlFor="email-alerts" mb="0">
-          Toggle color mode
-        </FormLabel>
-      </FormControl>
+      <Box display="flex" alignItems="center">
+        <Text>Toggle color mode</Text>
+        <Switch id="email-alerts" onChange={() => {}} size={'lg'} mr={1} />
+      </Box>
 
-      <Divider mt={4} mb={4} />
+      <Separator mt={4} mb={4} />
 
       <Flex>
         <Button colorScheme="red" onClick={onOpen} mr={4}>
@@ -86,32 +78,30 @@ const Settings: React.FC = () => {
         </Text>
       </Flex>
 
-      <AlertDialog
-        isOpen={isOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onClose}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Reset Database
-            </AlertDialogHeader>
+      <DialogRoot open={open} role="alertdialog">
+        <DialogBackdrop />
+        {/* <DialogTrigger /> */}
+        <DialogContent>
+          <DialogCloseTrigger />
+          <DialogHeader>
+            <DialogTitle>Reset Database</DialogTitle>
+          </DialogHeader>
 
-            <AlertDialogBody>
-              Are you sure? You can&apos;t undo this action afterwards.
-            </AlertDialogBody>
+          <DialogBody>
+            Are you sure? You can&apos;t undo this action afterwards.
+          </DialogBody>
 
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
-                Cancel
-              </Button>
-              <Button colorScheme="red" onClick={resetChroma} ml={3}>
-                Delete
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+          <DialogFooter>
+            <Button ref={cancelRef} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={resetChroma} ml={3} buttonType='critical'>
+              Delete
+            </Button>
+          </DialogFooter>
+          <DialogCloseTrigger />
+        </DialogContent>
+      </DialogRoot>
     </Box>
   )
 }

@@ -2,38 +2,44 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
   Badge,
   Box,
-  Button,
+  // Button,
   Flex,
   Heading,
   HStack,
   Icon,
   IconButton,
   Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Select,
   SimpleGrid,
   Skeleton,
   Spacer,
   Spinner,
   Table as CKTable,
-  TableContainer,
-  Tbody,
-  Td,
-  Text,
-  Tfoot,
-  Th,
-  Thead,
-  Tr,
   useDisclosure,
-  useToast,
-  Tooltip,
+  Text,
 } from '@chakra-ui/react'
+import {
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  // DialogTitle,
+  // DialogTrigger,
+  DialogBackdrop,
+} from '@/components/ui/dialog'
+import { Tooltip } from '@/components/ui/tooltip'
+import { Toaster, toaster } from '@/components/ui/toaster'
+import {
+  SelectContent,
+  SelectItem,
+  SelectLabel,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from '@/components/ui/select'
+import {Button} from '@/components/ui/button'
+import { createListCollection } from '@chakra-ui/react'
 import { useSelector } from 'react-redux'
 import {
   CollectionData,
@@ -80,6 +86,13 @@ import { TauriCommand, LOCAL_STORAGE_KEY_PREFIX } from '../types.ts'
 const DEFAULT_PAGES = [10, 25, 50, 100]
 const TERMINAL_HEIGHT_KEY = `${LOCAL_STORAGE_KEY_PREFIX}-terminal-height`
 
+const frameworks = createListCollection({
+  items: DEFAULT_PAGES.map((pageSize) => ({
+    value: pageSize,
+    label: `${pageSize} rows`,
+  })),
+})
+
 const Collections: React.FC = () => {
   const currentCollection = useSelector<State, string>(
     (state: State) => state.currentCollection,
@@ -100,8 +113,7 @@ const Collections: React.FC = () => {
   const [detailViewContent, setDetailViewContent] = useState<
     EmbeddingsDataValueType | undefined
   >()
-  const toast = useToast()
-  const { isOpen, onOpen, onClose } = useDisclosure()
+  const { open, onOpen, onClose } = useDisclosure()
 
   const initialHeight = parseFloat(
     localStorage.getItem(TERMINAL_HEIGHT_KEY) || '10',
@@ -293,10 +305,9 @@ const Collections: React.FC = () => {
             <Box width={'100%'}>
               {collectionId ? (
                 <Flex>
-                  
-                  <Tooltip label={`${collectionId}`} aria-label="A tooltip">
+                  <Tooltip content={`${collectionId}`} aria-label="A tooltip">
                     <Badge
-                      colorScheme="green"
+                      colorPalette="green"
                       fontSize={'1em'}
                       ml={2}
                       mr={2}
@@ -305,38 +316,38 @@ const Collections: React.FC = () => {
                         copyClipboard(
                           collectionId,
                           () => {
-                            toast({
+                            toaster.create({
                               title: 'Copied to clipboard',
-                              status: 'success',
+                              type: 'success',
                               duration: 2000,
-                              isClosable: true,
                             })
                           },
                           () => {
-                            toast({
+                            toaster.create({
                               title: 'Failed to copy to clipboard',
-                              status: 'error',
+                              type: 'error',
                               duration: 2000,
-                              isClosable: true,
                             })
                           },
                         )
                       }}
                       display={'flex'}
                     >
-                      <Icon as={FiCopy} alignSelf={'center'} mr={'1'}/>
+                      <Icon alignSelf={'center'} mr={'1'}>
+                        <FiCopy />
+                      </Icon>
                       collection id
                     </Badge>
                   </Tooltip>
 
                   <CollectionMetadataModal
-                    isOpen={isOpen}
+                    isOpen={open}
                     onOpen={onOpen}
                     onClose={onClose}
                     metadata={metadata}
                   />
                   <Badge
-                    colorScheme="teal"
+                    colorPalette="teal"
                     fontSize={'1em'}
                     ml={2}
                     mr={2}
@@ -347,7 +358,7 @@ const Collections: React.FC = () => {
                     Metadata
                   </Badge>
                   <Badge
-                    colorScheme="blue"
+                    colorPalette="blue"
                     fontSize={'1em'}
                     ml={2}
                     mr={2}
@@ -357,7 +368,7 @@ const Collections: React.FC = () => {
                   </Badge>
                   <Spacer />
                   <Badge
-                    colorScheme="purple"
+                    colorPalette="purple"
                     fontSize={'1em'}
                     ml={2}
                     mr={2}
@@ -371,24 +382,23 @@ const Collections: React.FC = () => {
                   <Skeleton height={'1em'} />
                 </Box>
               )}
-              <TableContainer
-                w="full"
-                whiteSpace="normal"
-                data-testid={'data-view-table'}
-              >
-                <CKTable size="sm" variant="striped">
-                  <Thead>
+              <Box w="full" whiteSpace="normal" data-testid={'data-view-table'}>
+                <Toaster />
+                <CKTable.Root size="sm" variant="line">
+                  <CKTable.Header>
                     {table.getHeaderGroups().map((headerGroup, hgIndex) => {
                       return (
-                        <Tr key={`header-group-${headerGroup.id}-${hgIndex}`}>
+                        <CKTable.Row
+                          key={`header-group-${headerGroup.id}-${hgIndex}`}
+                        >
                           {headerGroup.headers.map((header, headerIndex) => {
                             // eslint-disable-next-line
                             const meta: any = header.column.columnDef
                             return (
-                              <Th
+                              <CKTable.ColumnHeader
                                 key={`header-column-${headerGroup.id}-${header.id}-${headerIndex}`}
-                                isNumeric={meta?.isNumeric}
-                                colSpan={header.colSpan}
+                                // isNumeric={meta?.isNumeric}
+                                // colSpan={header.colSpan}
                                 minW={`${meta?.minSize}px`}
                               >
                                 <Flex
@@ -405,53 +415,53 @@ const Collections: React.FC = () => {
                                     </Text>
                                   </HStack>
                                 </Flex>
-                              </Th>
+                              </CKTable.ColumnHeader>
                             )
                           })}
-                        </Tr>
+                        </CKTable.Row>
                       )
                     })}
-                  </Thead>
+                  </CKTable.Header>
                   {tableLoading ? (
-                    <Tbody>
-                      <Tr className={'loading-border-animation'}>
+                    <CKTable.Body>
+                      <CKTable.Row className={'loading-border-animation'}>
                         {/*<Divider />*/}
-                        <Td colSpan={countMaxColumns}>
+                        <CKTable.Cell colSpan={countMaxColumns}>
                           <LoadingDataDisplay />
-                        </Td>
+                        </CKTable.Cell>
                         {/*<Divider />*/}
-                      </Tr>
-                    </Tbody>
+                      </CKTable.Row>
+                    </CKTable.Body>
                   ) : error ? (
-                    <Tbody>
-                      <Tr>
-                        <Td colSpan={countMaxColumns}>
+                    <CKTable.Body>
+                      <CKTable.Row>
+                        <CKTable.Cell colSpan={countMaxColumns}>
                           <ErrorDisplay message={error ?? undefined} />
-                        </Td>
-                      </Tr>
-                    </Tbody>
+                        </CKTable.Cell>
+                      </CKTable.Row>
+                    </CKTable.Body>
                   ) : embeddings == null ||
                     embeddings == undefined ||
                     embeddings?.length == 0 ? (
-                    <Tbody>
-                      <Tr>
-                        <Td colSpan={countMaxColumns}>
+                    <CKTable.Body>
+                      <CKTable.Row>
+                        <CKTable.Cell colSpan={countMaxColumns}>
                           <NoDataDisplay />
-                        </Td>
-                      </Tr>
-                    </Tbody>
+                        </CKTable.Cell>
+                      </CKTable.Row>
+                    </CKTable.Body>
                   ) : (
                     embeddings &&
                     embeddings?.length > 0 && (
-                      <Tbody>
+                      <CKTable.Body>
                         {table.getRowModel().rows?.map((row, index) => (
-                          <Tr
+                          <CKTable.Row
                             key={`body-${row.id}-${index}`}
                             _hover={{ shadow: 'md', bg: 'blackAlpha.50' }}
                           >
                             {row.getVisibleCells().map((cell, indexCell) => {
                               return (
-                                <Td
+                                <CKTable.Cell
                                   key={`body-cell-${row.id}-${cell.id}-${indexCell}`}
                                   data-testid={cell.id}
                                   whiteSpace="normal"
@@ -475,17 +485,17 @@ const Collections: React.FC = () => {
                                     cell.column.columnDef.cell,
                                     cell.getContext(),
                                   )}
-                                </Td>
+                                </CKTable.Cell>
                               )
                             })}
-                          </Tr>
+                          </CKTable.Row>
                         ))}
-                      </Tbody>
+                      </CKTable.Body>
                     )
                   )}
-                  <Tfoot>
-                    <Tr>
-                      <Td colSpan={countMaxColumns}>
+                  <CKTable.Footer>
+                    <CKTable.Row>
+                      <CKTable.Cell colSpan={countMaxColumns}>
                         <Flex w="full">
                           <HStack>
                             <Button
@@ -494,14 +504,14 @@ const Collections: React.FC = () => {
                                 table.setPageIndex(0)
                                 setPageIndex(0)
                               }}
-                              isDisabled={!table.getCanPreviousPage()}
+                              disabled={!table.getCanPreviousPage()}
                             >
                               <ArrowBackIcon />
                             </Button>
                             <Button
                               size="sm"
                               onClick={() => setPageIndex(pageIndex - 1)}
-                              isDisabled={!table.getCanPreviousPage()}
+                              disabled={!table.getCanPreviousPage()}
                               data-testid={'data-view-previous-button'}
                             >
                               <ChevronLeftIcon />
@@ -516,7 +526,7 @@ const Collections: React.FC = () => {
                             <Button
                               size="sm"
                               onClick={() => setPageIndex(pageIndex + 1)}
-                              isDisabled={!table.getCanNextPage()}
+                              disabled={!table.getCanNextPage()}
                               data-testid={'data-view-next-button'}
                             >
                               <ChevronRightIcon />
@@ -527,7 +537,7 @@ const Collections: React.FC = () => {
                                 table.setPageIndex(table.getPageCount() - 1)
                                 setPageIndex(table.getPageCount() - 1)
                               }}
-                              isDisabled={!table.getCanNextPage()}
+                              disabled={!table.getCanNextPage()}
                             >
                               <ArrowForwardIcon />
                             </Button>
@@ -549,7 +559,7 @@ const Collections: React.FC = () => {
                           </HStack>
                           <Spacer />
                           <Flex justify="end">
-                            <Select
+                            {/* <Select
                               minW="fit-content"
                               value={pageSize}
                               size="sm"
@@ -563,14 +573,37 @@ const Collections: React.FC = () => {
                                   Show {pageSize} rows
                                 </option>
                               ))}
-                            </Select>
+                            </Select> */}
+                            <SelectRoot
+                              collection={frameworks}
+                              onValueChange={(e) => {
+                                console.log(e)
+                                table.setPageSize(Number(e.value[0]))
+                                setPageSize(Number(e.value[0]))
+                              }}
+                              // FIXME: string to int
+                              // @ts-expect-error pageSize is string
+                              defaultValue={[pageSize]}
+                            >
+                              <SelectLabel>Page Size</SelectLabel>
+                              <SelectTrigger>
+                                <SelectValueText />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {frameworks.items.map((item) => (
+                                  <SelectItem key={item.value} item={item}>
+                                    {item.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </SelectRoot>
                           </Flex>
                         </Flex>
-                      </Td>
-                    </Tr>
-                  </Tfoot>
-                </CKTable>
-              </TableContainer>
+                      </CKTable.Cell>
+                    </CKTable.Row>
+                  </CKTable.Footer>
+                </CKTable.Root>
+              </Box>
             </Box>
           </Box>
           {/* bottom box */}
@@ -629,9 +662,11 @@ const NoDataDisplay = () => {
       bgColor="gray.100"
       height={'100vh'}
     >
-      <Icon as={GoInbox} boxSize="150px" mb={3} color="gray.400" />
+      <Icon boxSize="150px" mb={3} color="gray.400">
+        <GoInbox />
+      </Icon>
       <Heading>Collection is empty</Heading>
-      <Text fontSize={'2xl'} textColor={'gray.500'}>
+      <Text fontSize={'2xl'} color={'gray.500'}>
         Upload more documents
       </Text>
     </Flex>
@@ -651,7 +686,7 @@ const LoadingDataDisplay = () => {
       <Spinner
         size="xl"
         boxSize="70px"
-        thickness="0.25rem"
+        // thickness="0.25rem"
         mb={3}
         color="gray.400"
       />
@@ -672,7 +707,9 @@ const ErrorDisplay = ({ message }: { message: string }) => {
       bgColor="gray.100"
       height={'100%'}
     >
-      <Icon as={WarningTwoIcon} boxSize="150px" mb={3} color="red.500" />
+      <Icon boxSize="150px" mb={3} color="red.500">
+        <WarningTwoIcon />
+      </Icon>
       <Heading>{message ?? DEFAULT_ERROR_MESSAGE}</Heading>
     </Flex>
   )
@@ -681,8 +718,6 @@ const ErrorDisplay = ({ message }: { message: string }) => {
 const DetailView: React.FC<{
   detailViewContent: EmbeddingsDataValueType | undefined
 }> = ({ detailViewContent }) => {
-  const toast = useToast()
-
   return match(detailViewContent)
     .with(undefined, () => 'Click on a cell to view details')
     .with(P.string, (content) => (
@@ -692,7 +727,6 @@ const DetailView: React.FC<{
           colorScheme="teal"
           aria-label="copy to clipboard"
           fontSize="20px"
-          icon={<FiClipboard />}
           position={'absolute'}
           right={'2em'}
           marginTop={'0.5em'}
@@ -700,24 +734,24 @@ const DetailView: React.FC<{
             copyClipboard(
               content,
               () => {
-                toast({
+                toaster.create({
                   title: 'Copied to clipboard',
-                  status: 'success',
+                  type: 'success',
                   duration: 2000,
-                  isClosable: true,
                 })
               },
               () => {
-                toast({
+                toaster.create({
                   title: 'Failed to copy to clipboard',
-                  status: 'error',
+                  type: 'error',
                   duration: 2000,
-                  isClosable: true,
                 })
               },
             )
           }}
-        />
+        >
+          <FiClipboard />
+        </IconButton>
         <Text style={{ whiteSpace: 'pre-wrap' }}>{content}</Text>
       </Box>
     ))
@@ -728,7 +762,6 @@ const DetailView: React.FC<{
           colorScheme="teal"
           aria-label="copy to clipboard"
           fontSize="20px"
-          icon={<FiClipboard />}
           position={'absolute'}
           right={'2em'}
           marginTop={'0.5em'}
@@ -736,25 +769,24 @@ const DetailView: React.FC<{
             copyClipboard(
               content.join(','),
               () => {
-                toast({
+                toaster.create({
                   title: 'Copied to clipboard',
-                  status: 'success',
                   duration: 2000,
-                  isClosable: true,
                 })
               },
               () => {
-                toast({
+                toaster.create({
                   title: 'Failed to copy to clipboard',
-                  status: 'error',
+                  type: 'error',
                   duration: 2000,
-                  isClosable: true,
                 })
               },
             )
           }}
-        />
-        <SimpleGrid columns={[1, 5, 10]} spacing={10}>
+        >
+          <FiClipboard />
+        </IconButton>
+        <SimpleGrid columns={[1, 5, 10]} gap={10}>
           {content.map((value, index) => (
             <Text key={index}>{value},</Text>
           ))}
@@ -780,23 +812,23 @@ const CollectionMetadataModal = ({
 }) => {
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Collection Metadata</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
+      <DialogRoot open={isOpen}>
+        <DialogBackdrop />
+        <DialogContent>
+          <DialogHeader>Collection Metadata</DialogHeader>
+          <DialogCloseTrigger />
+          <DialogBody>
             <JsonEditor data={metadata} />
-          </ModalBody>
+          </DialogBody>
 
-          <ModalFooter>
+          <DialogFooter>
             <Button colorScheme="blue" mr={3} onClick={onClose}>
               Close
             </Button>
             <Button variant="ghost">Secondary Action</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </DialogRoot>
     </>
   )
 }
