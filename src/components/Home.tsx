@@ -6,6 +6,7 @@ import { match } from 'ts-pattern'
 import '../styles/home.css'
 import { FiCheckCircle, FiXCircle } from 'react-icons/fi'
 import { Button } from '@/components/ui/button'
+import { StatLabel, StatRoot, StatValueText } from '@/components/ui/stat'
 
 const Home: React.FC = () => {
   const [chromaVersion, setChromaVersion] = useState<string | null>(null)
@@ -82,7 +83,9 @@ const Home: React.FC = () => {
             {chromaVersion ? chromaVersion : <Skeleton />}
           </Text>
           <Flex mt={2} mb={2} alignContent={'center'}>
-            <Button onClick={testConnection} size={'xs'}>Test Connection</Button>
+            <Button onClick={testConnection} size={'xs'}>
+              Test Connection
+            </Button>
             {match(isSuccess)
               .with(true, () => (
                 <Icon
@@ -124,12 +127,10 @@ const Home: React.FC = () => {
             Overview
           </Text>
           <Box>
-            <Text mt={2} mb={2}>
-              {collectionsCount}
-            </Text>
-            <Text mt={2} mb={2} color={'gray'}>
-              Collections
-            </Text>
+            <StatRoot>
+              <StatLabel>Collections</StatLabel>
+              <StatValueText>{collectionsCount}</StatValueText>
+            </StatRoot>
           </Box>
         </Box>
       </Box>
