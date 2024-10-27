@@ -18,9 +18,7 @@ fn main() {
 fn embed_manifest_for_tests() {
     static WINDOWS_MANIFEST_FILE: &str = "windows-app-manifest.xml";
 
-    let manifest = std::env::current_dir()
-        .unwrap()
-        .join(WINDOWS_MANIFEST_FILE);
+    let manifest = std::env::current_dir().unwrap().join(WINDOWS_MANIFEST_FILE);
 
     println!("cargo:rerun-if-changed={}", manifest.display());
     // Embed the Windows application manifest file.
