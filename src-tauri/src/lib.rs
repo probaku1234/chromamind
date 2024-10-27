@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use structs::EmbeddingData;
 use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::State;
+use tauri_plugin_log::{Target, TargetKind};
 
 use std::sync::Mutex;
 
@@ -28,6 +29,7 @@ struct AppState {
 
 #[tauri::command]
 fn create_client(url: &str, state: State<AppState>) {
+    log::info!("(create_client) Creating client with url: {}", url);
     let client = ChromaClient::new(ChromaClientOptions {
         url: url.to_string(),
         auth: chromadb::v1::client::ChromaAuthMethod::None,
@@ -50,16 +52,24 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn health_check(state: State<AppState>) -> Result<u64, String> {
+    log::info!("(health_check) Checking ChromaDB health");
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
+        log::error!("(health_check) client is none");
         return Err("No client found".to_string());
     }
 
     let client = client.as_ref().unwrap();
     match client.heartbeat() {
-        Ok(timestamp) => Ok(timestamp),
-        Err(e) => Err(format!("Error checking health: {}", e)),
+        Ok(timestamp) => {
+            log::debug!("(health_check) ChromaDB is healthy: {}", timestamp);
+            Ok(timestamp)
+        }
+        Err(e) => {
+            log::error!("(health_check) Error checking health: {}", e);
+            Err(format!("Error checking health: {}", e))
+        }
     }
 }
 
@@ -69,19 +79,37 @@ fn check_tenant_and_database(
     database: &str,
     state: State<AppState>,
 ) -> Result<bool, String> {
+    log::info!(
+        "(check_tenant_and_database) Checking tenant: {} and database: {}",
+        tenant,
+        database
+    );
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
+        log::error!("(check_tenant_and_database) client is none");
         return Err("No client found".to_string());
     }
 
     let client = client.as_ref().unwrap();
 
-    Ok(client.tenant_exists(tenant) && client.database_exists(database))
+    let tenant_exist = client.tenant_exists(tenant);
+    let database_exist = client.database_exists(database);
+    log::debug!(
+        "(check_tenant_and_database) Tenant: {} exists: {}, Database: {} exists: {}",
+        tenant,
+        tenant_exist,
+        database,
+        database_exist
+    );
+
+    Ok(tenant_exist && database_exist)
 }
 
 #[tauri::command]
 async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Error> {
+    log::info!("(create_window) Creating window with url: {}", url);
+
     let pkg_info = &app.package_info();
     let config = &app.config();
     let about_metadata = AboutMetadata {
@@ -91,6 +119,7 @@ async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Er
         authors: config.bundle.publisher.clone().map(|p| vec![p]),
         ..Default::default()
     };
+    log::debug!("(create_window) about_metadata: {:?}", about_metadata);
 
     let window_menu = Submenu::with_id_and_items(
         &app,
@@ -163,12 +192,15 @@ async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Er
         .build()
         .expect("fail to build new window");
 
+    log::info!("(create_window) Window created");
+
     Ok(())
 }
 
 // tauri command get chroma version
 #[tauri::command]
 fn get_chroma_version(state: State<AppState>) -> Result<String, String> {
+    log::info!("(get_chroma_version) Fetching chroma version");
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
@@ -179,17 +211,26 @@ fn get_chroma_version(state: State<AppState>) -> Result<String, String> {
 
     let version = client.version();
     if version.is_err() {
+        log::error!(
+            "(get_chroma_version) Error fetching chroma version: {}",
+            version.as_ref().err().unwrap()
+        );
         return Err(format!(
             "Error fetching chroma version: {}",
             version.err().unwrap()
         ));
     }
 
+    log::debug!(
+        "(get_chroma_version) Chroma version: {}",
+        version.as_ref().unwrap()
+    );
     Ok(version.unwrap())
 }
 
 #[tauri::command]
 fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
+    log::info!("(reset_chroma) Resetting chroma");
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
@@ -198,13 +239,20 @@ fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
 
     let client = client.as_ref().unwrap();
     match client.reset() {
-        Ok(_) => Ok(true),
-        Err(e) => Err(format!("Error resetting chroma: {}", e)),
+        Ok(result) => {
+            log::debug!("(reset_chroma) Chroma reset result: {}", result);
+            Ok(true)
+        }
+        Err(e) => {
+            log::error!("(reset_chroma) Error resetting chroma: {}", e);
+            Err(format!("Error resetting chroma: {}", e))
+        }
     }
 }
 
 #[tauri::command]
 fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
+    log::info!("(fetch_collections) Fetching collections");
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
@@ -215,6 +263,10 @@ fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
 
     let collections = client.list_collections();
     if collections.is_err() {
+        log::error!(
+            "(fetch_collections) Error fetching collections: {}",
+            collections.as_ref().err().unwrap()
+        );
         return Err(format!(
             "Error fetching collections: {}",
             collections.err().unwrap()
@@ -222,6 +274,11 @@ fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
     }
 
     let collections = collections.unwrap();
+    log::debug!(
+        "(fetch_collections) Fetched collections: {}, {:?}",
+        collections.len(),
+        collections
+    );
     let collections_list = collections
         .into_iter()
         .map(|collection| {
@@ -237,9 +294,14 @@ fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
 
 #[tauri::command]
 fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usize, String> {
+    log::info!(
+        "(fetch_row_count) Fetching row count for collection: {}",
+        collection_name
+    );
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
+        log::error!("(fetch_row_count) No client found");
         return Err("No client found".to_string());
     }
 
@@ -247,6 +309,10 @@ fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usiz
 
     let collection = client.get_collection(collection_name);
     if collection.is_err() {
+        log::error!(
+            "(fetch_row_count) Error fetching collection: {}",
+            collection.as_ref().err().unwrap()
+        );
         return Err(format!(
             "Error fetching collection: {}",
             collection.err().unwrap()
@@ -270,6 +336,11 @@ fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usiz
         ));
     }
 
+    log::debug!(
+        "(fetch_row_count) Fetched rows: {:?}",
+        count.as_ref().unwrap()
+    );
+
     Ok(count.unwrap().ids.len())
 }
 
@@ -280,9 +351,15 @@ fn fetch_embeddings(
     offset: usize,
     state: State<AppState>,
 ) -> Result<Vec<EmbeddingData>, String> {
+    log::info!(
+        "(fetch_embeddings) Fetching embeddings for collection: {}",
+        collection_name
+    );
+    log::debug!("(fetch_embeddings) limit: {}, offset: {}", limit, offset,);
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
+        log::error!("(fetch_embeddings) No client found");
         return Err("No client found".to_string());
     }
 
@@ -290,6 +367,10 @@ fn fetch_embeddings(
 
     let collection = client.get_collection(collection_name);
     if collection.is_err() {
+        log::error!(
+            "(fetch_embeddings) Error fetching collection: {}",
+            collection.as_ref().err().unwrap()
+        );
         return Err(format!(
             "Error fetching collection: {}",
             collection.err().unwrap()
@@ -310,14 +391,27 @@ fn fetch_embeddings(
             "metadatas".into(),
         ]),
     };
+    log::debug!(
+        "(fetch_embeddings) Fetching embeddings with query: {:?}",
+        get_query
+    );
 
     let get_result = collection.get(get_query);
     if get_result.is_err() {
+        log::error!(
+            "(fetch_embeddings) Error fetching embeddings: {}",
+            get_result.as_ref().err().unwrap()
+        );
         return Err(format!(
             "Error fetching embeddings: {}",
             get_result.err().unwrap()
         ));
     }
+
+    log::debug!(
+        "(fetch_embeddings) Fetched embeddings: {:?}",
+        get_result.as_ref().unwrap()
+    );
 
     let get_result = get_result.unwrap();
     let ids = get_result.ids;
@@ -327,6 +421,13 @@ fn fetch_embeddings(
 
     if ids.len() != embeddings.len() || ids.len() != documents.len() || ids.len() != metadatas.len()
     {
+        log::error!(
+            "(fetch_embeddings) Error fetching embeddings: Mismatch in data: ids: {}, embeddings: {}, documents: {}, metadatas: {}",
+            ids.len(),
+            embeddings.len(),
+            documents.len(),
+            metadatas.len()
+        );
         return Err("Error fetching embeddings: Mismatch in data".to_string());
     }
 
@@ -348,9 +449,14 @@ fn fetch_embeddings(
 
 #[tauri::command]
 fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Result<Value, String> {
+    log::info!(
+        "(fetch_collection_data) Fetching collection data for collection: {}",
+        collection_name
+    );
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
+        log::error!("(fetch_collection_data) No client found");
         return Err("No client found".to_string());
     }
 
@@ -359,17 +465,27 @@ fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Resul
     let collection = client.get_collection(collection_name);
 
     if collection.is_err() {
+        log::error!(
+            "(fetch_collection_data) Error fetching collection: {}",
+            collection.as_ref().err().unwrap()
+        );
         return Err("Error fetching collection".to_string());
     }
     let collection = collection.unwrap();
 
     let collection_id = collection.id();
     let collection_metadata = collection.metadata();
-    let x = json!({
+    log::debug!(
+        "(fetch_collection_data) Fetched collection: {}, {:?}",
+        collection_id,
+        collection_metadata
+    );
+    let metadata = json!({
         "id": collection_id,
         "metadata": collection_metadata
     });
-    Ok(x)
+
+    Ok(metadata)
 }
 
 #[tauri::command]
@@ -378,18 +494,32 @@ fn create_collection(
     metadata: Option<Value>,
     state: State<AppState>,
 ) -> Result<Value, String> {
+    log::info!(
+        "(create_collection) Creating collection: {} with metadata: {:?}",
+        collection_name,
+        metadata
+    );
     let client = state.client.lock().unwrap();
 
     if client.is_none() {
+        log::error!("(create_collection) No client found");
         return Err("No client found".to_string());
     }
 
     let client = client.as_ref().unwrap();
 
     let metadata_map = metadata.and_then(|m| m.as_object().cloned());
+    log::debug!(
+        "(create_collection) Creating collection with metadata: {:?}",
+        metadata_map
+    );
     let result = client.create_collection(collection_name, metadata_map, false);
 
     if result.is_err() {
+        log::error!(
+            "(create_collection) Error creating collection: {}",
+            result.as_ref().err().unwrap()
+        );
         return Err(format!(
             "Error creating collection: {}",
             result.err().unwrap()
@@ -405,13 +535,41 @@ fn create_collection(
     }))
 }
 
+fn get_current_date_string() -> String {
+    use chrono::Local;
+
+    let current_date = Local::now().format("%Y-%m-%d").to_string();
+
+    current_date
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(debug_assertions)]
+    let max_log_level = log::LevelFilter::Debug;
+
+    #[cfg(not(debug_assertions))]
+    let max_log_level = log::LevelFilter::Info;
+
     tauri::Builder::default()
         .manage(AppState {
             client: Mutex::new(None),
         })
         .plugin(tauri_plugin_shell::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .level(max_log_level)
+                .clear_targets()
+                // logging to stderr, file and file name with current date
+                .targets([
+                    Target::new(TargetKind::Stderr),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some(get_current_date_string()),
+                    }),
+                ])
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             greet,
             create_client,
