@@ -300,6 +300,9 @@ const Collections: React.FC = () => {
           className={
             'flex flex-column h-screen bg-dark font-mono color-white overflow-hidden'
           }
+          pt={2}
+          pl={2}
+          pr={2}
         >
           <Box className={'flex grow'} overflowY={'auto'}>
             <Box width={'100%'}>
@@ -407,7 +410,7 @@ const Collections: React.FC = () => {
                                   gap="0.5rem"
                                 >
                                   <HStack gap="0.5rem" w="full" h="2rem">
-                                    <Text>
+                                    <Text fontSize={'2xl'}>
                                       {flexRender(
                                         header.column.columnDef.header,
                                         header.getContext(),
@@ -547,33 +550,25 @@ const Collections: React.FC = () => {
                             <Input
                               type="number"
                               defaultValue={pageIndex + 1}
-                              onChange={(e) => {
+                              onChange={(e) => {  
                                 const page = e.target.value
                                   ? Number(e.target.value) - 1
                                   : 0
+
+                                if (page < 0 || page >= table.getPageCount()) {
+                                  e.target.value = String(page)
+                                  return
+                                }
+                                
                                 table.setPageIndex(page)
                                 setPageIndex(page)
+                                table.getPageCount()
                               }}
                               size="sm"
                             />
                           </HStack>
                           <Spacer />
                           <Flex justify="end">
-                            {/* <Select
-                              minW="fit-content"
-                              value={pageSize}
-                              size="sm"
-                              onChange={(e) => {
-                                table.setPageSize(Number(e.target.value))
-                                setPageSize(Number(e.target.value))
-                              }}
-                            >
-                              {DEFAULT_PAGES.map((pageSize, index) => (
-                                <option key={`page-${index}`} value={pageSize}>
-                                  Show {pageSize} rows
-                                </option>
-                              ))}
-                            </Select> */}
                             <SelectRoot
                               collection={frameworks}
                               onValueChange={(e) => {
@@ -618,8 +613,11 @@ const Collections: React.FC = () => {
               isTerminalDragging && 'dragging',
             )}
             style={{ height: terminalH }}
-            backgroundColor={'whitesmoke'}
+            backgroundColor={'secondBg'}
             overflowY={'auto'}
+            pt={2}
+            pr={2}
+            pl={2}
           >
             <DetailView detailViewContent={detailViewContent} />
           </Box>
