@@ -11,10 +11,6 @@ const customConfig = defineConfig({
       backgroundColor: 'firstBg',
       fontSynthesis: 'none',
       textRendering: 'optimizeLegibility',
-      // @ts-expect-error -webkit-font-smoothing is not in the CSSStyleDeclaration
-      '-webkit-font-smoothing': 'antialiased',
-      '-moz-osx-font-smoothing': 'grayscale',
-      '-webkit-text-size-adjust': '100%',
     },
   },
   theme: {
