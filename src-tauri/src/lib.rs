@@ -408,10 +408,10 @@ fn fetch_embeddings(
         ));
     }
 
-    log::debug!(
-        "(fetch_embeddings) Fetched embeddings: {:?}",
-        get_result.as_ref().unwrap()
-    );
+    // log::debug!(
+    //     "(fetch_embeddings) Fetched embeddings: {:?}",
+    //     get_result.as_ref().unwrap()
+    // );
 
     let get_result = get_result.unwrap();
     let ids = get_result.ids;
