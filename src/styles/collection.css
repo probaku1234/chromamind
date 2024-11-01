@@ -8,7 +8,7 @@
 
 .sample-drag-bar.sample-drag-bar--dragging,
 .sample-drag-bar:hover {
-  background-color: #63b3ed;
+  background-color: var(--chakra-colors-brand-300)
 }
 
 .sample-drag-bar.sample-drag-bar--horizontal {
