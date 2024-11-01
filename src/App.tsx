@@ -7,7 +7,7 @@ import {
   Input,
   Spinner,
   Text,
-  Image
+  Image,
 } from '@chakra-ui/react'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -108,7 +108,7 @@ const App: React.FC = () => {
       <Heading as="h1" my={4} size={'4xl'}>
         Connect to ChromaDB
       </Heading>
-      <Image src={'chroma-seeklogo.svg'} height={'1/4'}/>
+      <Image src={'chroma-seeklogo.svg'} height={'1/4'} />
 
       <Box
         as="form"

@@ -11,8 +11,8 @@ const matchMediaMock = vi.fn((query: unknown) => ({
   addEventListener: vi.fn(),
   removeEventListener: vi.fn(),
   dispatchEvent: vi.fn(),
-}));
-vi.stubGlobal("matchMedia", matchMediaMock);
+}))
+vi.stubGlobal('matchMedia', matchMediaMock)
 
 afterEach(() => {
   cleanup()

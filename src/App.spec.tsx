@@ -13,7 +13,7 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  const mockCommandHandler = <T, >(
+  const mockCommandHandler = <T,>(
     cmd: string,
     _: InvokeArgs | undefined,
   ): Promise<T> => {
@@ -44,7 +44,11 @@ describe('App', () => {
     const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
     mockWindows('main')
 
-    render(<Provider><App /></Provider>)
+    render(
+      <Provider>
+        <App />
+      </Provider>,
+    )
 
     expect(screen.getByText('Connect to ChromaDB')).toBeInTheDocument()
   })
@@ -57,7 +61,11 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<Provider><App /></Provider>)
+    render(
+      <Provider>
+        <App />
+      </Provider>,
+    )
 
     const handleOnSubmitMock = vi.fn()
     screen.getByRole('form').onsubmit = handleOnSubmitMock
@@ -79,7 +87,11 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<Provider><App /></Provider>)
+    render(
+      <Provider>
+        <App />
+      </Provider>,
+    )
 
     const handleOnSubmitMock = vi.fn()
     screen.getByRole('form').onsubmit = handleOnSubmitMock
@@ -97,7 +109,7 @@ describe('App', () => {
   })
 
   test('should not open new window if health check fails', async () => {
-    const mockCommandHandler = <T, >(
+    const mockCommandHandler = <T,>(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -128,7 +140,11 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<Provider><App /></Provider>)
+    render(
+      <Provider>
+        <App />
+      </Provider>,
+    )
 
     await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
       timeout: 5000,
@@ -149,7 +165,7 @@ describe('App', () => {
   })
 
   test('should not open new window if check tenant database fails', async () => {
-    const mockCommandHandler = <T, >(
+    const mockCommandHandler = <T,>(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -180,7 +196,11 @@ describe('App', () => {
 
     mockWindows('main')
 
-    render(<Provider><App /></Provider>)
+    render(
+      <Provider>
+        <App />
+      </Provider>,
+    )
 
     await waitFor(() => expect(mock).toHaveBeenCalledTimes(1), {
       timeout: 5000,

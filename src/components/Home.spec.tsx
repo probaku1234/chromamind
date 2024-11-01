@@ -7,8 +7,7 @@ import { TauriCommand } from '../types'
 import { match } from 'ts-pattern'
 import { Provider } from '@/components/ui/provider'
 
-beforeAll(() => {
-})
+beforeAll(() => {})
 
 afterEach(() => {
   clearMocks()
@@ -17,7 +16,7 @@ afterEach(() => {
 describe('Home', () => {
   const chromaVersion = '0.1.0'
   const testCollections = [{ id: '1', name: 'collection1' }]
-  const mockCommandHandler = <T, >(
+  const mockCommandHandler = <T,>(
     cmd: string,
     _: InvokeArgs | undefined,
   ): Promise<T> => {
@@ -41,7 +40,11 @@ describe('Home', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      render(<Provider><Home /></Provider>)
+      render(
+        <Provider>
+          <Home />
+        </Provider>,
+      )
 
       await waitFor(() => expect(mock).toHaveBeenCalledTimes(2))
       expect(screen.getByText(testCollections.length)).toBeInTheDocument()
@@ -55,14 +58,19 @@ describe('Home', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      render(<Provider><Home /></Provider>)
+      render(
+        <Provider>
+          <Home />
+        </Provider>,
+      )
 
       await waitFor(() => expect(mock).toHaveBeenCalledTimes(2))
-      expect(screen.getByText(chromaVersion)).toBeInTheDocument()
+      const versionBox = await screen.findByText(chromaVersion)
+      expect(versionBox).toBeInTheDocument()
     })
 
     test('should render check icon if test connection is successful', async () => {
-      const mockCommandHandler = <T, >(
+      const mockCommandHandler = <T,>(
         cmd: string,
         _: InvokeArgs | undefined,
       ): Promise<T> => {
@@ -87,7 +95,11 @@ describe('Home', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      render(<Provider><Home /></Provider>)
+      render(
+        <Provider>
+          <Home />
+        </Provider>,
+      )
 
       await waitFor(() => expect(mock).toHaveBeenCalledTimes(2))
 
@@ -99,7 +111,7 @@ describe('Home', () => {
     })
 
     test('should render x icon if test connection is unsuccessful', async () => {
-      const mockCommandHandler = <T, >(
+      const mockCommandHandler = <T,>(
         cmd: string,
         _: InvokeArgs | undefined,
       ): Promise<T> => {
@@ -124,7 +136,11 @@ describe('Home', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      render(<Provider><Home /></Provider>)
+      render(
+        <Provider>
+          <Home />
+        </Provider>,
+      )
 
       await waitFor(() => expect(mock).toHaveBeenCalledTimes(2))
 
@@ -143,7 +159,11 @@ describe('Home', () => {
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
 
-      render(<Provider><Home /></Provider>)
+      render(
+        <Provider>
+          <Home />
+        </Provider>,
+      )
 
       await waitFor(() => expect(mock).toHaveBeenCalledTimes(2))
       expect(screen.getByText(testCollections.length)).toBeInTheDocument()

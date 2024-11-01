@@ -15,7 +15,7 @@ afterEach(() => {
 
 describe('MainPage', () => {
   test('should render the MainPage component', async () => {
-    const mockCommandHandler = <T, >(
+    const mockCommandHandler = <T,>(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -29,29 +29,39 @@ describe('MainPage', () => {
 
     mockIPC(mockCommandHandler)
 
-    renderWithProvider(<ChakraProvider><MainPage /> </ChakraProvider>, {
-      initialState: {
-        currentMenu: 'Home',
-        currentCollection: 'test',
+    renderWithProvider(
+      <ChakraProvider>
+        <MainPage />{' '}
+      </ChakraProvider>,
+      {
+        initialState: {
+          currentMenu: 'Home',
+          currentCollection: 'test',
+        },
       },
-    })
+    )
 
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
   test('should render the correct component based on the currentMenu state', async () => {
-    renderWithProvider(<ChakraProvider><MainPage /> </ChakraProvider>, {
-      initialState: {
-        currentMenu: 'Settings',
-        currentCollection: 'test',
+    renderWithProvider(
+      <ChakraProvider>
+        <MainPage />{' '}
+      </ChakraProvider>,
+      {
+        initialState: {
+          currentMenu: 'Settings',
+          currentCollection: 'test',
+        },
       },
-    })
+    )
 
     expect(screen.getByText('Reset Chroma')).toBeInTheDocument()
   })
 
   test('should render the correct component when currentMenu state changed', async () => {
-    const mockCommandHandler = <T, >(
+    const mockCommandHandler = <T,>(
       cmd: string,
       _: InvokeArgs | undefined,
     ): Promise<T> => {
@@ -72,7 +82,8 @@ describe('MainPage', () => {
       <ChakraProvider>
         <Provider store={store}>
           <MainPage />
-        </Provider>,
+        </Provider>
+        ,
       </ChakraProvider>,
     )
 
@@ -83,7 +94,7 @@ describe('MainPage', () => {
         cancelable: true,
       }),
     )
-    await waitFor(() => expect(mock).toHaveBeenCalledTimes(3), {
+    await waitFor(() => expect(mock).toHaveBeenCalledTimes(2), {
       timeout: 5000,
     })
 

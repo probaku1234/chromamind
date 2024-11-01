@@ -1,7 +1,6 @@
 import React from 'react'
 import {
   Box,
-
   Flex,
   Heading,
   Text,
@@ -95,7 +94,7 @@ const Settings: React.FC = () => {
             <Button ref={cancelRef} onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={resetChroma} ml={3} buttonType='critical'>
+            <Button onClick={resetChroma} ml={3} buttonType="critical">
               Delete
             </Button>
           </DialogFooter>
