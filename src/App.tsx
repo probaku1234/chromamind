@@ -8,7 +8,12 @@ import {
   Spinner,
   Text,
   Image,
+  Fieldset,
+  Stack,
 } from '@chakra-ui/react'
+import { PasswordInput } from '@/components/ui/password-input'
+import { HStack } from '@chakra-ui/react'
+import { Radio, RadioGroup } from '@/components/ui/radio'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from './types'
@@ -18,14 +23,26 @@ import { match } from 'ts-pattern'
 import { Field } from '@/components/ui/field'
 import { Button } from './components/ui/button'
 
+const authBoxStyle: React.CSSProperties = {
+  border: '1px solid #8080805e',
+  borderRadius: '10px',
+  marginTop: 'var(--chakra-spacing-1)',
+  padding: 'var(--chakra-spacing-4)',
+}
+
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>()
+  const [authMethod, setAuthMethod] = useState<string>('no_auth')
+  const [tokenType, setTokenType] = useState<string>('bearer')
   const urlRef = useRef<HTMLInputElement>(null)
   const tenantRef = useRef<HTMLInputElement>(null)
   const dbRef = useRef<HTMLInputElement>(null)
-
+  const usernameRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const tokenRef = useRef<HTMLInputElement>(null)
+  
   async function greet() {
     setLoading(true)
     setSuccess(false)
@@ -33,10 +50,21 @@ const App: React.FC = () => {
     const url = urlRef.current?.value || 'http://localhost:8000'
     const tenant = tenantRef.current?.value || 'default_tenant'
     const database = dbRef.current?.value || 'default_database'
+    const username = usernameRef.current?.value
+    const password = passwordRef.current?.value
+    const token = tokenRef.current?.value
+    const authConfig = {
+      authMethod,
+      username,
+      password,
+      token,
+      tokenType,
+    }
 
     match(
       await invokeWrapper(TauriCommand.CREATE_CLIENT, {
         url,
+        authConfig
       }),
     ).with({ type: 'error' }, ({ error }) => {
       console.error(error)
@@ -120,15 +148,65 @@ const App: React.FC = () => {
         aria-label="form"
       >
         <Field label="URL" required mb={2}>
-          <Input type="text" ref={urlRef} data-testid="url-input" />
+          <Input
+            type="text"
+            ref={urlRef}
+            data-testid="url-input"
+            placeholder="http://localhost:8000"
+          />
         </Field>
         <Field label="Tenant" mb={2}>
           <Input type="text" ref={tenantRef} placeholder="default_tenant" />
         </Field>
-        <Field label="Database">
+        <Field label="Database" mb={2}>
           <Input type="text" ref={dbRef} placeholder="default_database" />
         </Field>
-
+        <RadioGroup
+          defaultValue="no_auth"
+          onValueChange={(e) => setAuthMethod(e.value)}
+        >
+          <HStack gap="3">
+            <Radio value="no_auth">No Auth</Radio>
+            <Radio value="basic_auth">Basic Auth</Radio>
+            <Radio value="token_auth">Token Auth</Radio>
+          </HStack>
+        </RadioGroup>
+        {match(authMethod)
+          .with('basic_auth', () => (
+              <Fieldset.Root maxW="sm" style={authBoxStyle}>
+                <Stack>
+                  <Fieldset.Legend>Auth Details</Fieldset.Legend>
+                  <Fieldset.HelperText>
+                    Please provide your auth details below.
+                  </Fieldset.HelperText>
+                  <Fieldset.Content>
+                    <Field label="Username" required>
+                      <Input name="username" ref={usernameRef}/>
+                    </Field>
+                    <Field label="Password" required>
+                      <PasswordInput ref={passwordRef}/>
+                    </Field>
+                  </Fieldset.Content>
+                </Stack>
+              </Fieldset.Root>
+          ))
+          .with('token_auth', () => (
+            <Fieldset.Root style={authBoxStyle} >
+              <RadioGroup defaultValue="bearer" onValueChange={(details) => setTokenType(details.value)}>
+                <HStack gap="3">
+                  <Radio value="bearer" >Bearer Token</Radio>
+                  <Radio value="x_chroma_token"  >X-Chroma-Token</Radio>
+                </HStack>
+              </RadioGroup>
+              <Field label="Token" required>
+                <PasswordInput name="token" ref={tokenRef}/>
+              </Field>
+            </Fieldset.Root>
+          ))
+          .with('no_auth', () => <></>)
+          .otherwise(() => (
+            <></>
+          ))}
         <Button
           type="submit"
           // colorScheme="teal"

@@ -505,7 +505,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 [[package]]
 name = "chromadb"
 version = "0.5.0"
-source = "git+https://github.com/probaku1234/chromadb-rs?branch=my-imple#f76a357ee5790356582cde78ec8ea7dbd8f35763"
+source = "git+https://github.com/probaku1234/chromadb-rs?branch=my-imple#a285019e523182fd32d6688d341d1237079fd21c"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -521,6 +521,7 @@ dependencies = [
  "chromadb",
  "chrono",
  "log",
+ "pretty_assertions",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -786,6 +787,12 @@ dependencies = [
  "rustc_version",
  "syn 2.0.77",
 ]
+
+[[package]]
+name = "diff"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
 name = "digest"
@@ -2922,6 +2929,16 @@ name = "precomputed-hash"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
+
+[[package]]
+name = "pretty_assertions"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
+dependencies = [
+ "diff",
+ "yansi",
+]
 
 [[package]]
 name = "proc-macro-crate"
@@ -5550,6 +5567,12 @@ dependencies = [
  "linux-raw-sys",
  "rustix",
 ]
+
+[[package]]
+name = "yansi"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "zerocopy"

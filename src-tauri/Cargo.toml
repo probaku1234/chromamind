@@ -26,5 +26,6 @@ log = "0.4.22"
 chrono = "0.4.38"
 
 [dev-dependencies]
+pretty_assertions = "1.4.1"
 rand = "0.8.5"
 testcontainers = {version = "0.23.1", features = ['http_wait', 'blocking'] }

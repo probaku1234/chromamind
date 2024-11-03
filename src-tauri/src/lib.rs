@@ -5,6 +5,7 @@ use chromadb::v1::collection::GetOptions;
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
+use chrono::DateTime;
 use serde_json::{json, Value};
 use structs::EmbeddingData;
 use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
@@ -28,13 +29,60 @@ struct AppState {
 // }
 
 #[tauri::command]
-fn create_client(url: &str, state: State<AppState>) {
+fn create_client(
+    url: &str,
+    auth_config: Option<Value>,
+    state: State<AppState>,
+) -> Result<(), String> {
     log::info!("(create_client) Creating client with url: {}", url);
+    let auth = auth_config.and_then(|auth| {
+        let auth_map = auth.as_object().cloned();
+        auth_map.and_then(|auth_map| {
+            let auth_method = auth_map.get("authMethod")?;
+            let auth_method = auth_method.as_str()?;
+            log::debug!("(create_client) Auth method: {}", auth_method);
+            match auth_method {
+                "no_auth" => Some(chromadb::v1::client::ChromaAuthMethod::None),
+                "basic_auth" => {
+                    let username = auth_map.get("username")?.as_str()?;
+                    let password = auth_map.get("password")?.as_str()?;
+                    log::debug!("(create_client) parsed username and password");
+                    Some(chromadb::v1::client::ChromaAuthMethod::BasicAuth {
+                        username: username.to_string(),
+                        password: password.to_string(),
+                    })
+                }
+                "token_auth" => {
+                    let token_type = auth_map.get("tokenType")?.as_str()?;
+                    let token = auth_map.get("token")?.as_str()?;
+                    let header = match token_type {
+                        "bearer" => chromadb::v1::client::ChromaTokenHeader::Authorization,
+                        "x_chroma_token" => chromadb::v1::client::ChromaTokenHeader::XChromaToken,
+                        _ => return None,
+                    };
+                    log::debug!("(create_client) parsed token and header");
+                    Some(chromadb::v1::client::ChromaAuthMethod::TokenAuth {
+                        header,
+                        token: token.to_string(),
+                    })
+                }
+                _ => None,
+            }
+        })
+    });
+
+    if auth.is_none() {
+        log::error!("(create_client) Invalid auth config");
+        return Err("Invalid auth config".to_string());
+    }
+
     let client = ChromaClient::new(ChromaClientOptions {
         url: url.to_string(),
-        auth: chromadb::v1::client::ChromaAuthMethod::None,
+        auth: auth.unwrap(),
     });
     *state.client.lock().unwrap() = Some(client);
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -94,7 +142,33 @@ fn check_tenant_and_database(
     let client = client.as_ref().unwrap();
 
     let tenant_exist = client.tenant_exists(tenant);
+    if tenant_exist.is_err() {
+        log::error!(
+            "(check_tenant_and_database) Error checking tenant: {} exists: {}",
+            tenant,
+            tenant_exist.as_ref().err().unwrap()
+        );
+        return Err(format!(
+            "Error checking tenant: {} exists: {}",
+            tenant,
+            tenant_exist.as_ref().err().unwrap()
+        ));
+    }
+    let tenant_exist = tenant_exist.unwrap();
     let database_exist = client.database_exists(database);
+    if database_exist.is_err() {
+        log::error!(
+            "(check_tenant_and_database) Error checking database: {} exists: {}",
+            database,
+            database_exist.as_ref().err().unwrap()
+        );
+        return Err(format!(
+            "Error checking database: {} exists: {}",
+            database,
+            database_exist.as_ref().err().unwrap()
+        ));
+    }
+    let database_exist = database_exist.unwrap();
     log::debug!(
         "(check_tenant_and_database) Tenant: {} exists: {}, Database: {} exists: {}",
         tenant,
@@ -475,6 +549,7 @@ fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Resul
 
     let collection_id = collection.id();
     let collection_metadata = collection.metadata();
+    let collection_configuration = collection.configuration_json();
     log::debug!(
         "(fetch_collection_data) Fetched collection: {}, {:?}",
         collection_id,
@@ -482,7 +557,8 @@ fn fetch_collection_data(collection_name: &str, state: State<AppState>) -> Resul
     );
     let metadata = json!({
         "id": collection_id,
-        "metadata": collection_metadata
+        "metadata": collection_metadata,
+        "configuration": collection_configuration,
     });
 
     Ok(metadata)
@@ -593,11 +669,12 @@ pub fn run() {
 mod tests {
     use super::*;
     use chromadb::v1::collection::CollectionEntries;
+    use pretty_assertions::assert_eq;
     use tauri::test::{mock_builder, mock_context, noop_assets};
     use testcontainers::{
         core::{IntoContainerPort, WaitFor},
         runners::SyncRunner,
-        Container, GenericImage,
+        Container, GenericImage, ImageExt,
     };
 
     fn before_each<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
@@ -633,6 +710,43 @@ mod tests {
             .expect("ChromaDB started")
     }
 
+    fn crate_chroma_container_with_auth(
+        auth_method: chromadb::v1::client::ChromaAuthMethod,
+    ) -> Container<GenericImage> {
+        let image = GenericImage::new("chromadb/chroma", "0.5.5")
+            .with_exposed_port(8000.tcp())
+            .with_wait_for(WaitFor::message_on_stdout("Application startup complete."));
+
+        let image = match auth_method {
+            chromadb::v1::client::ChromaAuthMethod::BasicAuth { username, password } => image
+                .with_env_var(
+                    "CHROMA_SERVER_AUTHN_PROVIDER",
+                    "chromadb.auth.basic_authn.BasicAuthenticationServerProvider",
+                )
+                .with_env_var(
+                    "CHROMA_SERVER_AUTHN_CREDENTIALS",
+                    format!("{}:{}", username, password),
+                ),
+            chromadb::v1::client::ChromaAuthMethod::TokenAuth { header, token } => {
+                let header = match header {
+                    chromadb::v1::client::ChromaTokenHeader::Authorization => "Authorization",
+                    chromadb::v1::client::ChromaTokenHeader::XChromaToken => "X-Chroma-Token",
+                };
+
+                image
+                    .with_env_var(
+                        "CHROMA_SERVER_AUTHN_PROVIDER",
+                        "chromadb.auth.token_authn.TokenAuthenticationServerProvider",
+                    )
+                    .with_env_var("CHROMA_SERVER_AUTHN_CREDENTIALS", token)
+                    .with_env_var("CHROMA_AUTH_TOKEN_TRANSPORT_HEADER", header)
+            }
+            chromadb::v1::client::ChromaAuthMethod::None => image.with_env_var("name", "value"),
+        };
+
+        image.start().expect("ChromaDB started")
+    }
+
     #[test]
     fn test_chroma_container() {
         let container = create_chroma_container();
@@ -648,6 +762,188 @@ mod tests {
 
         let health_check_result = client.heartbeat();
         assert!(health_check_result.is_ok(), "ChromaDB not running");
+    }
+
+    #[test]
+    fn test_create_client() {
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_client".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "url": connect_url,
+                    "authConfig": {
+                        "auth_Method": "no_auth"
+                    }
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_err(), "create_client should fail");
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_client".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "url": connect_url,
+                    "authConfig": {
+                        "authMethod": "no_auth"
+                    }
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        container.stop().unwrap();
+
+        let username = "admin";
+        let password = "$2y$05$qsX5CHjxvLqruxRh035n/e/5S0TNcX0z1/hcvj7rCD99jaEG2fqP.";
+        let container =
+            crate_chroma_container_with_auth(chromadb::v1::client::ChromaAuthMethod::BasicAuth {
+                username: username.to_string(),
+                password: password.to_string(),
+            });
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_client".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "url": connect_url,
+                    "authConfig": {
+                        "authMethod": "basic_auth",
+                        "username": username,
+                        "password": "admin",
+                    }
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "check_tenant_and_database".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(
+            res.is_ok(),
+            "check_tenant_and_database failed: {:?}",
+            res.err()
+        );
+
+        container.stop().unwrap();
+
+        let token = "token";
+        let container =
+            crate_chroma_container_with_auth(chromadb::v1::client::ChromaAuthMethod::TokenAuth {
+                header: chromadb::v1::client::ChromaTokenHeader::Authorization,
+                token: token.to_string(),
+            });
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "create_client".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "url": connect_url,
+                    "authConfig": {
+                        "authMethod": "token_auth",
+                        "tokenType": "bearer",
+                        "token": token,
+                    }
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let res = tauri::test::get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "check_tenant_and_database".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(json!({
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        assert!(
+            res.is_ok(),
+            "check_tenant_and_database failed: {:?}",
+            res.err()
+        );
     }
 
     #[test]
@@ -1410,7 +1706,8 @@ mod tests {
         let res = res.unwrap();
         let expected = json!({
             "id": collection.id(),
-            "metadata": collection.metadata()
+            "metadata": collection.metadata(),
+            "configuration": collection.configuration_json(),
         });
 
         assert_eq!(
