@@ -670,12 +670,67 @@ mod tests {
     use super::*;
     use chromadb::v1::collection::CollectionEntries;
     use pretty_assertions::assert_eq;
-    use tauri::test::{mock_builder, mock_context, noop_assets};
+    use tauri::{
+        ipc::InvokeResponseBody,
+        test::{mock_builder, mock_context, noop_assets, MockRuntime},
+        WebviewWindow,
+    };
     use testcontainers::{
         core::{IntoContainerPort, WaitFor},
         runners::SyncRunner,
         Container, GenericImage, ImageExt,
     };
+
+    enum TauriCommand {
+        Greet,
+        CreateClient,
+        HealthCheck,
+        GetChromaVersion,
+        ResetChroma,
+        FetchEmbeddings,
+        FetchCollectionData,
+        FetchRowCount,
+        FetchCollections,
+        CheckTenantAndDatabase,
+        CreateCollection,
+    }
+
+    impl TauriCommand {
+        fn as_str(&self) -> &str {
+            match self {
+                TauriCommand::Greet => "greet",
+                TauriCommand::CreateClient => "create_client",
+                TauriCommand::HealthCheck => "health_check",
+                TauriCommand::GetChromaVersion => "get_chroma_version",
+                TauriCommand::ResetChroma => "reset_chroma",
+                TauriCommand::FetchEmbeddings => "fetch_embeddings",
+                TauriCommand::FetchCollectionData => "fetch_collection_data",
+                TauriCommand::FetchRowCount => "fetch_row_count",
+                TauriCommand::FetchCollections => "fetch_collections",
+                TauriCommand::CheckTenantAndDatabase => "check_tenant_and_database",
+                TauriCommand::CreateCollection => "create_collection",
+            }
+        }
+    }
+
+    fn get_command_response(
+        webview: &WebviewWindow<MockRuntime>,
+        command: &str,
+        body: Value,
+    ) -> Result<InvokeResponseBody, Value> {
+        tauri::test::get_ipc_response(
+            webview,
+            tauri::webview::InvokeRequest {
+                cmd: command.into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        )
+    }
 
     fn before_each<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
         builder
@@ -778,42 +833,29 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url,
-                    "authConfig": {
-                        "auth_Method": "no_auth"
-                    }
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "auth_Method": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_err(), "create_client should fail");
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url,
-                    "authConfig": {
-                        "authMethod": "no_auth"
-                    }
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth",
+
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
@@ -838,42 +880,28 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url,
-                    "authConfig": {
-                        "authMethod": "basic_auth",
-                        "username": username,
-                        "password": "admin",
-                    }
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "basic_auth",
+                    "username": username,
+                    "password": "admin",
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "check_tenant_and_database".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "tenant": "default_tenant",
-                    "database": "default_database"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CheckTenantAndDatabase.as_str(),
+            json!({
+                "tenant": "default_tenant",
+                "database": "default_database"
+            }),
         );
 
         assert!(
@@ -901,42 +929,28 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url,
-                    "authConfig": {
-                        "authMethod": "token_auth",
-                        "tokenType": "bearer",
-                        "token": token,
-                    }
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "token_auth",
+                    "tokenType": "bearer",
+                    "token": token,
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "check_tenant_and_database".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "tenant": "default_tenant",
-                    "database": "default_database"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CheckTenantAndDatabase.as_str(),
+            json!({
+                "tenant": "default_tenant",
+                "database": "default_database"
+            }),
         );
 
         assert!(
@@ -960,19 +974,12 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "greet".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "name": connect_url
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::Greet.as_str(),
+            json!({
+                "name": connect_url
+            }),
         )
         .map(|res| res.deserialize::<String>().unwrap());
 
@@ -993,19 +1000,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "health_check".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
-
+        let res = get_command_response(&webview, TauriCommand::HealthCheck.as_str(), json!({}));
         assert!(res.is_err(), "health_check should fail");
         assert_eq!(
             res.err().unwrap(),
@@ -1013,35 +1008,20 @@ mod tests {
             "health_check failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "health_check".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res = get_command_response(&webview, TauriCommand::HealthCheck.as_str(), json!({}));
 
         assert!(res.is_ok(), "health_check failed: {:?}", res.err());
         // assert if res is u64
@@ -1067,20 +1047,13 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "check_tenant_and_database".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "tenant": "test",
-                    "database": "test"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CheckTenantAndDatabase.as_str(),
+            json!({
+                "tenant": "default_tenant",
+                "database": "default_database"
+            }),
         );
 
         assert!(res.is_err(), "check_tenant_and_database should fail");
@@ -1090,37 +1063,26 @@ mod tests {
             "check_tenant_and_database failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "check_tenant_and_database".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "tenant": "default_tenant",
-                    "database": "default_database"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CheckTenantAndDatabase.as_str(),
+            json!({
+                "tenant": "default_tenant",
+                "database": "default_database"
+            }),
         );
 
         assert!(
@@ -1152,18 +1114,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "get_chroma_version".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res =
+            get_command_response(&webview, TauriCommand::GetChromaVersion.as_str(), json!({}));
 
         assert!(res.is_err(), "get_chroma_version should fail");
         assert_eq!(
@@ -1172,35 +1124,21 @@ mod tests {
             "get_chroma_version failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url.clone()
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "get_chroma_version".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res =
+            get_command_response(&webview, TauriCommand::GetChromaVersion.as_str(), json!({}));
 
         assert!(res.is_ok(), "get_chroma_version failed: {:?}", res.err());
         // assert if res is string
@@ -1239,18 +1177,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "reset_chroma".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res = get_command_response(&webview, TauriCommand::ResetChroma.as_str(), json!({}));
 
         assert!(res.is_err(), "reset_chroma should fail");
         assert_eq!(
@@ -1259,35 +1186,20 @@ mod tests {
             "reset_chroma failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "reset_chroma".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res = get_command_response(&webview, TauriCommand::ResetChroma.as_str(), json!({}));
 
         assert!(res.is_ok(), "reset_chroma failed: {:?}", res.err());
         // assert if res is bool
@@ -1313,18 +1225,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_collections".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res =
+            get_command_response(&webview, TauriCommand::FetchCollections.as_str(), json!({}));
 
         assert!(res.is_err(), "fetch_collections should fail");
         assert_eq!(
@@ -1333,19 +1235,15 @@ mod tests {
             "fetch_collections failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url.clone()
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
@@ -1360,18 +1258,8 @@ mod tests {
             .get_or_create_collection(collecton_name, None)
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
-            &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_collections".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::default(),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        );
+        let res =
+            get_command_response(&webview, TauriCommand::FetchCollections.as_str(), json!({}));
 
         assert!(res.is_ok(), "fetch_collections failed: {:?}", res.err());
         // assert if res is Vec<Value>
@@ -1405,19 +1293,12 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_row_count".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": "test_collection"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::FetchRowCount.as_str(),
+            json!({
+                "collectionName": "test_collection"
+            }),
         );
 
         assert!(res.is_err(), "fetch_row_count should fail");
@@ -1427,19 +1308,15 @@ mod tests {
             "fetch_row_count failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url.clone()
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
@@ -1465,19 +1342,12 @@ mod tests {
         };
         collection.upsert(collection_entries, None).unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_row_count".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": collecton_name
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::FetchRowCount.as_str(),
+            json!({
+                "collectionName": collecton_name
+            }),
         );
 
         assert!(res.is_ok(), "fetch_row_count failed: {:?}", res.err());
@@ -1506,21 +1376,14 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_embeddings".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": "test_collection",
-                    "limit": 1,
-                    "offset": 0
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::FetchEmbeddings.as_str(),
+            json!({
+                "collectionName": "test_collection",
+                "limit": 0,
+                "offset": 0
+            }),
         );
 
         assert!(res.is_err(), "fetch_embeddings should fail");
@@ -1530,19 +1393,15 @@ mod tests {
             "fetch_embeddings failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url.clone()
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
@@ -1569,21 +1428,14 @@ mod tests {
         };
         collection.upsert(collection_entries, None).unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_embeddings".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": collecton_name,
-                    "limit": 0,
-                    "offset": 0
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::FetchEmbeddings.as_str(),
+            json!({
+                "collectionName": collecton_name,
+                "limit": 0,
+                "offset": 0
+            }),
         );
 
         assert!(res.is_ok(), "fetch_embeddings failed: {:?}", res.err());
@@ -1618,19 +1470,12 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_collection_data".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": "test_collection"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::FetchCollectionData.as_str(),
+            json!({
+                "collectionName": "test_collection"
+            }),
         );
 
         assert!(res.is_err(), "fetch_collection_data should fail");
@@ -1641,19 +1486,15 @@ mod tests {
             "fetch_collection_data failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url.clone()
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
@@ -1678,19 +1519,12 @@ mod tests {
             )
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "fetch_collection_data".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": collecton_name
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::FetchCollectionData.as_str(),
+            json!({
+                "collectionName": collecton_name
+            }),
         );
 
         assert!(res.is_ok(), "fetch_collection_data failed: {:?}", res.err());
@@ -1730,19 +1564,15 @@ mod tests {
             .build()
             .unwrap();
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_collection".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": "test_collection"
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateCollection.as_str(),
+            json!({
+                "collectionName": "test_collection",
+                "metadata": {
+                    "foo": "bar"
+                }
+            }),
         );
 
         assert!(res.is_err(), "fetch_collection_data should fail");
@@ -1753,19 +1583,15 @@ mod tests {
             "fetch_collection_data failed with different error"
         );
 
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_client".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "url": connect_url.clone()
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
         );
 
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
@@ -1774,20 +1600,13 @@ mod tests {
         let metadata = json!({
             "foo": "bar"
         });
-        let res = tauri::test::get_ipc_response(
+        let res = get_command_response(
             &webview,
-            tauri::webview::InvokeRequest {
-                cmd: "create_collection".into(),
-                callback: tauri::ipc::CallbackFn(0),
-                error: tauri::ipc::CallbackFn(1),
-                url: "http://tauri.localhost".parse().unwrap(),
-                body: tauri::ipc::InvokeBody::Json(json!({
-                    "collectionName": collection_name,
-                    "metadata": metadata
-                })),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
+            TauriCommand::CreateCollection.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "metadata": metadata
+            }),
         );
 
         assert!(res.is_ok(), "create_collection failed: {:?}", res.err());
