@@ -5,7 +5,6 @@ use chromadb::v1::collection::GetOptions;
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
-use chrono::DateTime;
 use serde_json::{json, Value};
 use structs::EmbeddingData;
 use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
@@ -611,6 +610,37 @@ fn create_collection(
     }))
 }
 
+#[tauri::command]
+fn delete_collection(collection_name: &str, state: State<AppState>) -> Result<(), String> {
+    log::info!(
+        "(delete_collection) Deleting collection: {}",
+        collection_name
+    );
+    let client = state.client.lock().unwrap();
+
+    if client.is_none() {
+        log::error!("(delete_collection) No client found");
+        return Err("No client found".to_string());
+    }
+
+    let client = client.as_ref().unwrap();
+
+    let result = client.delete_collection(collection_name);
+
+    if result.is_err() {
+        log::error!(
+            "(delete_collection) Error deleting collection: {}",
+            result.as_ref().err().unwrap()
+        );
+        return Err(format!(
+            "Error deleting collection: {}",
+            result.as_ref().err().unwrap()
+        ));
+    }
+
+    Ok(())
+}
+
 fn get_current_date_string() -> String {
     use chrono::Local;
 
@@ -658,7 +688,8 @@ pub fn run() {
             fetch_row_count,
             fetch_collections,
             check_tenant_and_database,
-            create_collection
+            create_collection,
+            delete_collection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -693,6 +724,7 @@ mod tests {
         FetchCollections,
         CheckTenantAndDatabase,
         CreateCollection,
+        DeleteCollection,
     }
 
     impl TauriCommand {
@@ -709,6 +741,7 @@ mod tests {
                 TauriCommand::FetchCollections => "fetch_collections",
                 TauriCommand::CheckTenantAndDatabase => "check_tenant_and_database",
                 TauriCommand::CreateCollection => "create_collection",
+                TauriCommand::DeleteCollection => "delete_collection",
             }
         }
     }
@@ -749,7 +782,8 @@ mod tests {
                 fetch_row_count,
                 fetch_collections,
                 check_tenant_and_database,
-                create_collection
+                create_collection,
+                delete_collection,
             ])
             // remove the string argument to use your app's config file
             .build(mock_context(noop_assets()))
@@ -1619,5 +1653,71 @@ mod tests {
 
         assert_eq!(collection_name, collection.name());
         assert_eq!(metadata, json!(collection.metadata()));
+    }
+
+    #[test]
+    fn test_delete_collection() {
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteCollection.as_str(),
+            json!({
+                "collectionName": "test_collection"
+            }),
+        );
+
+        assert!(res.is_err(), "delete_collection should fail");
+
+        assert_eq!(
+            res.err().unwrap(),
+            "No client found",
+            "delete_collection failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "url": connect_url,
+                "authConfig": {
+                    "authMethod": "no_auth"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaClient::new(ChromaClientOptions {
+            url: format!("http://{}:{}", host, port),
+            auth: chromadb::v1::client::ChromaAuthMethod::None,
+        });
+
+        let collection_name: &str = "test_collection";
+        client.get_or_create_collection(collection_name, None).unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteCollection.as_str(),
+            json!({
+                "collectionName": collection_name
+            }),
+        );
+
+        assert!(res.is_ok(), "delete_collection failed: {:?}", res.err());
+
+        let collection = client.get_collection(collection_name);
+
+        assert!(collection.is_err(), "collection should not exist");
     }
 }
