@@ -84,9 +84,8 @@ const customConfig = defineConfig({
       layoutCollectionNavs: {
         base: {
           _hover: {
-            borderWidth: '2px',
-            borderColor: 'gray.400',
-            transition: 'all 0.1s ease-in-out',
+            background:
+              'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
           },
         },
       },
