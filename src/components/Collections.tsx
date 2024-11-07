@@ -4,7 +4,6 @@ import {
   Box,
   // Button,
   Flex,
-  Heading,
   HStack,
   Icon,
   IconButton,
@@ -12,30 +11,19 @@ import {
   SimpleGrid,
   Skeleton,
   Spacer,
-  Spinner,
   Table as CKTable,
   useDisclosure,
   Text,
   Stack,
-  Fieldset,
   FlexProps,
   useRecipe,
-  FieldHelperText,
-  Textarea,
 } from '@chakra-ui/react'
-import { Field } from '@/components/ui/field'
 import {
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogRoot,
-  // DialogTitle,
-  // DialogTrigger,
-  DialogBackdrop,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuContextTrigger,
+} from '@/components/ui/menu'
 import { Tooltip } from '@/components/ui/tooltip'
 import { Toaster, toaster } from '@/components/ui/toaster'
 import {
@@ -53,7 +41,6 @@ import {
   CollectionData,
   EmbeddingsData,
   EmbeddingsDataValueType,
-  Metadata,
   State,
 } from '../types'
 import {
@@ -73,15 +60,11 @@ import {
 import {
   ArrowBackIcon,
   ArrowForwardIcon,
-  CheckCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CloseIcon,
   RepeatIcon,
-  WarningTwoIcon,
 } from '@chakra-ui/icons'
 import { EmptyState } from '@/components/ui/empty-state'
-import { GoInbox } from 'react-icons/go'
 import {
   FiCheck,
   FiClipboard,
@@ -103,6 +86,24 @@ import { TauriCommand, LOCAL_STORAGE_KEY_PREFIX } from '../types.ts'
 import { updateCollection } from '@/slices/currentCollectionSlice.ts'
 import { updateMenu } from '@/slices/currentMenuSlice.ts'
 import { useLocalStorage } from '@uidotdev/usehooks'
+import {
+  CreateCollectionDialog,
+  CollectionDialog,
+  ErrorDisplay,
+  NoDataDisplay,
+  LoadingDataDisplay,
+} from '@/components/collection_components'
+import {
+  DialogActionTrigger,
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog.tsx'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
 const TERMINAL_HEIGHT_KEY = `${LOCAL_STORAGE_KEY_PREFIX}-terminal-height`
@@ -123,7 +124,6 @@ const Collections: React.FC = () => {
   )
   const [embeddings, setEmbeddings] = React.useState<EmbeddingsData[]>([])
   const [collectionId, setCollectionId] = React.useState<string | null>(null)
-  const [metadata, setMetadata] = React.useState<Metadata>({})
   const [loading, setLoading] = React.useState(false)
   const [tableLoading, setTableLoading] = React.useState(true)
   const [error, setError] = useState<string | undefined>()
@@ -143,13 +143,15 @@ const Collections: React.FC = () => {
     onOpen: onOpenCreateCollection,
     onClose: onCloseCreateCollection,
   } = useDisclosure()
+  const currentContextCollection = useRef('')
   const [collections, setCollections] = useState<
-    { id: number; name: string; isFavorite: boolean }[]
+    { id: string; name: string; isFavorite: boolean }[]
   >([])
   const [collectionFilter, setCollectionFilter] = useState('')
   const [favoriteCollections, setFavoriteCollections] = useLocalStorage<
     string[]
   >(`${FAVORITE_COLLECTIONS_KEY}:${url}`, [])
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   const navRef = useRef<HTMLDivElement>(null)
 
   const initialHeight = parseFloat(
@@ -239,7 +241,7 @@ const Collections: React.FC = () => {
   }, [table])
 
   async function fetchCollections() {
-    const result = await invokeWrapper<{ id: number; name: string }[]>(
+    const result = await invokeWrapper<{ id: string; name: string }[]>(
       TauriCommand.FETCH_COLLECTIONS,
     )
     match(result)
@@ -263,6 +265,31 @@ const Collections: React.FC = () => {
     } else {
       setFavoriteCollections([...favoriteCollections, name])
     }
+  }
+
+  const deleteCollection = async (collectionName: string) => {
+    const result = await invokeWrapper<void>(TauriCommand.DELETE_COLLECTION, {
+      collectionName,
+    })
+
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        toaster.create({
+          title: 'Failed to delete collection',
+          type: 'error',
+          duration: 2000,
+        })
+      })
+      .with({ type: 'success' }, async () => {
+        toaster.create({
+          title: `Collection ${collectionName} deleted`,
+          type: 'success',
+          duration: 2000,
+        })
+        await fetchCollections()
+      })
+      .exhaustive()
   }
 
   useEffect(() => {
@@ -290,7 +317,6 @@ const Collections: React.FC = () => {
         })
         .with({ type: 'success' }, ({ result }) => {
           setCollectionId(result.id)
-          setMetadata(result.metadata)
         })
         .exhaustive()
     }
@@ -362,6 +388,7 @@ const Collections: React.FC = () => {
       <Stack direction={'row'} gap={0} maxH={'100vh'}>
         <Box height={'100vh'}>
           <Box pl="4" mt="2" width={COLLECTION_NAV_WIDTH}>
+            <Toaster />
             <Stack
               direction={'row'}
               justifyContent={'center'}
@@ -380,6 +407,7 @@ const Collections: React.FC = () => {
               <CreateCollectionDialog
                 open={openCreateCollection}
                 onClose={onCloseCreateCollection}
+                fetchCollections={fetchCollections}
               />
               <Icon
                 boxSize={5}
@@ -401,7 +429,15 @@ const Collections: React.FC = () => {
                 <RepeatIcon />
               </Icon>
             </Stack>
-
+            {currentContextCollection.current && (
+              <CollectionDialog
+                isOpen={open}
+                onOpen={onOpen}
+                onClose={onClose}
+                role={'info'}
+                collectionName={currentContextCollection.current}
+              />
+            )}
             <Box
               overflowY={'scroll'}
               style={{
@@ -409,38 +445,106 @@ const Collections: React.FC = () => {
               }}
               mt={2}
             >
-              {collections
-                .map((collection) => {
-                  return {
-                    ...collection,
-                    isFavorite: favoriteCollections.includes(collection.name),
-                  }
-                }) // add isFavorite property
-                .filter((value) => value.name.includes(collectionFilter)) // filter by collection name
-                .sort((a, b) => {
-                  if (a.isFavorite && !b.isFavorite) {
-                    return -1
-                  }
-                  if (!a.isFavorite && b.isFavorite) {
-                    return 1
-                  }
-                  return 0
-                }) // sort by favorite
-                .map((collection) => (
-                  <CollectionNavItem
-                    key={collection.id}
-                    name={collection.name}
-                    isFavorite={collection.isFavorite}
-                    onFavorite={onFavoriteCollection}
-                  >
-                    <Tooltip
-                      content={`${collection.name}`}
-                      aria-label="A tooltip"
+              <MenuRoot>
+                {collections
+                  .map((collection) => {
+                    return {
+                      ...collection,
+                      isFavorite: favoriteCollections.includes(collection.name),
+                    }
+                  }) // add isFavorite property
+                  .filter((value) => value.name.includes(collectionFilter)) // filter by collection name
+                  .sort((a, b) => {
+                    if (a.isFavorite && !b.isFavorite) {
+                      return -1
+                    }
+                    if (!a.isFavorite && b.isFavorite) {
+                      return 1
+                    }
+                    return 0
+                  }) // sort by favorite
+                  .map((collection) => (
+                    <MenuContextTrigger
+                      asChild
+                      key={collection.id}
+                      onContextMenu={() => {
+                        currentContextCollection.current = collection.name
+                      }}
+                      onClick={() => {
+                        setSelectedCollections((prev) => {
+                          if (prev.includes(collection.id)) {
+                            return prev.filter((id) => id !== collection.id)
+                          } else {
+                            return [...prev, collection.id]
+                          }
+                        })
+                        console.log(selectedCollections)
+                      }}
                     >
-                      <Text truncate>{collection.name}</Text>
-                    </Tooltip>
-                  </CollectionNavItem>
-                ))}
+                      <CollectionNavItem
+                        name={collection.name}
+                        isFavorite={collection.isFavorite}
+                        onFavorite={onFavoriteCollection}
+                        isSelected={selectedCollections.includes(collection.id)}
+                      >
+                        <Tooltip
+                          content={`${collection.name}`}
+                          aria-label="A tooltip"
+                        >
+                          <Text truncate>{collection.name}</Text>
+                        </Tooltip>
+                      </CollectionNavItem>
+                    </MenuContextTrigger>
+                  ))}
+                <MenuContent>
+                  <MenuItem
+                    value={'info'}
+                    onClick={() => {
+                      onOpen()
+                    }}
+                  >
+                    Collection Info
+                  </MenuItem>
+                  <DialogRoot role={'alertdialog'}>
+                    <DialogTrigger asChild>
+                      <MenuItem
+                        value={'delete'}
+                        color="fg.error"
+                        _hover={{ bg: 'bg.error', color: 'fg.error' }}
+                      >
+                        Delete Collection
+                      </MenuItem>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Are you sure?</DialogTitle>
+                      </DialogHeader>
+                      <DialogBody>
+                        <p>
+                          This action cannot be undone. This will permanently
+                          delete the collection.
+                        </p>
+                      </DialogBody>
+                      <DialogFooter>
+                        <DialogActionTrigger asChild>
+                          <Button variant="outline">Cancel</Button>
+                        </DialogActionTrigger>
+                        <DialogActionTrigger asChild>
+                          <Button
+                            buttonType="critical"
+                            onClick={() => {
+                              deleteCollection(currentContextCollection.current)
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </DialogActionTrigger>
+                      </DialogFooter>
+                      <DialogCloseTrigger />
+                    </DialogContent>
+                  </DialogRoot>
+                </MenuContent>
+              </MenuRoot>
             </Box>
           </Box>
         </Box>
@@ -514,23 +618,6 @@ const Collections: React.FC = () => {
                       </Badge>
                     </Tooltip>
 
-                    <CollectionMetadataModal
-                      isOpen={open}
-                      onOpen={onOpen}
-                      onClose={onClose}
-                      metadata={metadata}
-                    />
-                    <Badge
-                      colorPalette="teal"
-                      fontSize={'1em'}
-                      ml={2}
-                      mr={2}
-                      borderRadius={'10px'}
-                      onClick={onOpen}
-                      data-testid="collection-metadata-badge"
-                    >
-                      Metadata
-                    </Badge>
                     <Badge
                       colorPalette="blue"
                       fontSize={'1em'}
@@ -561,7 +648,6 @@ const Collections: React.FC = () => {
                   whiteSpace="normal"
                   data-testid={'data-view-table'}
                 >
-                  <Toaster />
                   <CKTable.Root size="sm" variant="line">
                     <CKTable.Header>
                       {table.getHeaderGroups().map((headerGroup, hgIndex) => {
@@ -829,69 +915,6 @@ const Splitter = ({ id = 'drag-bar', dir, isDragging, ...props }: any) => {
   )
 }
 
-const NoDataDisplay = () => {
-  return (
-    <Flex
-      direction="column"
-      p={4}
-      align="center"
-      justify="center"
-      bgColor="gray.100"
-      height={'100vh'}
-    >
-      <Icon boxSize="150px" mb={3} color="gray.400">
-        <GoInbox />
-      </Icon>
-      <Heading>Collection is empty</Heading>
-      <Text fontSize={'2xl'} color={'gray.500'}>
-        Upload more documents
-      </Text>
-    </Flex>
-  )
-}
-
-const LoadingDataDisplay = () => {
-  return (
-    <Flex
-      direction="column"
-      p={4}
-      align="center"
-      justify="center"
-      bgColor="gray.100"
-      height={'100%'}
-    >
-      <Spinner
-        size="xl"
-        boxSize="70px"
-        // thickness="0.25rem"
-        mb={3}
-        color="gray.400"
-      />
-      <Text>Fetching Embeddings</Text>
-    </Flex>
-  )
-}
-
-const ErrorDisplay = ({ message }: { message: string }) => {
-  const DEFAULT_ERROR_MESSAGE = 'Error'
-
-  return (
-    <Flex
-      direction="column"
-      p={4}
-      align="center"
-      justify="center"
-      bgColor="gray.100"
-      height={'100%'}
-    >
-      <Icon boxSize="150px" mb={3} color="red.500">
-        <WarningTwoIcon />
-      </Icon>
-      <Heading>{message ?? DEFAULT_ERROR_MESSAGE}</Heading>
-    </Flex>
-  )
-}
-
 const DetailView: React.FC<{
   detailViewContent: EmbeddingsDataValueType | undefined
 }> = ({ detailViewContent }) => {
@@ -965,7 +988,9 @@ const DetailView: React.FC<{
         </IconButton>
         <SimpleGrid columns={[1, 5, 10]} gap={10}>
           {content.map((value, index) => (
-            <Text key={index}>{value},</Text>
+            <Badge key={index} size={'lg'}>
+              {value}
+            </Badge>
           ))}
         </SimpleGrid>
       </Box>
@@ -977,44 +1002,12 @@ const DetailView: React.FC<{
     ))
 }
 
-const CollectionMetadataModal = ({
-  isOpen,
-  onClose,
-  metadata,
-}: {
-  isOpen: boolean
-  onOpen: () => void
-  onClose: () => void
-  metadata: Metadata
-}) => {
-  return (
-    <>
-      <DialogRoot open={isOpen}>
-        <DialogBackdrop />
-        <DialogContent>
-          <DialogHeader>Collection Metadata</DialogHeader>
-          <DialogCloseTrigger />
-          <DialogBody>
-            <JsonEditor data={metadata} />
-          </DialogBody>
-
-          <DialogFooter>
-            <Button colorScheme="blue" mr={3} onClick={onClose}>
-              Close
-            </Button>
-            <Button variant="ghost">Secondary Action</Button>
-          </DialogFooter>
-        </DialogContent>
-      </DialogRoot>
-    </>
-  )
-}
-
 interface CollectionNavItemProps extends FlexProps {
   children: ReactNode
   name: string
   isFavorite: boolean
   onFavorite: (name: string) => void
+  isSelected: boolean
 }
 
 const CollectionNavItem = ({
@@ -1022,6 +1015,7 @@ const CollectionNavItem = ({
   name,
   isFavorite,
   onFavorite,
+  isSelected,
   ...rest
 }: CollectionNavItemProps) => {
   const dispatch = useDispatch()
@@ -1050,6 +1044,7 @@ const CollectionNavItem = ({
         role="group"
         cursor="pointer"
         color="buttonBg"
+        background={isSelected ? 'var(--chakra-colors-collection-nav-hover-bg)' : ''}
         css={layoutCollectionNavsStyles}
         {...rest}
       >
@@ -1078,204 +1073,5 @@ const CollectionNavItem = ({
         )}
       </Flex>
     </Box>
-  )
-}
-
-const CreateCollectionDialog = ({
-  open,
-  onClose,
-}: {
-  open: boolean
-  onClose: () => void
-}) => {
-  const [status, setStatus] = useState<{
-    type: 'idle' | 'loading' | 'finished' | 'error'
-    message?: string
-  }>({
-    type: 'idle',
-  })
-  const [nameValid, setNameValid] = useState<boolean[] | null>(null)
-  const nameRef = useRef<HTMLInputElement>(null)
-  const metadataRef = useRef<HTMLTextAreaElement>(null)
-
-  const createCollection = async () => {
-    const collectionName = nameRef.current?.value || ''
-    const metadataString = metadataRef.current?.value
-    let metadata = undefined
-
-    if (metadataString) {
-      try {
-        metadata = JSON.parse(metadataString)
-      } catch (e) {
-        console.error(e)
-      }
-    }
-
-    const result = await invokeWrapper<boolean>(
-      TauriCommand.CREATE_COLLECTION,
-      {
-        collectionName,
-        metadata,
-      },
-    )
-
-    match(result)
-      .with({ type: 'error' }, ({ error }) => {
-        console.error(error)
-        setStatus({ type: 'error', message: error })
-      })
-      .with({ type: 'success' }, ({ result }) => {
-        setStatus({ type: 'finished' })
-        // fetchCollections()
-        console.log(result)
-      })
-  }
-
-  const validateName = () => {
-    const validList = []
-
-    const value = nameRef.current?.value || ''
-
-    // 3-63 characters
-    validList.push(value.length >= 3 && value.length <= 63)
-
-    // starts and ends with an alphanumeric character, otherwise contains only alphanumeric characters, underscores or hyphens
-    validList.push(/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/.test(value))
-
-    // contains no two consecutive periods
-    validList.push(!/\.\./.test(value))
-
-    // not a valid IPv4 address
-    validList.push(!/\d+\.\d+\.\d+\.\d+/.test(value))
-
-    setNameValid(validList)
-  }
-
-  const isNameValid = nameValid != null && nameValid.every((value) => value)
-
-  return (
-    <>
-      <DialogRoot
-        open={open}
-        modal
-        closeOnEscape
-        unmountOnExit
-        scrollBehavior={'inside'}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Collection</DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <>
-              {match(status)
-                .with({ type: 'idle' }, () => (
-                  <>
-                    <Fieldset.Root invalid={!isNameValid}>
-                      <Stack>
-                        <Fieldset.Legend>collection details</Fieldset.Legend>
-                        <Fieldset.HelperText>
-                          Provide new collection&apos;s details below.
-                        </Fieldset.HelperText>
-                      </Stack>
-
-                      <Fieldset.Content>
-                        <Field label="Name" required>
-                          <Input
-                            type="text"
-                            placeholder="collection name"
-                            ref={nameRef}
-                            onChange={() => {
-                              validateName()
-                            }}
-                          />
-                          {nameValid != null && (
-                            <>
-                              <FieldHelperText
-                                color={nameValid[0] ? 'green' : 'red'}
-                                title={nameValid[0] ? '0-valid' : '0-invalid'}
-                              >
-                                • contains 3-63 characters
-                              </FieldHelperText>
-                              <FieldHelperText
-                                color={nameValid[1] ? 'green' : 'red'}
-                                title={nameValid[1] ? '1-valid' : '1-invalid'}
-                              >
-                                • starts and ends with an alphanumeric
-                                character, otherwise contains only alphanumeric
-                                characters, underscores or hyphens
-                              </FieldHelperText>
-                              <FieldHelperText
-                                color={nameValid[2] ? 'green' : 'red'}
-                                title={nameValid[2] ? '2-valid' : '2-invalid'}
-                              >
-                                • contains no two consecutive periods
-                              </FieldHelperText>
-                              <FieldHelperText
-                                color={nameValid[3] ? 'green' : 'red'}
-                                title={nameValid[3] ? '3-valid' : '3-invalid'}
-                              >
-                                • not a valid IPv4 address
-                              </FieldHelperText>
-                            </>
-                          )}
-                        </Field>
-
-                        <Field label="Metadata">
-                          <Textarea placeholder="metadata" ref={metadataRef} />
-                        </Field>
-                      </Fieldset.Content>
-                    </Fieldset.Root>
-                  </>
-                ))
-                .with({ type: 'loading' }, () => (
-                  <Box textAlign={'center'}>
-                    <Spinner size={'xl'} />
-                    <Text>Loading...</Text>
-                  </Box>
-                ))
-                .with({ type: 'finished' }, () => (
-                  <Box textAlign={'center'} title="finished">
-                    <Icon w={16} h={16} color="green.500" mt={4}>
-                      <CheckCircleIcon />
-                    </Icon>
-                  </Box>
-                ))
-                .with({ type: 'error' }, ({ message }) => (
-                  <Box mt={4} textAlign={'center'}>
-                    <Icon w={16} h={16} color="red.500">
-                      <CloseIcon />
-                    </Icon>
-                    <Text color={'red.500'} mt={2}>
-                      {message}
-                    </Text>
-                    <Button
-                      onClick={() =>
-                        setStatus({
-                          type: 'idle',
-                        })
-                      }
-                    >
-                      Retry
-                    </Button>
-                  </Box>
-                ))
-                .exhaustive()}
-            </>
-          </DialogBody>
-          <DialogFooter display={status.type === 'idle' ? '' : 'none'}>
-            <Button onClick={onClose}>Cancel</Button>
-            <Button
-              loading={status.type === 'loading'}
-              disabled={!isNameValid}
-              onClick={createCollection}
-            >
-              create
-            </Button>
-          </DialogFooter>
-          <DialogCloseTrigger onClick={onClose} border={0} />
-        </DialogContent>
-      </DialogRoot>
-    </>
   )
 }

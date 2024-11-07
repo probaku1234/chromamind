@@ -50,6 +50,9 @@ const customConfig = defineConfig({
         buttonSelectedBg: {
           value: 'var(--chakra-colors-brand-300)',
         },
+        collectionNavHoverBg: {
+          value: 'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
+        }
       },
     },
     recipes: {
@@ -85,7 +88,7 @@ const customConfig = defineConfig({
         base: {
           _hover: {
             background:
-              'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
+              'var(--chakra-colors-collection-nav-hover-bg)', // TODO: token this style
           },
         },
       },

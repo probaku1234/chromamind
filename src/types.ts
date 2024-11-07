@@ -19,6 +19,7 @@ export type Metadata = {
 export type CollectionData = {
   id: string
   metadata: Metadata
+  configuration: Record<string, never>
 }
 
 export type EmbeddingsDataValueType = EmbeddingsData[keyof EmbeddingsData]
@@ -36,6 +37,7 @@ export enum TauriCommand {
   FETCH_COLLECTIONS = 'fetch_collections',
   CHECK_TENANT_AND_DATABASE = 'check_tenant_and_database',
   CREATE_COLLECTION = 'create_collection',
+  DELETE_COLLECTION = 'delete_collection',
 }
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'

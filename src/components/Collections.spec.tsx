@@ -210,7 +210,6 @@ describe('Collections', () => {
       })
 
       expect(screen.getByText(`collection id`)).toBeInTheDocument()
-      expect(screen.getByText(`Metadata`)).toBeInTheDocument()
       expect(
         screen.getByText(`total embeddings: ${totalRows}`),
       ).toBeInTheDocument()
@@ -253,34 +252,6 @@ describe('Collections', () => {
       )
 
       expect(copyClipboard).toHaveBeenCalled()
-    })
-
-    test('should open modal when metadata badge clicked', async () => {
-      mockIPC(mockCommandHandler)
-
-      // @ts-ignore
-      const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
-
-      renderWithProvider(
-        <Provider>
-          <Collections />
-        </Provider>,
-        {
-          initialState: {
-            currentMenu: 'Collections',
-            currentCollection: 'test',
-          },
-        },
-      )
-
-      await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
-        timeout: 5000,
-      })
-
-      fireEvent.click(screen.getByTestId('collection-metadata-badge'))
-      const pika = await screen.findByText('Collection Metadata')
-      // expect(screen.getByText('Collection Metadata')).toBeInTheDocument()
-      expect(pika).not.toBeNull()
     })
   })
 
@@ -1011,6 +982,213 @@ describe('Collections', () => {
 
         expect(screen.getByText('Retry')).toBeInTheDocument()
         expect(screen.getByText(errorMessage)).toBeInTheDocument()
+      })
+    })
+
+    describe('context menu', () => {
+      test('should render context menu', async () => {
+        mockIPC(mockCommandHandler)
+
+        // @ts-ignore
+        const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+        renderWithProvider(
+          <Provider>
+            <Collections />
+          </Provider>,
+          {
+            initialState: {
+              currentMenu: 'Settings',
+              currentCollection: 'test',
+            },
+          },
+        )
+
+        await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+          timeout: 5000,
+        })
+
+        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[1])
+
+        const menu = await screen.findByText('Collection Info')
+        expect(menu).toBeInTheDocument()
+      })
+
+      test('should show collection info when clicked', async () => {
+        const mockCommandHandler = <T,>(
+          cmd: string,
+          _: InvokeArgs | undefined,
+        ): Promise<T> => {
+          return match(cmd)
+            .with(TauriCommand.FETCH_COLLECTIONS, () =>
+              Promise.resolve(testCollections as unknown as T),
+            )
+            .with('plugin:window|title', () =>
+              Promise.resolve(`chromamind: ${testWindowTitle}` as unknown as T),
+            )
+            .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+              Promise.resolve({
+                id: 1,
+                metadata: {},
+              } as unknown as T),
+            )
+            .with(TauriCommand.FETCH_ROW_COUNT, () =>
+              Promise.resolve(2 as unknown as T),
+            )
+            .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+              Promise.resolve([
+                {
+                  id: 1,
+                  metadata: {
+                    foo: 'bar',
+                  },
+                  document: 'test document 1',
+                  embedding: [1, 2, 3],
+                },
+                {
+                  id: 2,
+                  metadata: {
+                    foo: 'bar',
+                  },
+                  document: 'test document 2',
+                  embedding: [1, 2, 3],
+                },
+              ] as unknown as T),
+            )
+            .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+              Promise.resolve({} as unknown as T),
+            )
+            .otherwise(() => {
+              throw new Error(`Unexpected command: ${cmd}`)
+            })
+        }
+
+        mockIPC(mockCommandHandler)
+
+        // @ts-ignore
+        const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+        renderWithProvider(
+          <Provider>
+            <Collections />
+          </Provider>,
+          {
+            initialState: {
+              currentMenu: 'Settings',
+              currentCollection: 'test',
+            },
+          },
+        )
+
+        await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+          timeout: 5000,
+        })
+
+        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[1])
+
+        const menu = await screen.findByText('Collection Info')
+
+        fireEvent.click(menu)
+
+        await waitFor(() => expect(mock).toHaveBeenCalled(), {
+          timeout: 5000,
+        })
+
+        expect(screen.getByText('Configuration')).toBeInTheDocument()
+      })
+
+      // FIXME: this test is not working
+      test.skip('should call delete collection when clicked', async () => {
+        const mockCommandHandler = <T,>(
+          cmd: string,
+          _: InvokeArgs | undefined,
+        ): Promise<T> => {
+          console.log(cmd, _)
+          return (
+            match(cmd)
+              .with(TauriCommand.FETCH_COLLECTIONS, () =>
+                Promise.resolve(testCollections as unknown as T),
+              )
+              .with('plugin:window|title', () =>
+                Promise.resolve(
+                  `chromamind: ${testWindowTitle}` as unknown as T,
+                ),
+              )
+              .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+                Promise.resolve({
+                  id: 1,
+                  metadata: {},
+                } as unknown as T),
+              )
+              .with(TauriCommand.FETCH_ROW_COUNT, () =>
+                Promise.resolve(2 as unknown as T),
+              )
+              .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+                Promise.resolve([
+                  {
+                    id: 1,
+                    metadata: {
+                      foo: 'bar',
+                    },
+                    document: 'test document 1',
+                    embedding: [1, 2, 3],
+                  },
+                  {
+                    id: 2,
+                    metadata: {
+                      foo: 'bar',
+                    },
+                    document: 'test document 2',
+                    embedding: [1, 2, 3],
+                  },
+                ] as unknown as T),
+              )
+              // .with(TauriCommand.DELETE_COLLECTION, (asdf: never) => {
+              //   console.log(asdf)
+              //   return Promise.resolve({} as unknown as T)
+              // })
+              .otherwise(() => {
+                throw new Error(`Unexpected command: ${cmd}`)
+              })
+          )
+        }
+
+        mockIPC(mockCommandHandler)
+
+        // @ts-ignore
+        const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+        renderWithProvider(
+          <Provider>
+            <Collections />
+          </Provider>,
+          {
+            initialState: {
+              currentMenu: 'Settings',
+              currentCollection: 'test',
+            },
+          },
+        )
+
+        await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+          timeout: 5000,
+        })
+
+        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[1])
+
+        const menu = await screen.findByText('Delete Collection')
+
+        fireEvent.click(menu)
+
+        const sex = await screen.findByText('Are you sure?')
+        screen.debug(sex)
+        const button = await screen.findByText('This action')
+        screen.debug(button)
+        fireEvent.click(screen.getByText('Delete'))
+
+        await waitFor(() => expect(mock).toHaveBeenCalled(), {
+          timeout: 5000,
+        })
       })
     })
   })
