@@ -1,7 +1,7 @@
 import { TauriCommand } from '@/types'
 import { invokeWrapper } from '@/utils/invokeTauri'
 // @ts-expect-error react is not used in this file
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 import {
   DialogBody,

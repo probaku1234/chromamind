@@ -611,10 +611,10 @@ fn create_collection(
 }
 
 #[tauri::command]
-fn delete_collection(collection_name: &str, state: State<AppState>) -> Result<(), String> {
+fn delete_collection(collection_names: Vec<String>, state: State<AppState>) -> Result<(), String> {
     log::info!(
-        "(delete_collection) Deleting collection: {}",
-        collection_name
+        "(delete_collection) Deleting collection: {:?}",
+        collection_names
     );
     let client = state.client.lock().unwrap();
 
@@ -625,16 +625,21 @@ fn delete_collection(collection_name: &str, state: State<AppState>) -> Result<()
 
     let client = client.as_ref().unwrap();
 
-    let result = client.delete_collection(collection_name);
+    let mut errors = vec![];
+    let _ = collection_names
+        .iter()
+        .map(|collection_name| client.delete_collection(collection_name))
+        .filter_map(|r| r.map_err(|e| errors.push(e)).ok())
+        .collect::<Vec<_>>();
 
-    if result.is_err() {
+    if !errors.is_empty() {
         log::error!(
             "(delete_collection) Error deleting collection: {}",
-            result.as_ref().err().unwrap()
+            errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
         );
         return Err(format!(
             "Error deleting collection: {}",
-            result.as_ref().err().unwrap()
+            errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
         ));
     }
 
@@ -1673,7 +1678,7 @@ mod tests {
             &webview,
             TauriCommand::DeleteCollection.as_str(),
             json!({
-                "collectionName": "test_collection"
+                "collectionNames": vec!["test_collection"]
             }),
         );
 
@@ -1710,7 +1715,7 @@ mod tests {
             &webview,
             TauriCommand::DeleteCollection.as_str(),
             json!({
-                "collectionName": collection_name
+                "collectionNames": vec![collection_name]
             }),
         );
 

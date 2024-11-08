@@ -151,7 +151,7 @@ const Collections: React.FC = () => {
   const [favoriteCollections, setFavoriteCollections] = useLocalStorage<
     string[]
   >(`${FAVORITE_COLLECTIONS_KEY}:${url}`, [])
-  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
+  const [selectedCollectionIds, setSelectedCollections] = useState<string[]>([])
   const navRef = useRef<HTMLDivElement>(null)
 
   const initialHeight = parseFloat(
@@ -268,8 +268,25 @@ const Collections: React.FC = () => {
   }
 
   const deleteCollection = async (collectionName: string) => {
+    const names = selectedCollectionIds.map(
+      (id) => collections.find((value) => value.id == id)?.name,
+    )
+    if (names.includes(undefined)) {
+      console.error('Collection not found', selectedCollectionIds, names)
+      toaster.create({
+        title: 'Failed to delete collection',
+        type: 'error',
+        duration: 2000,
+      })
+      throw new Error('Collection not found')
+    }
     const result = await invokeWrapper<void>(TauriCommand.DELETE_COLLECTION, {
-      collectionName,
+      collectionNames:
+        selectedCollectionIds.length > 0
+          ? selectedCollectionIds.map(
+              (id) => collections.find((value) => value.id == id)?.name,
+            )
+          : [collectionName],
     })
 
     match(result)
@@ -282,14 +299,20 @@ const Collections: React.FC = () => {
         })
       })
       .with({ type: 'success' }, async () => {
+        const message =
+          selectedCollectionIds.length > 0
+            ? `${selectedCollectionIds.length} collections deleted`
+            : `Collection ${collectionName} deleted`
         toaster.create({
-          title: `Collection ${collectionName} deleted`,
+          title: message,
           type: 'success',
           duration: 2000,
         })
         await fetchCollections()
       })
       .exhaustive()
+
+    setSelectedCollections([])
   }
 
   useEffect(() => {
@@ -478,14 +501,16 @@ const Collections: React.FC = () => {
                             return [...prev, collection.id]
                           }
                         })
-                        console.log(selectedCollections)
+                        console.log(selectedCollectionIds)
                       }}
                     >
                       <CollectionNavItem
                         name={collection.name}
                         isFavorite={collection.isFavorite}
                         onFavorite={onFavoriteCollection}
-                        isSelected={selectedCollections.includes(collection.id)}
+                        isSelected={selectedCollectionIds.includes(
+                          collection.id,
+                        )}
                       >
                         <Tooltip
                           content={`${collection.name}`}
@@ -1044,7 +1069,9 @@ const CollectionNavItem = ({
         role="group"
         cursor="pointer"
         color="buttonBg"
-        background={isSelected ? 'var(--chakra-colors-collection-nav-hover-bg)' : ''}
+        background={
+          isSelected ? 'var(--chakra-colors-collection-nav-hover-bg)' : ''
+        }
         css={layoutCollectionNavsStyles}
         {...rest}
       >
