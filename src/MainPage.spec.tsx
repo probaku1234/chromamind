@@ -98,7 +98,7 @@ describe('MainPage', () => {
       timeout: 5000,
     })
 
-    const box = await screen.findByText('Toggle color mode')
+    const box = await screen.findByText('Reset Chroma')
     expect(box).toBeInTheDocument()
   })
 })

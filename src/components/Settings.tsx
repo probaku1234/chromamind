@@ -5,9 +5,7 @@ import {
   Heading,
   Text,
   useDisclosure,
-  Separator,
 } from '@chakra-ui/react'
-import { Switch } from '@/components/ui/switch'
 import { toaster, Toaster } from '@/components/ui/toaster'
 import {
   DialogBody,
@@ -23,6 +21,8 @@ import { Button } from '@/components/ui/button'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
 import { TauriCommand } from '../types.ts'
 import { match } from 'ts-pattern'
+
+const MARGIN = 2
 
 const Settings: React.FC = () => {
   const { open, onOpen, onClose } = useDisclosure()
@@ -61,15 +61,8 @@ const Settings: React.FC = () => {
       <Heading as="h1" my={4} mt={0}>
         Settings
       </Heading>
-      <Box display="flex" alignItems="center">
-        <Text>Toggle color mode</Text>
-        <Switch id="email-alerts" onChange={() => {}} size={'lg'} mr={1} />
-      </Box>
-
-      <Separator mt={4} mb={4} />
-
-      <Flex>
-        <Button colorScheme="red" onClick={onOpen} mr={4}>
+      <Flex m={MARGIN}>
+        <Button onClick={onOpen} mr={4} buttonType="critical" size={'sm'}>
           Reset Chroma
         </Button>
         <Text fontSize={'xl'} alignSelf={'center'}>
