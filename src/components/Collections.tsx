@@ -604,7 +604,7 @@ const Collections: React.FC = () => {
             pr={2}
             width={'full'}
           >
-            <Box className={'flex grow'} overflowY={'auto'}>
+            <Box className={'flex grow'} overflowY={'scroll'}>
               <Box width={'100%'}>
                 {collectionId ? (
                   <Flex>
