@@ -52,89 +52,84 @@ const CollectionDialog = ({
   }
 
   useEffect(() => {
-    if (role == 'info') {
+    // Fetch collection data when dialog is opened
+    if (isOpen && role == 'info') {
       fetchCollectionData()
     }
-  }, [])
+  }, [isOpen])
 
   return (
-    <>
-      <DialogRoot open={isOpen} scrollBehavior={'inside'}>
-        <DialogBackdrop />
-        <DialogContent>
-          {match(role)
-            .with('info', () => (
-              <Show
-                when={collectionData !== null}
-                fallback={
-                  <VStack colorPalette="teal">
-                    <Spinner color="brand.500" />
-                    <Text color="brand.500">Loading...</Text>
-                  </VStack>
-                }
-              >
-                <DialogHeader>
-                  <DialogTitle>
-                    <Editable.Root
-                      textAlign="center"
-                      defaultValue={collectionName}
-                      activationMode="dblclick"
-                      fontSize={'large'}
-                      onValueChange={(value) => {
-                        console.log(value)
-                      }}
-                    >
-                      <Editable.Preview />
-                      <Editable.Input />
-                    </Editable.Root>
-                  </DialogTitle>
-                </DialogHeader>
-                <DialogCloseTrigger onClick={onClose} />
-                <DialogBody>
-                  <DataListRoot>
-                    <DataListItem label="ID" value={collectionData?.id} />
-                    <DataListItem
-                      label="Configuration"
-                      value={
-                        <pre>
-                          {JSON.stringify(
-                            collectionData?.configuration,
-                            null,
-                            2,
-                          )}
-                        </pre>
-                      }
-                    />
-                    <DataListItem
-                      label="Metadata"
-                      value={
-                        <Editable.Root
-                          textAlign="start"
-                          defaultValue={JSON.stringify(
-                            collectionData?.metadata,
-                            null,
-                            2,
-                          )}
-                          activationMode="dblclick"
-                        >
-                          <Editable.Preview />
-                          <Editable.Input />
-                        </Editable.Root>
-                      }
-                    />
-                  </DataListRoot>
-                </DialogBody>
-                <DialogFooter>
-                  <Button onClick={onClose}>Close</Button>
-                </DialogFooter>
-              </Show>
-            ))
-            .otherwise(() => (
-              <></>
-            ))}
-        </DialogContent>
-      </DialogRoot>
-    </>
+    <DialogRoot open={isOpen} scrollBehavior={'inside'}>
+      <DialogBackdrop />
+      <DialogContent>
+        {match(role)
+          .with('info', () => (
+            <Show
+              when={collectionData !== null}
+              fallback={
+                <VStack colorPalette="teal">
+                  <Spinner color="brand.500" />
+                  <Text color="brand.500">Loading...</Text>
+                </VStack>
+              }
+            >
+              <DialogHeader>
+                <DialogTitle>
+                  <Editable.Root
+                    textAlign="center"
+                    defaultValue={collectionName}
+                    activationMode="dblclick"
+                    fontSize={'large'}
+                    onValueChange={(value) => {
+                      console.log(value)
+                    }}
+                  >
+                    <Editable.Preview />
+                    <Editable.Input />
+                  </Editable.Root>
+                </DialogTitle>
+              </DialogHeader>
+              <DialogCloseTrigger onClick={onClose} />
+              <DialogBody>
+                <DataListRoot>
+                  <DataListItem label="ID" value={collectionData?.id} />
+                  <DataListItem
+                    label="Configuration"
+                    value={
+                      <pre>
+                        {JSON.stringify(collectionData?.configuration, null, 2)}
+                      </pre>
+                    }
+                  />
+                  <DataListItem
+                    label="Metadata"
+                    value={
+                      <Editable.Root
+                        textAlign="start"
+                        defaultValue={JSON.stringify(
+                          collectionData?.metadata,
+                          null,
+                          2,
+                        )}
+                        activationMode="dblclick"
+                      >
+                        <Editable.Preview />
+                        <Editable.Input />
+                      </Editable.Root>
+                    }
+                  />
+                </DataListRoot>
+              </DialogBody>
+              <DialogFooter>
+                <Button onClick={onClose}>Close</Button>
+              </DialogFooter>
+            </Show>
+          ))
+          .otherwise(() => (
+            <></>
+          ))}
+      </DialogContent>
+    </DialogRoot>
   )
 }
 
