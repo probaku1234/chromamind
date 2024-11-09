@@ -2,6 +2,6 @@
   border-radius: 5px;
   border-color: gray;
   border-width: 1px;
-  margin: 5px;
+  margin: var(--chakra-spacing-1);
   padding: 4px;
 }
