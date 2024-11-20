@@ -41,3 +41,5 @@ export enum TauriCommand {
 }
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'
+export const CUSTOM_THEME_KEY = `${LOCAL_STORAGE_KEY_PREFIX}-custom-theme`
+export const CUSTOM_THEME_PREVIEW_KEY = `${LOCAL_STORAGE_KEY_PREFIX}-custom-theme-preview`
