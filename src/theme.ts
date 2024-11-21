@@ -102,7 +102,7 @@ export const defaultCustomConfig: SystemConfig = {
   },
 }
 
-const themeConfig = JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY) || '{}')
+const themeConfig: SystemConfig = JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY) ?? '{}')
 const customConfig = defineConfig({ ...defaultCustomConfig, ...themeConfig })
 
 export const system = createSystem(defaultConfig, customConfig)

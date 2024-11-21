@@ -9,6 +9,7 @@ import {
   defineConfig,
   createSystem,
   defaultConfig,
+  SystemConfig,
 } from '@chakra-ui/react'
 import { toaster, Toaster } from '@/components/ui/toaster'
 import {
@@ -83,7 +84,7 @@ const Settings: React.FC = () => {
 
   const onChange = debounce((text: string) => {
     try {
-      const obj = JSON.parse(text)
+      const obj: SystemConfig = JSON.parse(text)
 
       localStorage.setItem(
         CUSTOM_THEME_PREVIEW_KEY,
@@ -99,7 +100,7 @@ const Settings: React.FC = () => {
 
   const onSaveClick = () => {
     try {
-      const obj = JSON.parse(text)
+      const obj: SystemConfig = JSON.parse(text)
 
       localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(obj, null, 2))
       location.reload()
@@ -216,7 +217,7 @@ const Settings: React.FC = () => {
                         container: frameContext.document?.head,
                         key: 'css',
                       })
-                      const previewThemeConfig = JSON.parse(
+                      const previewThemeConfig: SystemConfig = JSON.parse(
                         localStorage.getItem(CUSTOM_THEME_PREVIEW_KEY) || '{}',
                       )
                       const previewConfig = defineConfig({
