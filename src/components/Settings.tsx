@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, ReactNode } from 'react'
 import {
   Box,
   Flex,
@@ -10,6 +10,9 @@ import {
   createSystem,
   defaultConfig,
   SystemConfig,
+  Spacer,
+  BoxProps,
+  FlexProps,
 } from '@chakra-ui/react'
 import { toaster, Toaster } from '@/components/ui/toaster'
 import {
@@ -125,23 +128,138 @@ const Settings: React.FC = () => {
   return (
     <Box>
       <Toaster />
-      <Heading as="h1" my={4} mt={0}>
+      <Heading ml={MARGIN} pt={MARGIN}>
         Settings
       </Heading>
-      <Flex m={MARGIN}>
-        <Button onClick={onOpen} mr={4} buttonType="critical" size={'sm'}>
-          Reset Chroma
-        </Button>
-        <Text fontSize={'xl'} alignSelf={'center'}>
-          delete all collections and entries.
-        </Text>
-      </Flex>
+      <OptionBox
+        left={
+          <Box>
+            <Text alignSelf={'center'}>Theme</Text>
+            <Text fontSize={'xs'} color={'gray'}>
+              Edit the theme of the application. You can use the editor on the
+              left to edit the theme and see the preview on the right.
+            </Text>
+          </Box>
+        }
+        right={
+          <DialogRoot
+            size="cover"
+            placement="center"
+            motionPreset="slide-in-bottom"
+            lazyMount
+            unmountOnExit
+            closeOnInteractOutside={false}
+          >
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                Manage
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Theme</DialogTitle>
+              </DialogHeader>
+              <DialogBody>
+                <Flex height={'100%'}>
+                  <Box w={'1/2'}>
+                    <Editor
+                      height={'100%'}
+                      language="json"
+                      theme="light"
+                      defaultValue={value}
+                      options={{
+                        formatOnType: true,
+                        minimap: { scale: 10 },
+                        colorDecorators: true,
+                      }}
+                      onChange={(value) => {
+                        setText(value ?? '')
+                        onChange(value ?? '')
+                      }}
+                      onValidate={(markers) => {
+                        console.log(markers)
+                        setIsThemeError(true)
+                      }}
+                    />
+                  </Box>
 
+                  <Separator orientation="vertical" size={'lg'} />
+                  <Box w={'1/2'}>
+                    <Frame
+                      height={'100%'}
+                      width={'100%'}
+                      key={checksum}
+                      loading="lazy"
+                    >
+                      <FrameContextConsumer>
+                        {(frameContext) => {
+                          const cache = createCache({
+                            container: frameContext.document?.head,
+                            key: 'css',
+                          })
+                          const previewThemeConfig: SystemConfig = JSON.parse(
+                            localStorage.getItem(CUSTOM_THEME_PREVIEW_KEY) ||
+                              '{}',
+                          )
+                          const previewConfig = defineConfig({
+                            ...defaultCustomConfig,
+                            ...previewThemeConfig,
+                          })
+                          const previewSystem = createSystem(
+                            defaultConfig,
+                            previewConfig,
+                          )
+
+                          return (
+                            <CacheProvider value={cache}>
+                              <ChakraProvider value={previewSystem}>
+                                <ReduxProvider store={previewStore}>
+                                  <App />
+                                </ReduxProvider>
+                              </ChakraProvider>
+                            </CacheProvider>
+                          )
+                        }}
+                      </FrameContextConsumer>
+                    </Frame>
+                  </Box>
+                </Flex>
+              </DialogBody>
+              <DialogFooter>
+                <DialogActionTrigger asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogActionTrigger>
+                <Button disabled={isThemeError} onClick={onSaveClick}>
+                  Save
+                </Button>
+              </DialogFooter>
+              <DialogCloseTrigger />
+            </DialogContent>
+          </DialogRoot>
+        }
+      />
+      <OptionBox
+        left={
+          <Box>
+            <Text alignSelf={'center'}>
+              Delete all data including collections and embeddings.
+            </Text>
+            <Text fontSize={'xs'} color={'red'}>
+              The Chromadb must be reset enabled.
+            </Text>
+          </Box>
+        }
+        right={
+          <Button onClick={onOpen} buttonType="critical" size={'sm'}>
+            Reset Chroma
+          </Button>
+        }
+      />
       <DialogRoot open={open} role="alertdialog">
         <DialogBackdrop />
         {/* <DialogTrigger /> */}
         <DialogContent>
-          <DialogCloseTrigger />
+          <DialogCloseTrigger onClick={onClose} />
           <DialogHeader>
             <DialogTitle>Reset Database</DialogTitle>
           </DialogHeader>
@@ -161,100 +279,24 @@ const Settings: React.FC = () => {
           <DialogCloseTrigger />
         </DialogContent>
       </DialogRoot>
+    </Box>
+  )
+}
 
-      <DialogRoot
-        size="cover"
-        placement="center"
-        motionPreset="slide-in-bottom"
-        lazyMount
-        unmountOnExit
-        closeOnInteractOutside={false}
-      >
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" m={MARGIN}>
-            Edit Theme
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Theme</DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <Flex height={'100%'}>
-              <Box w={'1/2'}>
-                <Editor
-                  height={'100%'}
-                  language="json"
-                  theme="light"
-                  defaultValue={value}
-                  options={{
-                    formatOnType: true,
-                    minimap: { scale: 10 },
-                    colorDecorators: true,
-                  }}
-                  onChange={(value) => {
-                    setText(value ?? '')
-                    onChange(value ?? '')
-                  }}
-                  onValidate={(markers) => {
-                    console.log(markers)
-                    setIsThemeError(true)
-                  }}
-                />
-              </Box>
+interface OptionBoxProps {
+  left: ReactNode
+  right: ReactNode
+}
 
-              <Separator orientation="vertical" size={'lg'} />
-              <Box w={'1/2'}>
-                <Frame
-                  height={'100%'}
-                  width={'100%'}
-                  key={checksum}
-                  loading="lazy"
-                >
-                  <FrameContextConsumer>
-                    {(frameContext) => {
-                      const cache = createCache({
-                        container: frameContext.document?.head,
-                        key: 'css',
-                      })
-                      const previewThemeConfig: SystemConfig = JSON.parse(
-                        localStorage.getItem(CUSTOM_THEME_PREVIEW_KEY) || '{}',
-                      )
-                      const previewConfig = defineConfig({
-                        ...defaultCustomConfig,
-                        ...previewThemeConfig,
-                      })
-                      const previewSystem = createSystem(
-                        defaultConfig,
-                        previewConfig,
-                      )
-
-                      return (
-                        <CacheProvider value={cache}>
-                          <ChakraProvider value={previewSystem}>
-                            <ReduxProvider store={previewStore}>
-                              <App />
-                            </ReduxProvider>
-                          </ChakraProvider>
-                        </CacheProvider>
-                      )
-                    }}
-                  </FrameContextConsumer>
-                </Frame>
-              </Box>
-            </Flex>
-          </DialogBody>
-          <DialogFooter>
-            <DialogActionTrigger asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogActionTrigger>
-            <Button disabled={isThemeError} onClick={onSaveClick}>
-              Save
-            </Button>
-          </DialogFooter>
-          <DialogCloseTrigger />
-        </DialogContent>
-      </DialogRoot>
+const OptionBox = ({ left, right, ...rest }: OptionBoxProps) => {
+  return (
+    <Box {...rest}>
+      <Flex m={MARGIN}>
+        {left}
+        <Spacer />
+        {right}
+      </Flex>
+      <Separator />
     </Box>
   )
 }
