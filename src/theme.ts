@@ -1,6 +1,12 @@
-import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react'
+import {
+  createSystem,
+  defaultConfig,
+  defineConfig,
+  SystemConfig,
+} from '@chakra-ui/react'
+import { CUSTOM_THEME_KEY } from './types'
 
-const customConfig = defineConfig({
+export const defaultCustomConfig: SystemConfig = {
   globalCss: {
     ':root': {
       fontFamily: 'Inter, Avenir, Helvetica, Arial, sans-serif',
@@ -51,8 +57,9 @@ const customConfig = defineConfig({
           value: 'var(--chakra-colors-brand-300)',
         },
         collectionNavHoverBg: {
-          value: 'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
-        }
+          value:
+            'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
+        },
       },
     },
     recipes: {
@@ -87,13 +94,15 @@ const customConfig = defineConfig({
       layoutCollectionNavs: {
         base: {
           _hover: {
-            background:
-              'var(--chakra-colors-collection-nav-hover-bg)', // TODO: token this style
+            background: 'var(--chakra-colors-collection-nav-hover-bg)', // TODO: token this style
           },
         },
       },
     },
   },
-})
+}
+
+const themeConfig: SystemConfig = JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY) ?? '{}')
+const customConfig = defineConfig({ ...defaultCustomConfig, ...themeConfig })
 
 export const system = createSystem(defaultConfig, customConfig)
