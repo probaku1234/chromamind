@@ -11,8 +11,6 @@ import {
   defaultConfig,
   SystemConfig,
   Spacer,
-  BoxProps,
-  FlexProps,
 } from '@chakra-ui/react'
 import { toaster, Toaster } from '@/components/ui/toaster'
 import {
