@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test:frontend": "vitest",
-    "test:backend": "cd ./src-tauri & cargo test --test-threads=1",
+    "test:backend": "cd ./src-tauri & cargo test -- --test-threads=1",
     "lint": "eslint ./src",
     "format": "prettier --write --cache src/**/*.ts src/**/*.tsx"
   },
