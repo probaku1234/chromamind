@@ -6,12 +6,12 @@ use chromadb::v1::collection::GetOptions;
 // use chromadb::v1::collection::{ChromaCollection, CollectionEntries, GetResult};
 use chromadb::v1::ChromaClient;
 use serde_json::{json, Value};
+use std::env;
+use std::sync::Mutex;
 use structs::EmbeddingData;
 use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::State;
 use tauri_plugin_log::{Target, TargetKind};
-
-use std::sync::Mutex;
 
 struct AppState {
     client: Mutex<Option<ChromaClient>>,
@@ -393,14 +393,7 @@ fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usiz
     }
 
     let collection = collection.unwrap();
-    let count = collection.get(GetOptions {
-        ids: vec![],
-        where_metadata: None,
-        limit: None,
-        offset: None,
-        where_document: None,
-        include: Some(vec![]),
-    });
+    let count = collection.count();
 
     if count.is_err() {
         return Err(format!(
@@ -409,12 +402,7 @@ fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usiz
         ));
     }
 
-    log::debug!(
-        "(fetch_row_count) Fetched rows: {:?}",
-        count.as_ref().unwrap()
-    );
-
-    Ok(count.unwrap().ids.len())
+    Ok(count.unwrap())
 }
 
 #[tauri::command]
@@ -635,11 +623,19 @@ fn delete_collection(collection_names: Vec<String>, state: State<AppState>) -> R
     if !errors.is_empty() {
         log::error!(
             "(delete_collection) Error deleting collection: {}",
-            errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
+            errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         );
         return Err(format!(
             "Error deleting collection: {}",
-            errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
+            errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 
@@ -663,6 +659,10 @@ pub fn run() {
     let max_log_level = log::LevelFilter::Info;
 
     tauri::Builder::default()
+        .setup(|_app| {
+            env::set_var("MINREQ_TIMEOUT", "10");
+            Ok(())
+        })
         .manage(AppState {
             client: Mutex::new(None),
         })
@@ -1709,7 +1709,9 @@ mod tests {
         });
 
         let collection_name: &str = "test_collection";
-        client.get_or_create_collection(collection_name, None).unwrap();
+        client
+            .get_or_create_collection(collection_name, None)
+            .unwrap();
 
         let res = get_command_response(
             &webview,
