@@ -660,6 +660,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(|_app| {
+            // set timeout for minreq requests to 10 seconds
+            // this is to prevent hanging requests
             env::set_var("MINREQ_TIMEOUT", "10");
             Ok(())
         })
