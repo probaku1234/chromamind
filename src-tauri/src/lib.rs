@@ -7,16 +7,24 @@ use chromadb::v1::collection::GetOptions;
 use chromadb::v1::ChromaClient;
 use serde_json::{json, Value};
 use std::env;
+use std::process::Command;
 use std::sync::Mutex;
+use std::time::Instant;
 use structs::EmbeddingData;
-use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
-use tauri::State;
+use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
+use tauri::{Manager, State};
 use tauri_plugin_log::{Target, TargetKind};
 
 struct AppState {
     client: Mutex<Option<ChromaClient>>,
 }
 
+struct Environment {
+    chroma_version: String,
+    chromamind_version: String,
+    os_name: os_info::Type,
+    os_version: os_info::Version,
+}
 // impl AppState {
 //     fn new(url: String) -> Self {
 //         let client = ChromaClient::new(ChromaClientOptions {
@@ -180,7 +188,11 @@ fn check_tenant_and_database(
 }
 
 #[tauri::command]
-async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Error> {
+async fn create_window(
+    url: &str,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), tauri::Error> {
     log::info!("(create_window) Creating window with url: {}", url);
 
     let pkg_info = &app.package_info();
@@ -208,6 +220,15 @@ async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Er
             &PredefinedMenuItem::separator(&app)?,
             &PredefinedMenuItem::close_window(&app, None)?,
         ],
+    )?;
+    let report_bug_menu_item = MenuItem::new(&app, "Report Bug", true, None::<&str>)?;
+    let open_log_folder_menu_item = MenuItem::new(&app, "Open Log Folder", true, None::<&str>)?;
+    let help_menu = Submenu::with_id_and_items(
+        &app,
+        "help_menu",
+        "Help",
+        true,
+        &[&report_bug_menu_item, &open_log_folder_menu_item],
     )?;
 
     let menu = Menu::with_items(
@@ -254,14 +275,61 @@ async fn create_window(url: &str, app: tauri::AppHandle) -> Result<(), tauri::Er
                 &[&PredefinedMenuItem::fullscreen(&app, None)?],
             )?,
             &window_menu,
+            &help_menu,
         ],
     )?;
 
-    // set title as URL
+    let client = state.client.lock().unwrap();
+    let client = client.as_ref().unwrap();
+    let chroma_version = client.version().unwrap_or("0".to_string());
+    let chromamind_version = app.package_info().version.to_string();
+    let cloned_app = app.clone();
     let _ = tauri::WebviewWindowBuilder::new(&app, "label", tauri::WebviewUrl::App("/home".into()))
         .min_inner_size(1100.0, 600.0)
         .title(format!("ChromaMind: {}", url))
         .menu(menu)
+        .on_menu_event(move |_window, event| {
+            if event.id == report_bug_menu_item.id() {
+                log::debug!("opening github issue page");
+                let environment = Environment {
+                    chroma_version: chroma_version.clone(),
+                    chromamind_version: chromamind_version.clone(),
+                    os_name: os_info::get().os_type(),
+                    os_version: os_info::get().version().clone(),
+                };
+                let body = get_github_issue_body(&environment);
+                let cmd = open::commands(create_github_issue_url(&body))[0].status();
+
+                if cmd.is_err() {
+                    log::error!("Error opening github issue page: {}", cmd.err().unwrap());
+                }
+            }
+
+            if event.id == open_log_folder_menu_item.id() {
+                log::debug!("opening log folder");
+                let log_dir = cloned_app.path().app_log_dir();
+
+                if log_dir.is_err() {
+                    log::error!("Error getting log folder: {}", log_dir.err().unwrap());
+                    return;
+                }
+
+                let log_dir = log_dir.unwrap();
+
+                #[cfg(target_os = "windows")]
+                let cmd = Command::new("explorer").arg(log_dir).spawn();
+
+                #[cfg(target_os = "macos")]
+                let cmd = Command::new("open").arg(log_dir).spawn();
+
+                #[cfg(target_os = "linux")]
+                let cmd = Command::new("xdg-open").arg(log_dir).spawn();
+
+                if cmd.is_err() {
+                    log::error!("Error opening log folder: {}", cmd.err().unwrap());
+                }
+            }
+        })
         .build()
         .expect("fail to build new window");
 
@@ -661,6 +729,38 @@ fn get_current_date_string() -> String {
     let current_date = Local::now().format("%Y-%m-%d").to_string();
 
     current_date
+}
+
+fn get_github_issue_body(environment: &Environment) -> String {
+    format!("#### Current Behavior
+<!-- A clear and concise description of the behavior. -->
+
+#### Expected Behavior
+<!-- A clear and concise description of what you expected to happen. -->
+
+#### Additional context/Screenshots
+<!-- Add any other context about the problem here. If applicable, add screenshots to help explain. -->
+
+#### Possible Solution
+<!--- Only if you have suggestions on a fix for the bug -->
+
+#### Environment
+- ChromaDB version: {}
+- Chromamind version: {}
+- Operating system: {} {}
+", environment.chroma_version, environment.chromamind_version, environment.os_name, environment.os_version)
+}
+
+fn create_github_issue_url(body: &str) -> String {
+    let escaped = urlencoding::encode(body).replace("%20", "+");
+
+    format!(
+        "https://github.com/probaku1234/chromamind/issues/new?template={}&body={}",
+        urlencoding::encode("bug_report.md"),
+        escaped
+    )
+    .chars()
+    .collect()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
