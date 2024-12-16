@@ -366,7 +366,11 @@ fn fetch_collections(state: State<AppState>) -> Result<Vec<Value>, String> {
 }
 
 #[tauri::command]
-fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usize, String> {
+async fn fetch_row_count(
+    collection_name: &str,
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    let start_time = Instant::now();
     log::info!(
         "(fetch_row_count) Fetching row count for collection: {}",
         collection_name
@@ -402,7 +406,16 @@ fn fetch_row_count(collection_name: &str, state: State<AppState>) -> Result<usiz
         ));
     }
 
-    Ok(count.unwrap())
+    let count = count.unwrap();
+    let elapsed_time = start_time.elapsed();
+    log::debug!(
+        "(fetch_row_count) Fetched total row count {} for collection: {} in: {}ms",
+        count,
+        collection_name,
+        elapsed_time.as_millis()
+    );
+
+    Ok(count)
 }
 
 #[tauri::command]
