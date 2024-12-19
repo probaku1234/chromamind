@@ -171,6 +171,7 @@ const Collections: React.FC = () => {
       localStorage.setItem(TERMINAL_HEIGHT_KEY, args.position.toString())
     },
   })
+  const dispatch = useDispatch()
   const columnHelper = useMemo(() => createColumnHelper<EmbeddingsData>(), [])
 
   const columns = useMemo(
@@ -299,6 +300,7 @@ const Collections: React.FC = () => {
         })
       })
       .with({ type: 'success' }, async () => {
+        dispatch(updateCollection(''))
         const message =
           selectedCollectionIds.length > 0
             ? `${selectedCollectionIds.length} collections deleted`
