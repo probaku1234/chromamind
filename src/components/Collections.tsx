@@ -64,6 +64,7 @@ import {
   ChevronRightIcon,
   RepeatIcon,
 } from '@chakra-ui/icons'
+
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   FiCheck,
@@ -92,6 +93,7 @@ import {
   ErrorDisplay,
   NoDataDisplay,
   LoadingDataDisplay,
+  GuidePopup,
 } from '@/components/collection_components'
 import {
   DialogActionTrigger,
@@ -470,108 +472,119 @@ const Collections: React.FC = () => {
               }}
               mt={2}
             >
-              <MenuRoot>
-                {collections
-                  .map((collection) => {
-                    return {
-                      ...collection,
-                      isFavorite: favoriteCollections.includes(collection.name),
-                    }
-                  }) // add isFavorite property
-                  .filter((value) => value.name.includes(collectionFilter)) // filter by collection name
-                  .sort((a, b) => {
-                    if (a.isFavorite && !b.isFavorite) {
-                      return -1
-                    }
-                    if (!a.isFavorite && b.isFavorite) {
-                      return 1
-                    }
-                    return 0
-                  }) // sort by favorite
-                  .map((collection) => (
-                    <MenuContextTrigger
-                      asChild
-                      key={collection.id}
-                      onContextMenu={() => {
-                        currentContextCollection.current = collection.name
-                      }}
+              <GuidePopup
+                positioning={{ offset: { crossAxis:-20, mainAxis: 50 } }}
+                title="Collection Navigation"
+                messages={['Step 1 of 4', 'Step 2 of 4', 'Step 3 of 4', 'Step 4 of 4']}
+                key='collection-navigation'
+              >
+                <MenuRoot>
+                  {collections
+                    .map((collection) => {
+                      return {
+                        ...collection,
+                        isFavorite: favoriteCollections.includes(
+                          collection.name,
+                        ),
+                      }
+                    }) // add isFavorite property
+                    .filter((value) => value.name.includes(collectionFilter)) // filter by collection name
+                    .sort((a, b) => {
+                      if (a.isFavorite && !b.isFavorite) {
+                        return -1
+                      }
+                      if (!a.isFavorite && b.isFavorite) {
+                        return 1
+                      }
+                      return 0
+                    }) // sort by favorite
+                    .map((collection) => (
+                      <MenuContextTrigger
+                        asChild
+                        key={collection.id}
+                        onContextMenu={() => {
+                          currentContextCollection.current = collection.name
+                        }}
+                        onClick={() => {
+                          setSelectedCollections((prev) => {
+                            if (prev.includes(collection.id)) {
+                              return prev.filter((id) => id !== collection.id)
+                            } else {
+                              return [...prev, collection.id]
+                            }
+                          })
+                          console.log(selectedCollectionIds)
+                        }}
+                      >
+                        <CollectionNavItem
+                          name={collection.name}
+                          isFavorite={collection.isFavorite}
+                          onFavorite={onFavoriteCollection}
+                          isSelected={selectedCollectionIds.includes(
+                            collection.id,
+                          )}
+                        >
+                          <Tooltip
+                            content={`${collection.name}`}
+                            aria-label="A tooltip"
+                          >
+                            <Text truncate>{collection.name}</Text>
+                          </Tooltip>
+                        </CollectionNavItem>
+                      </MenuContextTrigger>
+                    ))}
+                  <MenuContent>
+                    <MenuItem
+                      value={'info'}
                       onClick={() => {
-                        setSelectedCollections((prev) => {
-                          if (prev.includes(collection.id)) {
-                            return prev.filter((id) => id !== collection.id)
-                          } else {
-                            return [...prev, collection.id]
-                          }
-                        })
-                        console.log(selectedCollectionIds)
+                        onOpen()
                       }}
                     >
-                      <CollectionNavItem
-                        name={collection.name}
-                        isFavorite={collection.isFavorite}
-                        onFavorite={onFavoriteCollection}
-                        isSelected={selectedCollectionIds.includes(
-                          collection.id,
-                        )}
-                      >
-                        <Tooltip
-                          content={`${collection.name}`}
-                          aria-label="A tooltip"
+                      Collection Info
+                    </MenuItem>
+                    <DialogRoot role={'alertdialog'}>
+                      <DialogTrigger asChild>
+                        <MenuItem
+                          value={'delete'}
+                          color="fg.error"
+                          _hover={{ bg: 'bg.error', color: 'fg.error' }}
                         >
-                          <Text truncate>{collection.name}</Text>
-                        </Tooltip>
-                      </CollectionNavItem>
-                    </MenuContextTrigger>
-                  ))}
-                <MenuContent>
-                  <MenuItem
-                    value={'info'}
-                    onClick={() => {
-                      onOpen()
-                    }}
-                  >
-                    Collection Info
-                  </MenuItem>
-                  <DialogRoot role={'alertdialog'}>
-                    <DialogTrigger asChild>
-                      <MenuItem
-                        value={'delete'}
-                        color="fg.error"
-                        _hover={{ bg: 'bg.error', color: 'fg.error' }}
-                      >
-                        Delete Collection
-                      </MenuItem>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Are you sure?</DialogTitle>
-                      </DialogHeader>
-                      <DialogBody>
-                        <p>
-                          This action cannot be undone. This will permanently
-                          delete the collection.
-                        </p>
-                      </DialogBody>
-                      <DialogFooter>
-                        <DialogActionTrigger asChild>
-                          <Button variant="outline">Cancel</Button>
-                        </DialogActionTrigger>
-                        <DialogActionTrigger asChild>
-                          <Button
-                            buttonType="critical"
-                            onClick={() => {
-                              deleteCollection(currentContextCollection.current)
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </DialogActionTrigger>
-                      </DialogFooter>
-                      <DialogCloseTrigger />
-                    </DialogContent>
-                  </DialogRoot>
-                </MenuContent>
-              </MenuRoot>
+                          Delete Collection
+                        </MenuItem>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Are you sure?</DialogTitle>
+                        </DialogHeader>
+                        <DialogBody>
+                          <p>
+                            This action cannot be undone. This will permanently
+                            delete the collection.
+                          </p>
+                        </DialogBody>
+                        <DialogFooter>
+                          <DialogActionTrigger asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </DialogActionTrigger>
+                          <DialogActionTrigger asChild>
+                            <Button
+                              buttonType="critical"
+                              onClick={() => {
+                                deleteCollection(
+                                  currentContextCollection.current,
+                                )
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </DialogActionTrigger>
+                        </DialogFooter>
+                        <DialogCloseTrigger />
+                      </DialogContent>
+                    </DialogRoot>
+                  </MenuContent>
+                </MenuRoot>
+              </GuidePopup>
             </Box>
           </Box>
         </Box>
