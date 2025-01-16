@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import React, { ReactNode, useState } from 'react'
 import {
   PopoverArrow,
   PopoverBody,
@@ -11,38 +11,50 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '../ui/button'
 import { Box, Group, PopoverRootProps } from '@chakra-ui/react'
+import { GUIDE_POPUP_KEY_PREFIX } from '../../types'
 
 interface GuidePopupProps extends PopoverRootProps {
   children: ReactNode
   messages: string[]
   title: string
-  key: string
+  identifier: string
 }
 
 const GuidePopup: React.FC<GuidePopupProps> = ({
   children,
   messages,
   title,
-  key,
+  identifier,
   ...rest
 }) => {
   const [step, setStep] = useState(0)
+  const isOpen =
+    localStorage.getItem(`${GUIDE_POPUP_KEY_PREFIX}-${identifier}`) !== 'true'
 
   return (
     <PopoverRoot
-      defaultOpen
+      defaultOpen={isOpen}
       closeOnEscape={false}
       closeOnInteractOutside={false}
       lazyMount
       unmountOnExit
       onOpenChange={(openChangeDetail) => {
         console.log('openChangeDetail', openChangeDetail)
+        if (!openChangeDetail.open) {
+          localStorage.setItem(
+            `${GUIDE_POPUP_KEY_PREFIX}-${identifier}`,
+            'true',
+          )
+        }
       }}
       {...rest}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        css={{ '--popover-bg': 'var(--chakra-colors-brand-500)' }}
+        css={{
+          '--popover-bg': 'var(--chakra-colors-brand-500)',
+          color: 'white',
+        }}
       >
         <PopoverHeader>{title}</PopoverHeader>
         <PopoverArrow />

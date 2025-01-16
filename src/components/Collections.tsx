@@ -465,18 +465,26 @@ const Collections: React.FC = () => {
                 collectionName={currentContextCollection.current}
               />
             )}
-            <Box
-              overflowY={'scroll'}
-              style={{
-                maxHeight: `calc(100vh - ${navRef.current?.clientHeight}px - 16px)`,
+            <GuidePopup
+              positioning={{
+                offset: { crossAxis: 0, mainAxis: 0 },
+                placement: 'right',
               }}
-              mt={2}
+              title="Collection Navigation"
+              messages={[
+                'Click to select collection',
+                'Double click to activate collection',
+                'Right click to open context menu',
+                'You can delete multiple collections at once',
+              ]}
+              identifier="collection-navigation"
             >
-              <GuidePopup
-                positioning={{ offset: { crossAxis:-20, mainAxis: 50 } }}
-                title="Collection Navigation"
-                messages={['Step 1 of 4', 'Step 2 of 4', 'Step 3 of 4', 'Step 4 of 4']}
-                key='collection-navigation'
+              <Box
+                overflowY={'scroll'}
+                style={{
+                  maxHeight: `calc(100vh - ${navRef.current?.clientHeight}px - 16px)`,
+                }}
+                mt={2}
               >
                 <MenuRoot>
                   {collections
@@ -584,8 +592,8 @@ const Collections: React.FC = () => {
                     </DialogRoot>
                   </MenuContent>
                 </MenuRoot>
-              </GuidePopup>
-            </Box>
+              </Box>
+            </GuidePopup>
           </Box>
         </Box>
         {currentCollection == '' && !loading ? (

@@ -37,6 +37,7 @@ export const PopoverCloseTrigger = forwardRef<
 >(function PopoverCloseTrigger(props, ref) {
   return (
     <ChakraPopover.CloseTrigger
+      color={'white'}
       position="absolute"
       top="1"
       insetEnd="1"
