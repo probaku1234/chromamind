@@ -658,6 +658,7 @@ const Collections: React.FC = () => {
                           )
                         }}
                         display={'flex'}
+                        cursor={'pointer'}
                       >
                         <Icon alignSelf={'center'} mr={'1'}>
                           <FiCopy />
@@ -1087,7 +1088,6 @@ const CollectionNavItem = ({
         align="center"
         pt={'4'}
         pb={'4'}
-        mr={'4'}
         borderRadius="lg"
         role="group"
         cursor="pointer"
@@ -1117,7 +1117,7 @@ const CollectionNavItem = ({
         </Icon>
         {children}
         {currentCollection === name && (
-          <Icon ml="4" fontSize="16" color={'green.500'}>
+          <Icon ml={"auto"} mr={"1rem"} fontSize="16" color={'green.500'}>
             <FiCheck />
           </Icon>
         )}
