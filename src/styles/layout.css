@@ -23,6 +23,10 @@
   transition: transform 0.2s;
 }
 
+.clickable-icon:hover {
+  background-color: var(--chakra-colors-brand-300);
+}
+
 .clickable-icon:active {
   animation: clickAnimation 0.2s;
 }

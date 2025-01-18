@@ -70,7 +70,7 @@ import {
   FiCheck,
   FiClipboard,
   FiCopy,
-  FiPlusCircle,
+  FiPlus,
   FiStar,
 } from 'react-icons/fi'
 // import { FaFileCsv, FaPrint, FaRegFilePdf, FaTrash } from 'react-icons/fa6'
@@ -422,13 +422,16 @@ const Collections: React.FC = () => {
               alignItems={'center'}
               mt={1}
               mr={4}
+              gap={'0.2rem'}
               ref={navRef}
             >
               <Input
                 type="text"
                 size={'sm'}
-                borderRadius={'15px'}
+                borderRadius={'8px'}
                 placeholder="collection name"
+                height={'2rem'}
+                px={'0.3rem'}
                 onChange={(e) => setCollectionFilter(e.target.value)}
               />
               <CreateCollectionDialog
@@ -436,25 +439,34 @@ const Collections: React.FC = () => {
                 onClose={onCloseCreateCollection}
                 fetchCollections={fetchCollections}
               />
-              <Icon
-                boxSize={5}
-                cursor={'pointer'}
-                className="clickable-icon"
-                onClick={onOpenCreateCollection}
-                // FIXME: use something else
-                // @ts-expect-error title no longer exist in prop, but it requires for testing
-                title={'Create Collection'}
-              >
-                <FiPlusCircle />
-              </Icon>
-              <Icon
-                boxSize={5}
-                cursor={'pointer'}
-                className="clickable-icon"
-                onClick={fetchCollections}
-              >
-                <RepeatIcon />
-              </Icon>
+              <Tooltip content="New Collection">
+                <IconButton
+                  boxSize={5}
+                  cursor={'pointer'}
+                  className="clickable-icon"
+                  width={'2rem'}
+                  height={'2rem'}
+                  onClick={onOpenCreateCollection}
+                  bg={'brand.500'}
+                  title={'Create Collection'}
+                >
+                  {/* <FiPlusCircle /> */}
+<FiPlus />
+                </IconButton>
+              </Tooltip>
+              <Tooltip content="Refresh Collections">
+                <IconButton
+                  boxSize={5}
+                  cursor={'pointer'}
+                  className="clickable-icon"
+                  width={'2rem'}
+                  height={'2rem'}
+                  bg={'brand.500'}
+                  onClick={fetchCollections}
+                >
+                  <RepeatIcon />
+                </IconButton>
+              </Tooltip>
             </Stack>
             {currentContextCollection.current && (
               <CollectionDialog
@@ -1117,7 +1129,7 @@ const CollectionNavItem = ({
         </Icon>
         {children}
         {currentCollection === name && (
-          <Icon ml={"auto"} mr={"1rem"} fontSize="16" color={'green.500'}>
+          <Icon ml={'auto'} mr={'1rem'} fontSize="16" color={'green.500'}>
             <FiCheck />
           </Icon>
         )}
