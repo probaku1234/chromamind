@@ -289,7 +289,7 @@ interface OptionBoxProps {
 const OptionBox = ({ left, right, ...rest }: OptionBoxProps) => {
   return (
     <Box {...rest}>
-      <Flex m={MARGIN}>
+      <Flex alignItems={'center'} m={MARGIN}>
         {left}
         <Spacer />
         {right}
