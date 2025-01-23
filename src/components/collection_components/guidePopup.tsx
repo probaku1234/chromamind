@@ -11,42 +11,27 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '../ui/button'
 import { Box, Group, PopoverRootProps } from '@chakra-ui/react'
-import { GUIDE_POPUP_KEY_PREFIX } from '../../types'
 
 interface GuidePopupProps extends PopoverRootProps {
   children: ReactNode
   messages: string[]
   title: string
-  identifier: string
 }
 
 const GuidePopup: React.FC<GuidePopupProps> = ({
   children,
   messages,
   title,
-  identifier,
   ...rest
 }) => {
   const [step, setStep] = useState(0)
-  const isOpen =
-    localStorage.getItem(`${GUIDE_POPUP_KEY_PREFIX}-${identifier}`) !== 'true'
 
   return (
     <PopoverRoot
-      defaultOpen={isOpen}
       closeOnEscape={false}
       closeOnInteractOutside={false}
       lazyMount
       unmountOnExit
-      onOpenChange={(openChangeDetail) => {
-        console.log('openChangeDetail', openChangeDetail)
-        if (!openChangeDetail.open) {
-          localStorage.setItem(
-            `${GUIDE_POPUP_KEY_PREFIX}-${identifier}`,
-            'true',
-          )
-        }
-      }}
       {...rest}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
