@@ -147,6 +147,9 @@ const Settings: React.FC = () => {
             lazyMount
             unmountOnExit
             closeOnInteractOutside={false}
+            onExitComplete={() => {
+              localStorage.removeItem(CUSTOM_THEME_PREVIEW_KEY)
+            }}
           >
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
