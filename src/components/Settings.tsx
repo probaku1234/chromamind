@@ -11,6 +11,7 @@ import {
   defaultConfig,
   SystemConfig,
   Spacer,
+  IconButton,
 } from '@chakra-ui/react'
 import { toaster, Toaster } from '@/components/ui/toaster'
 import {
@@ -41,9 +42,11 @@ import { CacheProvider } from '@emotion/react'
 import { debounce } from 'lodash'
 import { ChakraProvider } from '@chakra-ui/react'
 import createCache from '@emotion/cache'
-import App from '@/App.tsx'
+// import App from '@/App.tsx'
 import { defaultCustomConfig } from '@/theme.ts'
+import Preview from '@/components/Preview'
 import Editor from '@monaco-editor/react'
+import { RepeatIcon } from '@chakra-ui/icons'
 
 const MARGIN = 2
 const Settings: React.FC = () => {
@@ -215,7 +218,19 @@ const Settings: React.FC = () => {
                             <CacheProvider value={cache}>
                               <ChakraProvider value={previewSystem}>
                                 <ReduxProvider store={previewStore}>
-                                  <App />
+                                  {/* <App /> */}
+                                  <IconButton
+                                    width={'2rem'}
+                                    height={'2rem'}
+                                    position={'absolute'}
+                                    bg={'brand.500'}
+                                    top={0}
+                                    right={0}
+                                    onClick={() => setChecksum(checksum + 1)}
+                                  >
+                                    <RepeatIcon />
+                                  </IconButton>
+                                  <Preview />
                                 </ReduxProvider>
                               </ChakraProvider>
                             </CacheProvider>
