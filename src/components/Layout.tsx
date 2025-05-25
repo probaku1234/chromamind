@@ -1,9 +1,8 @@
-import React, { ReactNode, ReactText } from 'react'
+import React, { ReactNode, ReactText, useEffect, useState } from 'react'
 import {
   Box,
   BoxProps,
   Container,
-  Separator,
   Flex,
   FlexProps,
   Icon,
@@ -19,6 +18,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { CurrentMenuState, updateMenu } from '../slices/currentMenuSlice'
 import { State } from '../types'
 import { match } from 'ts-pattern'
+import {getVersion} from '@tauri-apps/api/app'
 import '../styles/layout.css'
 
 const NAV_WIDTH = 28
@@ -44,6 +44,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
   const { open, onOpen, onClose } = useDisclosure()
+
 
   return (
     <Container maxW="100vw" centerContent height="100vh" margin={0} padding={0}>
@@ -73,6 +74,16 @@ interface SidebarProps extends BoxProps {
 }
 
 const SidebarContent = ({ ...rest }: SidebarProps) => {
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    getVersion().then((v) => {
+      setVersion(v);
+    }).catch((error) => {
+      console.error('Error fetching version:', error);
+    })
+  }, [])
+
   return (
     <Box
       flexDirection="column"
@@ -81,10 +92,10 @@ const SidebarContent = ({ ...rest }: SidebarProps) => {
       w={{ base: 'full', md: NAV_WIDTH }}
       pos="fixed"
       h="full"
-      style={{ display: 'flex !important' }}
+      style={{ display: 'flex' }}
       {...rest}
     >
-      <Box flexGrow={1}>
+      <Box>
         {LinkItems.map((link) => (
           <NavItem
             key={link.name}
@@ -97,7 +108,6 @@ const SidebarContent = ({ ...rest }: SidebarProps) => {
         ))}
       </Box>
       <Box>
-        <Separator />
         <NavItem
           key="settings"
           icon={FiSettings}
@@ -106,6 +116,17 @@ const SidebarContent = ({ ...rest }: SidebarProps) => {
         >
           Settings
         </NavItem>
+      </Box>
+      <Box flexGrow={1}></Box>
+      <Box
+        as="footer"
+        mt="auto"
+        p={4}
+        textAlign="center"
+        color="gray.500"
+        fontSize="sm"
+      >
+        v {version}
       </Box>
     </Box>
   )

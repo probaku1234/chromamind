@@ -1,0 +1,12 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "label",
+    "description": "Capability for the label window",
+    "windows": [
+        "label"
+    ],
+    "permissions": [
+       "core:default",
+        "log:default"
+    ]
+}
