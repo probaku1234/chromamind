@@ -775,14 +775,16 @@ pub fn run() {
         .setup(|_app| {
             // set timeout for minreq requests to 10 seconds
             // this is to prevent hanging requests
-            env::set_var("MINREQ_TIMEOUT", "10");
+            env::set_var("MINREQ_TIMEOUT", "20");
             Ok(())
         })
         .manage(AppState {
             client: Mutex::new(None),
         })
         .plugin(tauri_plugin_shell::init())
-        .plugin(
+        .plugin(if cfg!(debug_assertions) {
+            tauri_plugin_devtools::init()
+        } else {
             tauri_plugin_log::Builder::new()
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(max_log_level)
@@ -794,8 +796,8 @@ pub fn run() {
                         file_name: Some(get_current_date_string()),
                     }),
                 ])
-                .build(),
-        )
+                .build()
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             create_client,
