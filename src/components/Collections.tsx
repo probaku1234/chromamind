@@ -17,6 +17,7 @@ import {
   Stack,
   FlexProps,
   useRecipe,
+  NumberInput,
 } from '@chakra-ui/react'
 import {
   MenuContent,
@@ -100,6 +101,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog.tsx'
+import { LuMinus, LuPlus } from 'react-icons/lu'
 
 const DEFAULT_PAGES = [10, 25, 50, 100]
 const TERMINAL_HEIGHT_KEY = `${LOCAL_STORAGE_KEY_PREFIX}-terminal-height`
@@ -149,6 +151,7 @@ const Collections: React.FC = () => {
   >(`${FAVORITE_COLLECTIONS_KEY}:${url}`, [])
   const [selectedCollectionIds, setSelectedCollections] = useState<string[]>([])
   const navRef = useRef<HTMLDivElement>(null)
+  const moveToInputRef = useRef<HTMLInputElement>(null)
 
   const initialHeight = parseFloat(
     localStorage.getItem(TERMINAL_HEIGHT_KEY) || '10',
@@ -871,29 +874,48 @@ const Collections: React.FC = () => {
                               </Button>
                             </HStack>
                             <HStack ml={4}>
-                              <Text minW="fit-content">Go To : </Text>
-                              <Input
-                                type="number"
-                                defaultValue={pageIndex + 1}
-                                onChange={(e) => {
-                                  const page = e.target.value
-                                    ? Number(e.target.value) - 1
-                                    : 0
+                              {/* <Text minW="fit-content">Go To : </Text> */}
+                              <NumberInput.Root
+                                defaultValue="1"
+                                unstyled
+                                min={1}
+                                max={table.getPageCount()}
+                                variant={'flushed'}
+                                width={'50%'}
+                                allowMouseWheel
+                              >
+                                <HStack gap="2">
+                                  <NumberInput.DecrementTrigger asChild>
+                                    <IconButton variant="outline" size="sm">
+                                      <LuMinus />
+                                    </IconButton>
+                                  </NumberInput.DecrementTrigger>
+                                  <NumberInput.Input
+                                    textAlign="center"
+                                    // fontSize="lg"
+                                    minW="3ch"
+                                    ref={moveToInputRef}
+                                  />
+                                  <NumberInput.IncrementTrigger asChild>
+                                    <IconButton variant="outline" size="sm">
+                                      <LuPlus />
+                                    </IconButton>
+                                  </NumberInput.IncrementTrigger>
+                                </HStack>
+                              </NumberInput.Root>
+                              <Button
+                                onClick={() => {
+                                  if (!moveToInputRef.current) return
 
-                                  if (
-                                    page < 0 ||
-                                    page >= table.getPageCount()
-                                  ) {
-                                    e.target.value = String(page)
-                                    return
-                                  }
-
-                                  table.setPageIndex(page)
-                                  setPageIndex(page)
-                                  table.getPageCount()
+                                  const page = Number(
+                                    moveToInputRef.current.value,
+                                  )
+                                  table.setPageIndex(page - 1)
+                                  setPageIndex(page - 1)
                                 }}
-                                size="sm"
-                              />
+                              >
+                                Go to Page
+                              </Button>
                             </HStack>
                             <Spacer />
                             <Flex justify="end">
@@ -1050,7 +1072,7 @@ const DetailView: React.FC<{
         >
           <FiClipboard />
         </IconButton>
-        <SimpleGrid columns={[1, 5, 10]} gap={10}>
+        <SimpleGrid columns={[1, 5, 10]} gap={4}>
           {content.map((value, index) => (
             <Badge key={index} size={'lg'}>
               {value}
