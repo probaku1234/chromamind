@@ -8,6 +8,21 @@
 
 
 
+## Table of Contents
+- [ChromaMind](#chromamind)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Quickstart](#quickstart)
+  - [Development](#development)
+    - [Prerequisites](#prerequisites)
+    - [Build from Source](#build-from-source)
+  - [Contribution](#contribution)
+  - [License](#license)
+  - [Acknowledgments](#acknowledgments)
+
+
+
+ 
 ## Features
 
 - **Manage Collections:**
@@ -19,9 +34,44 @@
 - **Custom Theme:**
   - Personalize the application's appearance to suit your preferences
 
+**Home View**
+<p align="center">
+    <img src="screenshots/home.PNG">
+</p>
+
+**Overview**
+<p align="center">
+    <img src="screenshots/overview.PNG">
+</p>
+
+**Collections Tree**
+<p align="center">
+    <img src="screenshots/collection tree.PNG">
+</p>
+
+**Collection Overview**
+<p align="center">
+    <img src="screenshots/collection overview.PNG">
+</p>
+
+**Create Collction**
+<p align="center">
+    <img src="screenshots/create collection.PNG">
+</p>
 
 
-## Installation
+
+
+
+## Quickstart
+1. Start Chroma (if not already running):
+```bash
+docker run -d -v ./chroma-data:/data -p 8000:8000 chromadb/chroma
+```
+2. Start ChromaMind
+
+
+## Development
 
 ### Prerequisites
 
@@ -51,32 +101,12 @@
 
 
 
-## Usage
-
-1. Launch the application.
-2. Connect to your ChromaDB instance.
-3. Start managing collections and exploring embeddings with an intuitive interface.
 
 
 
 ## Contribution
 
-We welcome contributions! Follow these steps to get started:
-
-1. Fork the repository.
-2. Create a new branch:
-   ```bash
-   git checkout -b feature-name
-   ```
-3. Commit your changes:
-   ```bash
-   git commit -m "Add your message here"
-   ```
-4. Push to your branch:
-   ```bash
-   git push origin feature-name
-   ```
-5. Open a pull request.
+We welcome contributions from the community! Please read our [Contributing Guidelines](https://github.com/probaku1234/chromamind/blob/main/CONTRIBUTING.md) before submitting pull requests.
 
 For larger features or ideas, consider opening an issue to discuss them first.
 
