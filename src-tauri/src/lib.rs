@@ -123,7 +123,7 @@ fn health_check(state: State<AppState>) -> Result<u64, String> {
         }
         Err(e) => {
             log::error!("(health_check) Error checking health: {}", e);
-            Err(format!("Error checking health: {}", e))
+            Err(format!("Error checking health: {e}"))
         }
     }
 }
@@ -286,7 +286,7 @@ async fn create_window(
     let cloned_app = app.clone();
     let _ = tauri::WebviewWindowBuilder::new(&app, "label", tauri::WebviewUrl::App("/home".into()))
         .min_inner_size(1100.0, 600.0)
-        .title(format!("ChromaMind: {}", url))
+        .title(format!("ChromaMind: {url}"))
         .menu(menu)
         .on_menu_event(move |_window, event| {
             if event.id == report_bug_menu_item.id() {
@@ -386,7 +386,7 @@ fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
         }
         Err(e) => {
             log::error!("(reset_chroma) Error resetting chroma: {}", e);
-            Err(format!("Error resetting chroma: {}", e))
+            Err(format!("Error resetting chroma: {e}"))
         }
     }
 }
