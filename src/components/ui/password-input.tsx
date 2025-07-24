@@ -1,11 +1,11 @@
-"use client"
+'use client'
 
 import type {
   ButtonProps,
   GroupProps,
   InputProps,
   StackProps,
-} from "@chakra-ui/react"
+} from '@chakra-ui/react'
 import {
   Box,
   HStack,
@@ -14,10 +14,10 @@ import {
   Stack,
   mergeRefs,
   useControllableState,
-} from "@chakra-ui/react"
-import { forwardRef, useRef } from "react"
-import { LuEye, LuEyeOff } from "react-icons/lu"
-import { InputGroup } from "./input-group"
+} from '@chakra-ui/react'
+import { forwardRef, useRef } from 'react'
+import { LuEye, LuEyeOff } from 'react-icons/lu'
+import { InputGroup } from './input-group'
 
 export interface PasswordVisibilityProps {
   defaultVisible?: boolean
@@ -72,7 +72,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         <Input
           {...rest}
           ref={mergeRefs(ref, inputRef)}
-          type={visible ? "text" : "password"}
+          type={visible ? 'text' : 'password'}
         />
       </InputGroup>
     )
@@ -120,12 +120,12 @@ export const PasswordStrengthMeter = forwardRef<
             height="1"
             flex="1"
             rounded="sm"
-            data-selected={index < value ? "" : undefined}
+            data-selected={index < value ? '' : undefined}
             layerStyle="fill.subtle"
             colorPalette="gray"
             _selected={{
               colorPalette,
-              layerStyle: "fill.solid",
+              layerStyle: 'fill.solid',
             }}
           />
         ))}
@@ -138,10 +138,10 @@ export const PasswordStrengthMeter = forwardRef<
 function getColorPalette(percent: number) {
   switch (true) {
     case percent < 33:
-      return { label: "Low", colorPalette: "red" }
+      return { label: 'Low', colorPalette: 'red' }
     case percent < 66:
-      return { label: "Medium", colorPalette: "orange" }
+      return { label: 'Medium', colorPalette: 'orange' }
     default:
-      return { label: "High", colorPalette: "green" }
+      return { label: 'High', colorPalette: 'green' }
   }
 }

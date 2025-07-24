@@ -1,5 +1,5 @@
-import { Tag as ChakraTag } from "@chakra-ui/react"
-import { forwardRef } from "react"
+import { Tag as ChakraTag } from '@chakra-ui/react'
+import { forwardRef } from 'react'
 
 export interface TagProps extends ChakraTag.RootProps {
   startElement?: React.ReactNode

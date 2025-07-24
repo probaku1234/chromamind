@@ -6,8 +6,7 @@ const currentMenuKey = `${LOCAL_STORAGE_KEY_PREFIX}-currentMenu`
 
 const currentMenuSlice = createSlice({
   name: 'currentMenu',
-  initialState:
-    sessionStorage.getItem(currentMenuKey) ?? 'Home',
+  initialState: sessionStorage.getItem(currentMenuKey) ?? 'Home',
   reducers: {
     updateMenu: (state, action: PayloadAction<CurrentMenuState>) => {
       state = action.payload

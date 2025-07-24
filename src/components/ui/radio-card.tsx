@@ -1,5 +1,5 @@
-import { RadioCard } from "@chakra-ui/react"
-import { Fragment, forwardRef } from "react"
+import { RadioCard } from '@chakra-ui/react'
+import { Fragment, forwardRef } from 'react'
 
 interface RadioCardItemProps extends RadioCard.ItemProps {
   icon?: React.ReactElement
@@ -7,7 +7,7 @@ interface RadioCardItemProps extends RadioCard.ItemProps {
   description?: React.ReactNode
   addon?: React.ReactNode
   indicator?: React.ReactNode | null
-  indicatorPlacement?: "start" | "end" | "inside"
+  indicatorPlacement?: 'start' | 'end' | 'inside'
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>
 }
 
@@ -20,7 +20,7 @@ export const RadioCardItem = forwardRef<HTMLInputElement, RadioCardItemProps>(
       addon,
       icon,
       indicator = <RadioCard.ItemIndicator />,
-      indicatorPlacement = "end",
+      indicatorPlacement = 'end',
       ...rest
     } = props
 
@@ -31,7 +31,7 @@ export const RadioCardItem = forwardRef<HTMLInputElement, RadioCardItemProps>(
       <RadioCard.Item {...rest}>
         <RadioCard.ItemHiddenInput ref={ref} {...inputProps} />
         <RadioCard.ItemControl>
-          {indicatorPlacement === "start" && indicator}
+          {indicatorPlacement === 'start' && indicator}
           {hasContent && (
             <ContentWrapper>
               {icon}
@@ -41,10 +41,10 @@ export const RadioCardItem = forwardRef<HTMLInputElement, RadioCardItemProps>(
                   {description}
                 </RadioCard.ItemDescription>
               )}
-              {indicatorPlacement === "inside" && indicator}
+              {indicatorPlacement === 'inside' && indicator}
             </ContentWrapper>
           )}
-          {indicatorPlacement === "end" && indicator}
+          {indicatorPlacement === 'end' && indicator}
         </RadioCard.ItemControl>
         {addon && <RadioCard.ItemAddon>{addon}</RadioCard.ItemAddon>}
       </RadioCard.Item>

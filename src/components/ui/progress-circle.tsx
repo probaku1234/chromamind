@@ -1,15 +1,15 @@
-import type { SystemStyleObject } from "@chakra-ui/react"
+import type { SystemStyleObject } from '@chakra-ui/react'
 import {
   AbsoluteCenter,
   ProgressCircle as ChakraProgressCircle,
-} from "@chakra-ui/react"
-import { forwardRef } from "react"
+} from '@chakra-ui/react'
+import { forwardRef } from 'react'
 
 export const ProgressCircleRoot = ChakraProgressCircle.Root
 
 interface ProgressCircleRingProps extends ChakraProgressCircle.CircleProps {
-  trackColor?: SystemStyleObject["stroke"]
-  cap?: SystemStyleObject["strokeLinecap"]
+  trackColor?: SystemStyleObject['stroke']
+  cap?: SystemStyleObject['strokeLinecap']
 }
 
 export const ProgressCircleRing = forwardRef<

@@ -18,7 +18,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { CurrentMenuState, updateMenu } from '../slices/currentMenuSlice'
 import { State } from '../types'
 import { match } from 'ts-pattern'
-import {getVersion} from '@tauri-apps/api/app'
+import { getVersion } from '@tauri-apps/api/app'
 import '../styles/layout.css'
 
 const NAV_WIDTH = 28
@@ -44,7 +44,6 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
   const { open, onOpen, onClose } = useDisclosure()
-
 
   return (
     <Container maxW="100vw" centerContent height="100vh" margin={0} padding={0}>
@@ -74,14 +73,16 @@ interface SidebarProps extends BoxProps {
 }
 
 const SidebarContent = ({ ...rest }: SidebarProps) => {
-  const [version, setVersion] = useState('');
+  const [version, setVersion] = useState('')
 
   useEffect(() => {
-    getVersion().then((v) => {
-      setVersion(v);
-    }).catch((error) => {
-      console.error('Error fetching version:', error);
-    })
+    getVersion()
+      .then((v) => {
+        setVersion(v)
+      })
+      .catch((error) => {
+        console.error('Error fetching version:', error)
+      })
   }, [])
 
   return (

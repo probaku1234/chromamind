@@ -14,16 +14,17 @@ interface ButtonLoadingProps {
 }
 
 export interface ButtonProps extends ChakraButtonProps, ButtonLoadingProps {
-  buttonType? : 'general' | 'critical'
+  buttonType?: 'general' | 'critical'
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(props, ref) {
-    const { loading, disabled, loadingText, children, buttonType, ...rest } = props
-
+    const { loading, disabled, loadingText, children, buttonType, ...rest } =
+      props
 
     const recipe = useRecipe({ key: 'buttons' })
-    const styles = buttonType === 'critical' ? recipe({ 'visual': 'critical' }) : recipe();
+    const styles =
+      buttonType === 'critical' ? recipe({ visual: 'critical' }) : recipe()
     // const styles = recipe({'visual': 'critical'})
 
     return (

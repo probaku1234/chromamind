@@ -1,11 +1,11 @@
-import { Drawer as ChakraDrawer, Portal } from "@chakra-ui/react"
-import { CloseButton } from "./close-button"
-import { forwardRef } from "react"
+import { Drawer as ChakraDrawer, Portal } from '@chakra-ui/react'
+import { CloseButton } from './close-button'
+import { forwardRef } from 'react'
 
 interface DrawerContentProps extends ChakraDrawer.ContentProps {
   portalled?: boolean
   portalRef?: React.RefObject<HTMLElement>
-  offset?: ChakraDrawer.ContentProps["padding"]
+  offset?: ChakraDrawer.ContentProps['padding']
 }
 
 export const DrawerContent = forwardRef<HTMLDivElement, DrawerContentProps>(

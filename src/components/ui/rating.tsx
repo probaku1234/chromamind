@@ -1,5 +1,5 @@
-import { RatingGroup } from "@chakra-ui/react"
-import { forwardRef } from "react"
+import { RatingGroup } from '@chakra-ui/react'
+import { forwardRef } from 'react'
 
 export interface RatingProps extends RatingGroup.RootProps {
   icon?: React.ReactElement

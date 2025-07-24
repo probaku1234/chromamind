@@ -4,10 +4,10 @@ import {
   Stat as ChakraStat,
   FormatNumber,
   IconButton,
-} from "@chakra-ui/react"
-import { ToggleTip } from "./toggle-tip"
-import { forwardRef } from "react"
-import { HiOutlineInformationCircle } from "react-icons/hi"
+} from '@chakra-ui/react'
+import { ToggleTip } from './toggle-tip'
+import { forwardRef } from 'react'
+import { HiOutlineInformationCircle } from 'react-icons/hi'
 
 interface StatLabelProps extends ChakraStat.LabelProps {
   info?: React.ReactNode

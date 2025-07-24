@@ -42,7 +42,7 @@ const App: React.FC = () => {
   const usernameRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
   const tokenRef = useRef<HTMLInputElement>(null)
-  
+
   async function greet() {
     setLoading(true)
     setSuccess(false)
@@ -64,7 +64,7 @@ const App: React.FC = () => {
     match(
       await invokeWrapper(TauriCommand.CREATE_CLIENT, {
         url,
-        authConfig
+        authConfig,
       }),
     ).with({ type: 'error' }, ({ error }) => {
       console.error(error)
@@ -163,7 +163,7 @@ const App: React.FC = () => {
         </Field>
         <RadioGroup
           defaultValue="no_auth"
-          onValueChange={(e) => setAuthMethod(e.value)}
+          onValueChange={(e) => setAuthMethod(e.value ?? 'no_auth')}
         >
           <HStack gap="3">
             <Radio value="no_auth">No Auth</Radio>
@@ -173,33 +173,38 @@ const App: React.FC = () => {
         </RadioGroup>
         {match(authMethod)
           .with('basic_auth', () => (
-              <Fieldset.Root maxW="sm" style={authBoxStyle}>
-                <Stack>
-                  <Fieldset.Legend>Auth Details</Fieldset.Legend>
-                  <Fieldset.HelperText>
-                    Please provide your auth details below.
-                  </Fieldset.HelperText>
-                  <Fieldset.Content>
-                    <Field label="Username" required>
-                      <Input name="username" ref={usernameRef}/>
-                    </Field>
-                    <Field label="Password" required>
-                      <PasswordInput ref={passwordRef}/>
-                    </Field>
-                  </Fieldset.Content>
-                </Stack>
-              </Fieldset.Root>
+            <Fieldset.Root maxW="sm" style={authBoxStyle}>
+              <Stack>
+                <Fieldset.Legend>Auth Details</Fieldset.Legend>
+                <Fieldset.HelperText>
+                  Please provide your auth details below.
+                </Fieldset.HelperText>
+                <Fieldset.Content>
+                  <Field label="Username" required>
+                    <Input name="username" ref={usernameRef} />
+                  </Field>
+                  <Field label="Password" required>
+                    <PasswordInput ref={passwordRef} />
+                  </Field>
+                </Fieldset.Content>
+              </Stack>
+            </Fieldset.Root>
           ))
           .with('token_auth', () => (
-            <Fieldset.Root style={authBoxStyle} >
-              <RadioGroup defaultValue="bearer" onValueChange={(details) => setTokenType(details.value)}>
+            <Fieldset.Root style={authBoxStyle}>
+              <RadioGroup
+                defaultValue="bearer"
+                onValueChange={(details) =>
+                  setTokenType(details.value ?? 'bearer')
+                }
+              >
                 <HStack gap="3">
-                  <Radio value="bearer" >Bearer Token</Radio>
-                  <Radio value="x_chroma_token"  >X-Chroma-Token</Radio>
+                  <Radio value="bearer">Bearer Token</Radio>
+                  <Radio value="x_chroma_token">X-Chroma-Token</Radio>
                 </HStack>
               </RadioGroup>
               <Field label="Token" required>
-                <PasswordInput name="token" ref={tokenRef}/>
+                <PasswordInput name="token" ref={tokenRef} />
               </Field>
             </Fieldset.Root>
           ))
