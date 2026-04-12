@@ -61,6 +61,7 @@ const App: React.FC = () => {
       tokenType,
     }
 
+    // TODO: tenant, database pass
     match(
       await invokeWrapper(TauriCommand.CREATE_CLIENT, {
         url,

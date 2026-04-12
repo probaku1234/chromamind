@@ -1,2 +1,3 @@
 [env]
 __TAURI_WORKSPACE__ = "true"
+PROTOC = "C:\\Users\\fhzot\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Google.Protobuf_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin\\protoc.exe"
