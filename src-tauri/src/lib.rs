@@ -1,7 +1,7 @@
 pub mod structs;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-use chroma::client::{ChromaAuthMethod, ChromaHttpClientOptionsError};
+use chroma::client::ChromaAuthMethod;
 use chroma::{ChromaHttpClient, ChromaHttpClientOptions};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -36,74 +36,52 @@ struct Environment {
     os_version: os_info::Version,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(tag = "mode", rename_all = "lowercase")]
+enum ConnectionConfig {
+    Local {
+        url: String,
+        tenant: String,
+        database: String,
+    },
+    Cloud {
+        url: String,
+        #[serde(rename = "apiKey")]
+        api_key: String,
+        database: String,
+    },
+}
+
 #[tauri::command]
-fn create_client(
-    url: &str,
-    auth_config: Option<Value>,
-    tenant: &str,
-    database: &str,
-    state: State<AppState>,
-) -> Result<(), String> {
-    log::info!("(create_client) Creating client with url: {}", url);
-    // let auth = auth_config.and_then(|auth| {
-    //     let auth_map = auth.as_object().cloned();
-    //     auth_map.and_then(|auth_map| {
-    //         let auth_method = auth_map.get("authMethod")?;
-    //         let auth_method = auth_method.as_str()?;
-    //         log::debug!("(create_client) Auth method: {}", auth_method);
-    //         match auth_method {
-    //             "no_auth" => Some(chromadb::v1::client::ChromaAuthMethod::None),
-    //             "basic_auth" => {
-    //                 let username = auth_map.get("username")?.as_str()?;
-    //                 let password = auth_map.get("password")?.as_str()?;
-    //                 log::debug!("(create_client) parsed username and password");
-    //                 Some(chromadb::v1::client::ChromaAuthMethod::BasicAuth {
-    //                     username: username.to_string(),
-    //                     password: password.to_string(),
-    //                 })
-    //             }
-    //             "token_auth" => {
-    //                 let token_type = auth_map.get("tokenType")?.as_str()?;
-    //                 let token = auth_map.get("token")?.as_str()?;
-    //                 let header = match token_type {
-    //                     "bearer" => chromadb::v1::client::ChromaTokenHeader::Authorization,
-    //                     "x_chroma_token" => chromadb::v1::client::ChromaTokenHeader::XChromaToken,
-    //                     _ => return None,
-    //                 };
-    //                 log::debug!("(create_client) parsed token and header");
-    //                 Some(chromadb::v1::client::ChromaAuthMethod::TokenAuth {
-    //                     header,
-    //                     token: token.to_string(),
-    //                 })
-    //             }
-    //             _ => None,
-    //         }
-    //     })
-    // });
-    //
-    // if auth.is_none() {
-    //     log::error!("(create_client) Invalid auth config");
-    //     return Err("Invalid auth config".to_string());
-    // }
-    //
-    // let client = ChromaClient::new(ChromaClientOptions {
-    //     url: url.to_string(),
-    //     auth: auth.unwrap(),
-    // });
-    let options = ChromaHttpClientOptions {
-        endpoint: url
-            .parse::<reqwest::Url>()
-            .map_err(|err| format!("Invalid endpoint: {err}"))?,
-        auth_method: ChromaAuthMethod::None,
-        tenant_id: Some(tenant.to_string()),
-        database_name: Some(database.to_string()),
-        ..Default::default()
+fn create_client(config: ConnectionConfig, state: State<AppState>) -> Result<(), String> {
+    let options = match config {
+        ConnectionConfig::Local { url, tenant, database } => {
+            log::info!("(create_client) Creating local client with url: {}", url);
+            ChromaHttpClientOptions {
+                endpoint: url
+                    .parse::<reqwest::Url>()
+                    .map_err(|err| format!("Invalid endpoint: {err}"))?,
+                auth_method: ChromaAuthMethod::None,
+                tenant_id: Some(tenant),
+                database_name: Some(database),
+                ..Default::default()
+            }
+        }
+        ConnectionConfig::Cloud { url, api_key, database } => {
+            log::info!("(create_client) Creating cloud client with url: {}", url);
+            ChromaHttpClientOptions {
+                endpoint: url
+                    .parse::<reqwest::Url>()
+                    .map_err(|err| format!("Invalid endpoint: {err}"))?,
+                auth_method: ChromaAuthMethod::cloud_api_key(&api_key)
+                    .map_err(|err| format!("Invalid API key: {err}"))?,
+                database_name: Some(database),
+                ..Default::default()
+            }
+        }
     };
     let client = ChromaHttpClient::new(options);
-    let mut client_guard = state.client.lock();
-
-    *client_guard = Some(client);
-
+    *state.client.lock() = Some(client);
     Ok(())
 }
 
@@ -801,12 +779,12 @@ mod tests {
     }
 
     fn create_chroma_container() -> Container<GenericImage> {
-        GenericImage::new("chromadb/chroma", "0.5.5")
+        GenericImage::new("chromadb/chroma", "1.0.22.dev31")
             .with_exposed_port(8000.tcp())
             // .with_wait_for(WaitFor::Http(HttpWaitStrategy::new("/api/v1/heartbeat").with_port(8000.tcp())))
-            .with_wait_for(WaitFor::message_on_stdout("Application startup complete."))
+            .with_wait_for(WaitFor::message_on_stdout("Connect to Chroma at:"))
             .start()
-            .expect("ChromaDB started")
+            .expect("ChromaDB should start")
     }
 
     // fn crate_chroma_container_with_auth(
@@ -864,146 +842,80 @@ mod tests {
         assert!(health_check_result.is_ok(), "ChromaDB not running");
     }
 
-    // #[test]
-    // fn test_create_client() {
-    //     let container = create_chroma_container();
-    //
-    //     let host = container.get_host().unwrap();
-    //     let port = container.get_host_port_ipv4(8000).unwrap();
-    //
-    //     let connect_url = format!("http://{}:{}", host, port);
-    //
-    //     let app = before_each(mock_builder());
-    //     let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-    //         .build()
-    //         .unwrap();
-    //
-    //     let res = get_command_response(
-    //         &webview,
-    //         TauriCommand::CreateClient.as_str(),
-    //         json!({
-    //             "url": connect_url,
-    //             "authConfig": {
-    //                 "auth_Method": "no_auth"
-    //             }
-    //         }),
-    //     );
-    //
-    //     assert!(res.is_err(), "create_client should fail");
-    //
-    //     let res = get_command_response(
-    //         &webview,
-    //         TauriCommand::CreateClient.as_str(),
-    //         json!({
-    //             "url": connect_url,
-    //             "authConfig": {
-    //                 "authMethod": "no_auth",
-    //
-    //             }
-    //         }),
-    //     );
-    //
-    //     assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-    //
-    //     container.stop().unwrap();
-    //
-    //     let username = "admin";
-    //     let password = "$2y$05$qsX5CHjxvLqruxRh035n/e/5S0TNcX0z1/hcvj7rCD99jaEG2fqP.";
-    //     let container =
-    //         crate_chroma_container_with_auth(chromadb::v1::client::ChromaAuthMethod::BasicAuth {
-    //             username: username.to_string(),
-    //             password: password.to_string(),
-    //         });
-    //
-    //     let host = container.get_host().unwrap();
-    //     let port = container.get_host_port_ipv4(8000).unwrap();
-    //
-    //     let connect_url = format!("http://{}:{}", host, port);
-    //
-    //     let app = before_each(mock_builder());
-    //     let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-    //         .build()
-    //         .unwrap();
-    //
-    //     let res = get_command_response(
-    //         &webview,
-    //         TauriCommand::CreateClient.as_str(),
-    //         json!({
-    //             "url": connect_url,
-    //             "authConfig": {
-    //                 "authMethod": "basic_auth",
-    //                 "username": username,
-    //                 "password": "admin",
-    //             }
-    //         }),
-    //     );
-    //
-    //     assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-    //
-    //     let res = get_command_response(
-    //         &webview,
-    //         TauriCommand::CheckTenantAndDatabase.as_str(),
-    //         json!({
-    //             "tenant": "default_tenant",
-    //             "database": "default_database"
-    //         }),
-    //     );
-    //
-    //     assert!(
-    //         res.is_ok(),
-    //         "check_tenant_and_database failed: {:?}",
-    //         res.err()
-    //     );
-    //
-    //     container.stop().unwrap();
-    //
-    //     let token = "token";
-    //     let container =
-    //         crate_chroma_container_with_auth(chromadb::v1::client::ChromaAuthMethod::TokenAuth {
-    //             header: chromadb::v1::client::ChromaTokenHeader::Authorization,
-    //             token: token.to_string(),
-    //         });
-    //
-    //     let host = container.get_host().unwrap();
-    //     let port = container.get_host_port_ipv4(8000).unwrap();
-    //
-    //     let connect_url = format!("http://{}:{}", host, port);
-    //
-    //     let app = before_each(mock_builder());
-    //     let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-    //         .build()
-    //         .unwrap();
-    //
-    //     let res = get_command_response(
-    //         &webview,
-    //         TauriCommand::CreateClient.as_str(),
-    //         json!({
-    //             "url": connect_url,
-    //             "authConfig": {
-    //                 "authMethod": "token_auth",
-    //                 "tokenType": "bearer",
-    //                 "token": token,
-    //             }
-    //         }),
-    //     );
-    //
-    //     assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-    //
-    //     let res = get_command_response(
-    //         &webview,
-    //         TauriCommand::CheckTenantAndDatabase.as_str(),
-    //         json!({
-    //             "tenant": "default_tenant",
-    //             "database": "default_database"
-    //         }),
-    //     );
-    //
-    //     assert!(
-    //         res.is_ok(),
-    //         "check_tenant_and_database failed: {:?}",
-    //         res.err()
-    //     );
-    // }
+    #[test]
+    fn test_create_client_local() {
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        // Invalid config (missing required fields) should fail deserialization
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({ "config": { "mode": "local" } }),
+        );
+        assert!(res.is_err(), "create_client should fail with incomplete config");
+
+        // Valid local config should succeed
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        // Client is initialized: health_check should succeed against the real container
+        let res = get_command_response(&webview, TauriCommand::HealthCheck.as_str(), json!({}));
+        assert!(res.is_ok(), "health_check failed after local create_client: {:?}", res.err());
+    }
+
+    #[test]
+    fn test_create_client_cloud() {
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        // Valid cloud config with a fake URL — create_client should succeed (no network call yet)
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "cloud",
+                    "url": "https://fake.cloud.example.invalid",
+                    "apiKey": "test-api-key",
+                    "database": "test-db"
+                }
+            }),
+        );
+        assert!(res.is_ok(), "create_client failed for cloud config: {:?}", res.err());
+
+        // health_check must fail with a connection error, NOT "ChromaDB client not initialized"
+        // — this proves the client was set up and auth was configured
+        let res = get_command_response(&webview, TauriCommand::HealthCheck.as_str(), json!({}));
+        assert!(res.is_err(), "health_check should fail against fake URL");
+        assert_ne!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "cloud client should be initialized; expected a connection error"
+        );
+    }
 
     #[test]
     fn test_greet() {
@@ -1057,9 +969,11 @@ mod tests {
             &webview,
             TauriCommand::CreateClient.as_str(),
             json!({
-                "url": connect_url,
-                "authConfig": {
-                    "authMethod": "no_auth"
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
                 }
             }),
         );
@@ -1096,7 +1010,6 @@ mod tests {
             &webview,
             TauriCommand::CheckTenantAndDatabase.as_str(),
             json!({
-                "tenant": "default_tenant",
                 "database": "default_database"
             }),
         );
@@ -1112,9 +1025,11 @@ mod tests {
             &webview,
             TauriCommand::CreateClient.as_str(),
             json!({
-                "url": connect_url,
-                "authConfig": {
-                    "authMethod": "no_auth"
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
                 }
             }),
         );
@@ -1125,7 +1040,6 @@ mod tests {
             &webview,
             TauriCommand::CheckTenantAndDatabase.as_str(),
             json!({
-                "tenant": "default_tenant",
                 "database": "default_database"
             }),
         );
@@ -1173,9 +1087,11 @@ mod tests {
             &webview,
             TauriCommand::CreateClient.as_str(),
             json!({
-                "url": connect_url,
-                "authConfig": {
-                    "authMethod": "no_auth"
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
                 }
             }),
         );
@@ -1236,9 +1152,11 @@ mod tests {
             &webview,
             TauriCommand::CreateClient.as_str(),
             json!({
-                "url": connect_url,
-                "authConfig": {
-                    "authMethod": "no_auth"
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
                 }
             }),
         );
@@ -1285,9 +1203,11 @@ mod tests {
             &webview,
             TauriCommand::CreateClient.as_str(),
             json!({
-                "url": connect_url,
-                "authConfig": {
-                    "authMethod": "no_auth"
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
                 }
             }),
         );
@@ -1359,9 +1279,11 @@ mod tests {
             &webview,
             TauriCommand::CreateClient.as_str(),
             json!({
-                "url": connect_url,
-                "authConfig": {
-                    "authMethod": "no_auth"
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
                 }
             }),
         );
