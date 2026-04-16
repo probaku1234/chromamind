@@ -112,17 +112,19 @@ async fn health_check(state: State<'_, AppState>) -> Result<u128, String> {
 
 #[tauri::command]
 async fn check_tenant_and_database(
-    tenant: &str,
     database: &str,
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
     log::info!(
-        "(check_tenant_and_database) Checking tenant: {} and database: {}",
-        tenant,
+        "(check_tenant_and_database) Checking database: {}",
         database
     );
+    let client = state.get_client()?;
 
-    Ok(true)
+    match client.list_databases().await {
+        Ok(databases) => Ok(databases.iter().any(|db| db.name == database)),
+        Err(e) => Err(format!("Error checking tenant/database: {e}")),
+    }
 }
 
 #[tauri::command]
@@ -1017,7 +1019,7 @@ mod tests {
         assert!(res.is_err(), "check_tenant_and_database should fail");
         assert_eq!(
             res.err().unwrap(),
-            "No client found",
+            "ChromaDB client not initialized",
             "check_tenant_and_database failed with different error"
         );
 
