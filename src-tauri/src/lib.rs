@@ -566,38 +566,30 @@ async fn create_collection(
 }
 
 #[tauri::command]
-async fn delete_collection(collection_names: Vec<String>, state: State<'_, AppState>) -> Result<(), String> {
+async fn delete_collection(
+    collection_names: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     log::info!(
         "(delete_collection) Deleting collection: {:?}",
         collection_names
     );
-    // let client = state.get_client()?;
-    //
-    // let mut errors = vec![];
-    // let _ = collection_names
-    //     .iter()
-    //     .map(|collection_name| client.delete_collection(collection_name).await)
-    //     .filter_map(|r| r.map_err(|e| errors.push(e)).ok())
-    //     .collect::<Vec<_>>();
-    //
-    // if !errors.is_empty() {
-    //     log::error!(
-    //         "(delete_collection) Error deleting collection: {}",
-    //         errors
-    //             .iter()
-    //             .map(|e| e.to_string())
-    //             .collect::<Vec<_>>()
-    //             .join(", ")
-    //     );
-    //     return Err(format!(
-    //         "Error deleting collection: {}",
-    //         errors
-    //             .iter()
-    //             .map(|e| e.to_string())
-    //             .collect::<Vec<_>>()
-    //             .join(", ")
-    //     ));
-    // }
+    let client = state.get_client()?;
+
+    let mut errors = vec![];
+    for collection_name in &collection_names {
+        if let Err(e) = client.delete_collection(collection_name).await {
+            errors.push(e.to_string());
+        }
+    }
+
+    if !errors.is_empty() {
+        log::error!(
+            "(delete_collection) Error deleting collections: {}",
+            errors.join(", ")
+        );
+        return Err(format!("Error deleting collections: {}", errors.join(", ")));
+    }
 
     Ok(())
 }
@@ -1649,69 +1641,75 @@ mod tests {
 
     #[test]
     fn test_delete_collection() {
-        // let container = create_chroma_container();
-        //
-        // let host = container.get_host().unwrap();
-        // let port = container.get_host_port_ipv4(8000).unwrap();
-        //
-        // let connect_url = format!("http://{}:{}", host, port);
-        //
-        // let app = before_each(mock_builder());
-        // let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-        //     .build()
-        //     .unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::DeleteCollection.as_str(),
-        //     json!({
-        //         "collectionNames": vec!["test_collection"]
-        //     }),
-        // );
-        //
-        // assert!(res.is_err(), "delete_collection should fail");
-        //
-        // assert_eq!(
-        //     res.err().unwrap(),
-        //     "No client found",
-        //     "delete_collection failed with different error"
-        // );
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::CreateClient.as_str(),
-        //     json!({
-        //         "url": connect_url,
-        //         "authConfig": {
-        //             "authMethod": "no_auth"
-        //         }
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-        //
-        // let client = ChromaClient::new(ChromaClientOptions {
-        //     url: format!("http://{}:{}", host, port),
-        //     auth: chromadb::v1::client::ChromaAuthMethod::None,
-        // });
-        //
-        // let collection_name: &str = "test_collection";
-        // client
-        //     .get_or_create_collection(collection_name, None)
-        //     .unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::DeleteCollection.as_str(),
-        //     json!({
-        //         "collectionNames": vec![collection_name]
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "delete_collection failed: {:?}", res.err());
-        //
-        // let collection = client.get_collection(collection_name);
-        //
-        // assert!(collection.is_err(), "collection should not exist");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteCollection.as_str(),
+            json!({
+                "collectionNames": vec!["test_collection"]
+            }),
+        );
+
+        assert!(res.is_err(), "delete_collection should fail");
+
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "delete_collection failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collection_name: &str = "test_collection";
+        rt.block_on(client.get_or_create_collection(collection_name, None, None))
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteCollection.as_str(),
+            json!({
+                "collectionNames": vec![collection_name]
+            }),
+        );
+
+        assert!(res.is_ok(), "delete_collection failed: {:?}", res.err());
+
+        let collection = rt.block_on(client.get_collection(collection_name));
+
+        assert!(collection.is_err(), "collection should not exist");
     }
 }
