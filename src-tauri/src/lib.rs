@@ -2,6 +2,7 @@ pub mod structs;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 use chroma::client::ChromaAuthMethod;
+use chroma::types::{Include, IncludeList, Metadata, MetadataValue};
 use chroma::{ChromaHttpClient, ChromaHttpClientOptions};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -388,89 +389,98 @@ async fn fetch_embeddings(
         collection_name
     );
     log::debug!("(fetch_embeddings) limit: {}, offset: {}", limit, offset,);
-    // let client = state.get_client()?;
-    //
-    // let collection = client.get_collection(collection_name).await;
-    // if collection.is_err() {
-    //     log::error!(
-    //         "(fetch_embeddings) Error fetching collection: {}",
-    //         collection.as_ref().err().unwrap()
-    //     );
-    //     return Err(format!(
-    //         "Error fetching collection: {}",
-    //         collection.err().unwrap()
-    //     ));
-    // }
-    //
-    // let collection = collection.unwrap();
-    //
-    // let get_query = GetOptions {
-    //     ids: vec![],
-    //     where_metadata: None,
-    //     limit: Some(limit),
-    //     offset: Some(offset * limit),
-    //     where_document: None,
-    //     include: Some(vec![
-    //         "embeddings".into(),
-    //         "documents".into(),
-    //         "metadatas".into(),
-    //     ]),
-    // };
-    // log::debug!(
-    //     "(fetch_embeddings) Fetching embeddings with query: {:?}",
-    //     get_query
-    // );
-    //
-    // let get_result = collection.get(get_query);
-    // if get_result.is_err() {
-    //     log::error!(
-    //         "(fetch_embeddings) Error fetching embeddings: {}",
-    //         get_result.as_ref().err().unwrap()
-    //     );
-    //     return Err(format!(
-    //         "Error fetching embeddings: {}",
-    //         get_result.err().unwrap()
-    //     ));
-    // }
-    //
-    // // log::debug!(
-    // //     "(fetch_embeddings) Fetched embeddings: {:?}",
-    // //     get_result.as_ref().unwrap()
-    // // );
-    //
-    // let get_result = get_result.unwrap();
-    // let ids = get_result.ids;
-    // let embeddings = get_result.embeddings.unwrap_or_default();
-    // let documents = get_result.documents.unwrap_or_default();
-    // let metadatas = get_result.metadatas.unwrap_or_default();
-    //
-    // if ids.len() != embeddings.len() || ids.len() != documents.len() || ids.len() != metadatas.len()
-    // {
-    //     log::error!(
-    //         "(fetch_embeddings) Error fetching embeddings: Mismatch in data: ids: {}, embeddings: {}, documents: {}, metadatas: {}",
-    //         ids.len(),
-    //         embeddings.len(),
-    //         documents.len(),
-    //         metadatas.len()
-    //     );
-    //     return Err("Error fetching embeddings: Mismatch in data".to_string());
-    // }
-    //
-    // let embeddings_list: Vec<EmbeddingData> = ids
-    //     .into_iter()
-    //     .zip(embeddings)
-    //     .zip(documents)
-    //     .zip(metadatas)
-    //     .map(|(((id, embedding), document), metadata)| EmbeddingData {
-    //         id,
-    //         metadata: metadata.unwrap_or_default(),
-    //         document: document.unwrap_or_default(),
-    //         embedding: embedding.unwrap_or_default(),
-    //     })
-    //     .collect();
-    //
-    // Ok(embeddings_list)
-    Ok(vec![])
+    let client = state.get_client()?;
+
+    let collection = client.get_collection(collection_name).await;
+    if collection.is_err() {
+        log::error!(
+            "(fetch_embeddings) Error fetching collection: {}",
+            collection.as_ref().err().unwrap()
+        );
+        return Err(format!(
+            "Error fetching collection: {}",
+            collection.err().unwrap()
+        ));
+    }
+
+    let collection = collection.unwrap();
+
+    let get_result = collection
+        .get(
+            None,
+            None,
+            Some(limit as u32),
+            Some(offset as u32),
+            Some(IncludeList(vec![
+                Include::Embedding,
+                Include::Metadata,
+                Include::Document,
+            ])),
+        )
+        .await;
+
+    if get_result.is_err() {
+        log::error!(
+            "(fetch_embeddings) Error fetching embeddings: {}",
+            get_result.as_ref().err().unwrap()
+        );
+        return Err(format!(
+            "Error fetching embeddings: {}",
+            get_result.err().unwrap()
+        ));
+    }
+
+    let get_result = get_result.unwrap();
+    let ids = get_result.ids;
+    let embeddings = get_result.embeddings.unwrap_or_default();
+    let documents = get_result.documents.unwrap_or_default();
+    let metadatas = get_result.metadatas.unwrap_or_default();
+
+    if ids.len() != embeddings.len() || ids.len() != documents.len() || ids.len() != metadatas.len()
+    {
+        log::error!(
+            "(fetch_embeddings) Mismatch in data: ids: {}, embeddings: {}, documents: {}, metadatas: {}",
+            ids.len(),
+            embeddings.len(),
+            documents.len(),
+            metadatas.len()
+        );
+        return Err("Error fetching embeddings: Mismatch in data".to_string());
+    }
+
+    let embeddings_list: Vec<EmbeddingData> = ids
+        .into_iter()
+        .zip(embeddings)
+        .zip(documents)
+        .zip(metadatas)
+        .map(|(((id, embedding), document), metadata)| {
+            let metadata = metadata
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(k, v)| {
+                    let json_val = match v {
+                        MetadataValue::Bool(b) => Value::Bool(b),
+                        MetadataValue::Int(i) => Value::Number(i.into()),
+                        MetadataValue::Float(f) => serde_json::Number::from_f64(f)
+                            .map(Value::Number)
+                            .unwrap_or(Value::Null),
+                        MetadataValue::Str(s) => Value::String(s),
+                        MetadataValue::SparseVector(_) => Value::Null,
+                        _ => Value::Null,
+                    };
+                    (k, json_val)
+                })
+                .collect();
+            EmbeddingData {
+                id,
+                metadata,
+                document: document.unwrap_or_default(),
+                embedding,
+            }
+        })
+        .collect();
+
+    Ok(embeddings_list)
 }
 
 #[tauri::command]
@@ -1343,96 +1353,122 @@ mod tests {
 
     #[test]
     fn test_fetch_embeddings() {
-        // let container = create_chroma_container();
-        //
-        // let host = container.get_host().unwrap();
-        // let port = container.get_host_port_ipv4(8000).unwrap();
-        //
-        // let connect_url = format!("http://{}:{}", host, port);
-        //
-        // let app = before_each(mock_builder());
-        // let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-        //     .build()
-        //     .unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::FetchEmbeddings.as_str(),
-        //     json!({
-        //         "collectionName": "test_collection",
-        //         "limit": 0,
-        //         "offset": 0
-        //     }),
-        // );
-        //
-        // assert!(res.is_err(), "fetch_embeddings should fail");
-        // assert_eq!(
-        //     res.err().unwrap(),
-        //     "No client found",
-        //     "fetch_embeddings failed with different error"
-        // );
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::CreateClient.as_str(),
-        //     json!({
-        //         "url": connect_url,
-        //         "authConfig": {
-        //             "authMethod": "no_auth"
-        //         }
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-        //
-        // let client = ChromaClient::new(ChromaClientOptions {
-        //     url: format!("http://{}:{}", host, port),
-        //     auth: chromadb::v1::client::ChromaAuthMethod::None,
-        // });
-        //
-        // let collecton_name = "test_collection";
-        // let collection = client
-        //     .get_or_create_collection(collecton_name, None)
-        //     .unwrap();
-        //
-        // let ids = vec!["demo-id-1".into(), "demo-id-2".into()];
-        // let collection_entries = CollectionEntries {
-        //     ids: ids.clone(),
-        //     embeddings: Some(vec![vec![0.0_f32; 768], vec![0.0_f32; 768]]),
-        //     metadatas: None,
-        //     documents: Some(vec![
-        //         "Some document about 9 octopus recipies".into(),
-        //         "Some other document about DCEU Superman Vs CW Superman".into(),
-        //     ]),
-        // };
-        // collection.upsert(collection_entries, None).unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::FetchEmbeddings.as_str(),
-        //     json!({
-        //         "collectionName": collecton_name,
-        //         "limit": 0,
-        //         "offset": 0
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "fetch_embeddings failed: {:?}", res.err());
-        // // assert if res is Vec<EmbeddingData>
-        // let res = res.unwrap().deserialize::<Vec<EmbeddingData>>();
-        // assert!(
-        //     res.is_ok(),
-        //     "fetch_embeddings result is not Vec<EmbeddingData>: {:?}",
-        //     res.err()
-        // );
-        //
-        // let res = res.unwrap();
-        // let expected = ids.clone();
-        //
-        // assert_eq!(
-        //     expected,
-        //     res.iter().map(|x| x.id.clone()).collect::<Vec<_>>()
-        // );
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchEmbeddings.as_str(),
+            json!({
+                "collectionName": "test_collection",
+                "limit": 0,
+                "offset": 0
+            }),
+        );
+
+        assert!(res.is_err(), "fetch_embeddings should fail");
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "fetch_embeddings failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collecton_name = "test_collection";
+        let collection = rt
+            .block_on(client.get_or_create_collection(collecton_name, None, None))
+            .unwrap();
+
+        let ids = vec!["doc1".to_string(), "doc2".to_string()];
+        rt.block_on(collection.add(
+            ids.clone(),
+            vec![vec![0.1, 0.2], vec![0.3, 0.4]],
+            Some(vec![
+                Some("First document".to_string()),
+                Some("Second document".to_string()),
+            ]),
+            None,
+            None,
+        ))
+        .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchEmbeddings.as_str(),
+            json!({
+                "collectionName": collecton_name,
+                "limit": 5,
+                "offset": 0
+            }),
+        );
+
+        assert!(res.is_ok(), "fetch_embeddings failed: {:?}", res.err());
+        // assert if res is Vec<EmbeddingData>
+        let res = res.unwrap().deserialize::<Vec<EmbeddingData>>();
+        assert!(
+            res.is_ok(),
+            "fetch_embeddings result is not Vec<EmbeddingData>: {:?}",
+            res.err()
+        );
+
+        let res = res.unwrap();
+        let expected = ids.clone();
+
+        assert_eq!(
+            expected,
+            res.iter().map(|x| x.id.clone()).collect::<Vec<_>>()
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchEmbeddings.as_str(),
+            json!({
+                "collectionName": collecton_name,
+                "limit": 0,
+                "offset": 0
+            }),
+        );
+
+        assert!(res.is_ok(), "fetch_embeddings failed: {:?}", res.err());
+        let res = res.unwrap().deserialize::<Vec<EmbeddingData>>();
+        let res = res.unwrap();
+        assert!(
+            res.is_empty(),
+            "fetch_collection_data should return empty vec since limit is 0"
+        );
     }
 
     #[test]
