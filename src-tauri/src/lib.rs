@@ -484,7 +484,10 @@ async fn fetch_embeddings(
 }
 
 #[tauri::command]
-async fn fetch_collection_data(collection_name: &str, state: State<'_, AppState>) -> Result<Value, String> {
+async fn fetch_collection_data(
+    collection_name: &str,
+    state: State<'_, AppState>,
+) -> Result<Value, String> {
     log::info!(
         "(fetch_collection_data) Fetching collection data for collection: {}",
         collection_name
@@ -700,6 +703,8 @@ mod tests {
     use chroma::client::{ChromaAuthMethod, ChromaHttpClientOptionsError};
     use chroma::{ChromaHttpClient, ChromaHttpClientOptions};
     use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
+    use tauri::ipc::IpcResponse;
     use tauri::{
         ipc::InvokeResponseBody,
         test::{mock_builder, mock_context, noop_assets, MockRuntime},
@@ -1473,96 +1478,102 @@ mod tests {
 
     #[test]
     fn test_fetch_collection_data() {
-        // let container = create_chroma_container();
-        //
-        // let host = container.get_host().unwrap();
-        // let port = container.get_host_port_ipv4(8000).unwrap();
-        //
-        // let connect_url = format!("http://{}:{}", host, port);
-        //
-        // let app = before_each(mock_builder());
-        // let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-        //     .build()
-        //     .unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::FetchCollectionData.as_str(),
-        //     json!({
-        //         "collectionName": "test_collection"
-        //     }),
-        // );
-        //
-        // assert!(res.is_err(), "fetch_collection_data should fail");
-        //
-        // assert_eq!(
-        //     res.err().unwrap(),
-        //     "No client found",
-        //     "fetch_collection_data failed with different error"
-        // );
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::CreateClient.as_str(),
-        //     json!({
-        //         "url": connect_url,
-        //         "authConfig": {
-        //             "authMethod": "no_auth"
-        //         }
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-        //
-        // let client = ChromaClient::new(ChromaClientOptions {
-        //     url: format!("http://{}:{}", host, port),
-        //     auth: chromadb::v1::client::ChromaAuthMethod::None,
-        // });
-        //
-        // let collecton_name = "test_collection";
-        // let collection = client
-        //     .get_or_create_collection(
-        //         collecton_name,
-        //         Some(
-        //             json!({
-        //                 "foo": "bar"
-        //             })
-        //             .as_object()
-        //             .unwrap()
-        //             .clone(),
-        //         ),
-        //     )
-        //     .unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::FetchCollectionData.as_str(),
-        //     json!({
-        //         "collectionName": collecton_name
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "fetch_collection_data failed: {:?}", res.err());
-        //
-        // // assert if res is Value
-        // let res = res.unwrap().deserialize::<Value>();
-        // assert!(
-        //     res.is_ok(),
-        //     "fetch_collection_data result is not Value: {:?}",
-        //     res.err()
-        // );
-        //
-        // let res = res.unwrap();
-        // let expected = json!({
-        //     "id": collection.id(),
-        //     "metadata": collection.metadata(),
-        //     "configuration": collection.configuration_json(),
-        // });
-        //
-        // assert_eq!(
-        //     expected, res,
-        //     "fetch_collection_data result is not equal to expected"
-        // );
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchCollectionData.as_str(),
+            json!({
+                "collectionName": "test_collection"
+            }),
+        );
+
+        assert!(res.is_err(), "fetch_collection_data should fail");
+
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "fetch_collection_data failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collection_name = "test_collection";
+        let collection = rt
+            .block_on(client.get_or_create_collection(
+                collection_name,
+                None,
+                Some(HashMap::from([(
+                    "foo".to_string(),
+                    MetadataValue::Str("bar".to_string()),
+                )])),
+            ))
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchCollectionData.as_str(),
+            json!({
+                "collectionName": collection_name
+            }),
+        );
+
+        assert!(res.is_ok(), "fetch_collection_data failed: {:?}", res.err());
+
+        // assert if res is Value
+        let res = res.unwrap().deserialize::<Value>();
+        assert!(
+            res.is_ok(),
+            "fetch_collection_data result is not Value: {:?}",
+            res.err()
+        );
+
+        let res = res.unwrap();
+        let expected = json!({
+            "id": collection.id(),
+            "metadata": collection.metadata(),
+            // TODO: need to get actual config
+            // "configuration": collection.configuration_json(),
+            "configuration": {},
+        });
+
+        assert_eq!(
+            expected, res,
+            "fetch_collection_data result is not equal to expected"
+        );
     }
 
     #[test]
