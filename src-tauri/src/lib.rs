@@ -299,8 +299,10 @@ async fn fetch_collections(state: State<'_, AppState>) -> Result<Vec<Value>, Str
     log::info!("(fetch_collections) Fetching collections");
     let client = state.get_client()?;
 
-    // TODO: limit, offset
-    let collections = client.list_collections(100, None).await;
+    // TODO: decide limit, offset
+    let limit = 100;
+    let offset = None;
+    let collections = client.list_collections(limit, offset).await;
     if collections.is_err() {
         log::error!(
             "(fetch_collections) Error fetching collections: {}",
@@ -1177,8 +1179,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_fetch_collections() {
+    #[test]
+    fn test_fetch_collections() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let container = create_chroma_container();
 
         let host = container.get_host().unwrap();
@@ -1197,7 +1200,7 @@ mod tests {
         assert!(res.is_err(), "fetch_collections should fail");
         assert_eq!(
             res.err().unwrap(),
-            "No client found",
+            "ChromaDB client not initialized",
             "fetch_collections failed with different error"
         );
 
@@ -1217,15 +1220,17 @@ mod tests {
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
         let client = ChromaHttpClient::new(ChromaHttpClientOptions {
-            endpoint: format!("http://{}:{}", host, port).as_str().parse().unwrap(),
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
             auth_method: ChromaAuthMethod::None,
             ..Default::default()
         });
 
-        let collecton_name = "test_collection";
-        client
-            .get_or_create_collection(collecton_name, None, None)
-            .await.unwrap();
+        let collection_name = "test_collection";
+        rt.block_on(client.get_or_create_collection(collection_name, None, None))
+            .unwrap();
 
         let res =
             get_command_response(&webview, TauriCommand::FetchCollections.as_str(), json!({}));
@@ -1243,7 +1248,7 @@ mod tests {
         let collection_data = res.first().unwrap();
         let expected = collection_data.get("name").unwrap().as_str().unwrap();
         assert_eq!(
-            expected, collecton_name,
+            expected, collection_name,
             "fetch_collections result is not equal to expected"
         );
     }
