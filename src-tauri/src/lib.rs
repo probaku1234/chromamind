@@ -334,10 +334,7 @@ async fn fetch_collections(state: State<'_, AppState>) -> Result<Vec<Value>, Str
 }
 
 #[tauri::command]
-async fn fetch_row_count(
-    collection_name: &str,
-    state: State<'_, AppState>,
-) -> Result<u32, String> {
+async fn fetch_row_count(collection_name: &str, state: State<'_, AppState>) -> Result<u32, String> {
     let start_time = Instant::now();
     log::info!(
         "(fetch_row_count) Fetching row count for collection: {}",
@@ -1253,8 +1250,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_fetch_row_count() {
+    #[test]
+    fn test_fetch_row_count() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let container = create_chroma_container();
 
         let host = container.get_host().unwrap();
@@ -1278,7 +1276,7 @@ mod tests {
         assert!(res.is_err(), "fetch_row_count should fail");
         assert_eq!(
             res.err().unwrap(),
-            "No client found",
+            "ChromaDB client not initialized",
             "fetch_row_count failed with different error"
         );
 
@@ -1298,45 +1296,49 @@ mod tests {
         assert!(res.is_ok(), "create_client failed: {:?}", res.err());
 
         let client = ChromaHttpClient::new(ChromaHttpClientOptions {
-            endpoint: format!("http://{}:{}", host, port).as_str().parse().unwrap(),
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
             auth_method: ChromaAuthMethod::None,
             ..Default::default()
         });
 
         let collecton_name = "test_collection";
-        let collection = client
-            .get_or_create_collection(collecton_name, None, None)
-            .await.unwrap();
-        //
-        // let collection_entries = CollectionEntries {
-        //     ids: vec!["demo-id-1".into(), "demo-id-2".into()],
-        //     embeddings: Some(vec![vec![0.0_f32; 768], vec![0.0_f32; 768]]),
-        //     metadatas: None,
-        //     documents: Some(vec![
-        //         "Some document about 9 octopus recipies".into(),
-        //         "Some other document about DCEU Superman Vs CW Superman".into(),
-        //     ]),
-        // };
-        // collection.upsert(collection_entries, None).unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::FetchRowCount.as_str(),
-        //     json!({
-        //         "collectionName": collecton_name
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "fetch_row_count failed: {:?}", res.err());
-        // // assert if res is usize
-        // let res = res.unwrap().deserialize::<usize>();
-        // assert!(
-        //     res.is_ok(),
-        //     "fetch_row_count result is not usize: {:?}",
-        //     res.err()
-        // );
-        // let res = res.unwrap();
-        // assert_eq!(res, 2, "fetch_row_count result is not equal to expected");
+        let collection = rt
+            .block_on(client.get_or_create_collection(collecton_name, None, None))
+            .unwrap();
+
+        rt.block_on(collection.add(
+            vec!["doc1".to_string(), "doc2".to_string()],
+            vec![vec![0.1, 0.2], vec![0.3, 0.4]],
+            Some(vec![
+                Some("First document".to_string()),
+                Some("Second document".to_string()),
+            ]),
+            None,
+            None,
+        ))
+        .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchRowCount.as_str(),
+            json!({
+                "collectionName": collecton_name
+            }),
+        );
+
+        assert!(res.is_ok(), "fetch_row_count failed: {:?}", res.err());
+
+        let res = res.unwrap().deserialize::<usize>();
+        assert!(
+            res.is_ok(),
+            "fetch_row_count result is not usize: {:?}",
+            res.err()
+        );
+        let res = res.unwrap();
+        assert_eq!(res, 2, "fetch_row_count result is not equal to expected");
     }
 
     #[test]
