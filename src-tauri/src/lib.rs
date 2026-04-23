@@ -56,7 +56,11 @@ enum ConnectionConfig {
 #[tauri::command]
 fn create_client(config: ConnectionConfig, state: State<AppState>) -> Result<(), String> {
     let options = match config {
-        ConnectionConfig::Local { url, tenant, database } => {
+        ConnectionConfig::Local {
+            url,
+            tenant,
+            database,
+        } => {
             log::info!("(create_client) Creating local client with url: {}", url);
             ChromaHttpClientOptions {
                 endpoint: url
@@ -68,7 +72,11 @@ fn create_client(config: ConnectionConfig, state: State<AppState>) -> Result<(),
                 ..Default::default()
             }
         }
-        ConnectionConfig::Cloud { url, api_key, database } => {
+        ConnectionConfig::Cloud {
+            url,
+            api_key,
+            database,
+        } => {
             log::info!("(create_client) Creating cloud client with url: {}", url);
             ChromaHttpClientOptions {
                 endpoint: url
@@ -809,7 +817,7 @@ mod tests {
     }
 
     fn create_chroma_container() -> Container<GenericImage> {
-        GenericImage::new("chromadb/chroma", "1.0.22.dev31")
+        GenericImage::new("chromadb/chroma", "1.0.16")
             .with_exposed_port(8000.tcp())
             // .with_wait_for(WaitFor::Http(HttpWaitStrategy::new("/api/v1/heartbeat").with_port(8000.tcp())))
             .with_wait_for(WaitFor::message_on_stdout("Connect to Chroma at:"))
@@ -854,8 +862,9 @@ mod tests {
     //     image.start().expect("ChromaDB started")
     // }
 
-    #[tokio::test]
-    async fn test_chroma_container() {
+    #[test]
+    fn test_chroma_container() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
         let container = create_chroma_container();
 
         let host = container.get_host().unwrap();
@@ -863,12 +872,15 @@ mod tests {
 
         println!("ChromaDB running at {}:{}", host, port);
         let client = ChromaHttpClient::new(ChromaHttpClientOptions {
-            endpoint: format!("http://{}:{}", host, port).as_str().parse().unwrap(),
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
             auth_method: ChromaAuthMethod::None,
             ..Default::default()
         });
 
-        let health_check_result = client.heartbeat().await;
+        let health_check_result = rt.block_on(client.heartbeat());
         assert!(health_check_result.is_ok(), "ChromaDB not running");
     }
 
@@ -892,7 +904,10 @@ mod tests {
             TauriCommand::CreateClient.as_str(),
             json!({ "config": { "mode": "local" } }),
         );
-        assert!(res.is_err(), "create_client should fail with incomplete config");
+        assert!(
+            res.is_err(),
+            "create_client should fail with incomplete config"
+        );
 
         // Valid local config should succeed
         let res = get_command_response(
@@ -911,7 +926,11 @@ mod tests {
 
         // Client is initialized: health_check should succeed against the real container
         let res = get_command_response(&webview, TauriCommand::HealthCheck.as_str(), json!({}));
-        assert!(res.is_ok(), "health_check failed after local create_client: {:?}", res.err());
+        assert!(
+            res.is_ok(),
+            "health_check failed after local create_client: {:?}",
+            res.err()
+        );
     }
 
     #[test]
@@ -934,7 +953,11 @@ mod tests {
                 }
             }),
         );
-        assert!(res.is_ok(), "create_client failed for cloud config: {:?}", res.err());
+        assert!(
+            res.is_ok(),
+            "create_client failed for cloud config: {:?}",
+            res.err()
+        );
 
         // health_check must fail with a connection error, NOT "ChromaDB client not initialized"
         // — this proves the client was set up and auth was configured
@@ -1089,8 +1112,8 @@ mod tests {
         assert!(res.unwrap(), "check_tenant_and_database result is not true");
     }
 
-    #[tokio::test]
-    async fn test_get_chroma_version() {
+    #[test]
+    fn test_get_chroma_version() {
         let container = create_chroma_container();
 
         let host = container.get_host().unwrap();
@@ -1141,7 +1164,10 @@ mod tests {
         );
 
         let client = ChromaHttpClient::new(ChromaHttpClientOptions {
-            endpoint: format!("http://{}:{}", host, port).as_str().parse().unwrap(),
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
             auth_method: ChromaAuthMethod::None,
             ..Default::default()
         });
