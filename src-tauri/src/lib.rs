@@ -537,13 +537,35 @@ async fn create_collection(
     );
     let client = state.get_client()?;
 
-    let metadata_map = metadata.and_then(|m| m.as_object().cloned());
+    let collection_metadata: Option<Metadata> = metadata.and_then(|m| {
+        m.as_object().map(|obj| {
+            obj.iter()
+                .filter_map(|(k, v)| {
+                    let mv = match v {
+                        Value::Bool(b) => Some(MetadataValue::Bool(*b)),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                Some(MetadataValue::Int(i))
+                            } else {
+                                n.as_f64().map(MetadataValue::Float)
+                            }
+                        }
+                        Value::String(s) => Some(MetadataValue::Str(s.clone())),
+                        _ => None,
+                    };
+                    mv.map(|v| (k.clone(), v))
+                })
+                .collect()
+        })
+    });
     log::debug!(
-        "(create_collection) Creating collection with metadata: {:?}",
-        metadata_map
+        "(create_collection) Creating collection with name: {} and metadata: {:?}",
+        collection_name,
+        collection_metadata,
     );
-    // TODO: metadata_map should be  HashMap<String, MetadataValue>
-    let result = client.create_collection(collection_name, None, None).await;
+    let result = client
+        .get_or_create_collection(collection_name, None, collection_metadata)
+        .await;
 
     if result.is_err() {
         log::error!(
@@ -1570,73 +1592,86 @@ mod tests {
 
     #[test]
     fn test_create_collection() {
-        // let container = create_chroma_container();
-        //
-        // let host = container.get_host().unwrap();
-        // let port = container.get_host_port_ipv4(8000).unwrap();
-        //
-        // let connect_url = format!("http://{}:{}", host, port);
-        //
-        // let app = before_each(mock_builder());
-        // let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
-        //     .build()
-        //     .unwrap();
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::CreateCollection.as_str(),
-        //     json!({
-        //         "collectionName": "test_collection",
-        //         "metadata": {
-        //             "foo": "bar"
-        //         }
-        //     }),
-        // );
-        //
-        // assert!(res.is_err(), "fetch_collection_data should fail");
-        //
-        // assert_eq!(
-        //     res.err().unwrap(),
-        //     "No client found",
-        //     "fetch_collection_data failed with different error"
-        // );
-        //
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::CreateClient.as_str(),
-        //     json!({
-        //         "url": connect_url,
-        //         "authConfig": {
-        //             "authMethod": "no_auth"
-        //         }
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "create_client failed: {:?}", res.err());
-        //
-        // let collection_name: &str = "test_collection";
-        // let metadata = json!({
-        //     "foo": "bar"
-        // });
-        // let res = get_command_response(
-        //     &webview,
-        //     TauriCommand::CreateCollection.as_str(),
-        //     json!({
-        //         "collectionName": collection_name,
-        //         "metadata": metadata
-        //     }),
-        // );
-        //
-        // assert!(res.is_ok(), "create_collection failed: {:?}", res.err());
-        //
-        // let client = ChromaClient::new(ChromaClientOptions {
-        //     url: format!("http://{}:{}", host, port),
-        //     auth: chromadb::v1::client::ChromaAuthMethod::None,
-        // });
-        // let collection = client.get_collection(collection_name).unwrap();
-        //
-        // assert_eq!(collection_name, collection.name());
-        // assert_eq!(metadata, json!(collection.metadata()));
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateCollection.as_str(),
+            json!({
+                "collectionName": "test_collection",
+                "metadata": {
+                    "foo": "bar"
+                }
+            }),
+        );
+
+        assert!(res.is_err(), "fetch_collection_data should fail");
+
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "fetch_collection_data failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let collection_name: &str = "test_collection";
+        let metadata = json!({
+            "foo": "bar"
+        });
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateCollection.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "metadata": metadata
+            }),
+        );
+
+        assert!(res.is_ok(), "create_collection failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+        let collection = rt.block_on(client.get_collection(collection_name)).unwrap();
+
+        assert_eq!(collection_name, collection.name());
+        assert_eq!(
+            &Some(HashMap::from([(
+                "foo".to_string(),
+                MetadataValue::Str("bar".to_string())
+            )])),
+            collection.metadata()
+        );
     }
 
     #[test]
