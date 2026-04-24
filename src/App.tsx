@@ -8,12 +8,7 @@ import {
   Spinner,
   Text,
   Image,
-  Fieldset,
-  Stack,
 } from '@chakra-ui/react'
-import { PasswordInput } from '@/components/ui/password-input'
-import { HStack } from '@chakra-ui/react'
-import { Radio, RadioGroup } from '@/components/ui/radio'
 import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from './types'
@@ -22,51 +17,45 @@ import './App.css'
 import { match } from 'ts-pattern'
 import { Field } from '@/components/ui/field'
 import { Button } from './components/ui/button'
-
-const authBoxStyle: React.CSSProperties = {
-  border: '1px solid #8080805e',
-  borderRadius: '10px',
-  marginTop: 'var(--chakra-spacing-1)',
-  padding: 'var(--chakra-spacing-4)',
-}
+import { Radio, RadioGroup } from '@/components/ui/radio'
+import { HStack } from '@chakra-ui/react'
+import { PasswordInput } from '@/components/ui/password-input'
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>()
-  const [authMethod, setAuthMethod] = useState<string>('no_auth')
-  const [tokenType, setTokenType] = useState<string>('bearer')
+  const [mode, setMode] = useState<'local' | 'cloud'>('local')
   const urlRef = useRef<HTMLInputElement>(null)
   const tenantRef = useRef<HTMLInputElement>(null)
   const dbRef = useRef<HTMLInputElement>(null)
-  const usernameRef = useRef<HTMLInputElement>(null)
-  const passwordRef = useRef<HTMLInputElement>(null)
-  const tokenRef = useRef<HTMLInputElement>(null)
+  const apiKeyRef = useRef<HTMLInputElement>(null)
 
-  async function greet() {
+  async function connect() {
     setLoading(true)
     setSuccess(false)
+    setError(null)
 
-    const url = urlRef.current?.value || 'http://localhost:8000'
-    const tenant = tenantRef.current?.value || 'default_tenant'
+    const url = urlRef.current?.value || (mode === 'local' ? 'http://localhost:8000' : 'https://api.trychroma.com')
     const database = dbRef.current?.value || 'default_database'
-    const username = usernameRef.current?.value
-    const password = passwordRef.current?.value
-    const token = tokenRef.current?.value
-    const authConfig = {
-      authMethod,
-      username,
-      password,
-      token,
-      tokenType,
-    }
 
-    // TODO: tenant, database pass
+    const config =
+      mode === 'local'
+        ? {
+            mode: 'local' as const,
+            url,
+            tenant: tenantRef.current?.value || 'default_tenant',
+            database,
+          }
+        : {
+            mode: 'cloud' as const,
+            url,
+            apiKey: apiKeyRef.current?.value ?? '',
+            database,
+          }
+
     match(
-      await invokeWrapper(TauriCommand.CREATE_CLIENT, {
-        url,
-        authConfig,
-      }),
+      await invokeWrapper(TauriCommand.CREATE_CLIENT, { config }),
     ).with({ type: 'error' }, ({ error }) => {
       console.error(error)
     })
@@ -81,33 +70,32 @@ const App: React.FC = () => {
       },
     )
 
-    const result = await invokeWrapper<boolean>(
-      TauriCommand.CHECK_TENANT_AND_DATABASE,
-      {
-        tenant,
-        database,
-      },
-    )
+    if (mode === 'local') {
+      const result = await invokeWrapper<boolean>(
+        TauriCommand.CHECK_TENANT_AND_DATABASE,
+        { database },
+      )
 
-    const is_success = match(result)
-      .with({ type: 'error' }, ({ error }) => {
-        console.error(error)
-        setError(error)
-        setLoading(false)
-        return false
-      })
-      .with({ type: 'success' }, ({ result }) => {
-        if (!result) {
-          console.error(`${tenant} ${database} not found`)
-          setError(`${tenant} ${database} not found`)
+      const is_success = match(result)
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          setError(error)
           setLoading(false)
           return false
-        }
-      })
-      .exhaustive()
+        })
+        .with({ type: 'success' }, ({ result }) => {
+          if (!result) {
+            console.error(`database ${database} not found`)
+            setError(`database ${database} not found`)
+            setLoading(false)
+            return false
+          }
+        })
+        .exhaustive()
 
-    if (is_success == false) {
-      return
+      if (is_success == false) {
+        return
+      }
     }
 
     setLoading(false)
@@ -116,12 +104,12 @@ const App: React.FC = () => {
 
     setTimeout(() => {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`, url)
-      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_tenant`, tenant)
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_database`, database)
-      invokeWrapper(TauriCommand.CREATE_WINDOW, {
-        url,
-      })
-    }, 2000) // Delay to show the check icon before navigating
+      if (mode === 'local' && config.mode === 'local') {
+        localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_tenant`, config.tenant)
+      }
+      invokeWrapper(TauriCommand.CREATE_WINDOW, { url })
+    }, 2000)
   }
 
   useEffect(() => {
@@ -143,84 +131,52 @@ const App: React.FC = () => {
         as="form"
         onSubmit={(e: { preventDefault: () => void }) => {
           e.preventDefault()
-          greet()
+          connect()
         }}
         my={4}
         aria-label="form"
       >
+        <RadioGroup
+          defaultValue="local"
+          onValueChange={(e) => setMode((e.value ?? 'local') as 'local' | 'cloud')}
+          mb={4}
+        >
+          <HStack gap="6">
+            <Radio value="local">Local</Radio>
+            <Radio value="cloud">Cloud</Radio>
+          </HStack>
+        </RadioGroup>
+
         <Field label="URL" required mb={2}>
           <Input
             type="text"
             ref={urlRef}
             data-testid="url-input"
-            placeholder="http://localhost:8000"
+            placeholder={mode === 'local' ? 'http://localhost:8000' : 'https://api.trychroma.com'}
           />
         </Field>
-        <Field label="Tenant" mb={2}>
-          <Input type="text" ref={tenantRef} placeholder="default_tenant" />
-        </Field>
+
+        {mode === 'local' && (
+          <Field label="Tenant" mb={2}>
+            <Input type="text" ref={tenantRef} placeholder="default_tenant" />
+          </Field>
+        )}
+
         <Field label="Database" mb={2}>
           <Input type="text" ref={dbRef} placeholder="default_database" />
         </Field>
-        <RadioGroup
-          defaultValue="no_auth"
-          onValueChange={(e) => setAuthMethod(e.value ?? 'no_auth')}
-        >
-          <HStack gap="3">
-            <Radio value="no_auth">No Auth</Radio>
-            <Radio value="basic_auth">Basic Auth</Radio>
-            <Radio value="token_auth">Token Auth</Radio>
-          </HStack>
-        </RadioGroup>
-        {match(authMethod)
-          .with('basic_auth', () => (
-            <Fieldset.Root maxW="sm" style={authBoxStyle}>
-              <Stack>
-                <Fieldset.Legend>Auth Details</Fieldset.Legend>
-                <Fieldset.HelperText>
-                  Please provide your auth details below.
-                </Fieldset.HelperText>
-                <Fieldset.Content>
-                  <Field label="Username" required>
-                    <Input name="username" ref={usernameRef} />
-                  </Field>
-                  <Field label="Password" required>
-                    <PasswordInput ref={passwordRef} />
-                  </Field>
-                </Fieldset.Content>
-              </Stack>
-            </Fieldset.Root>
-          ))
-          .with('token_auth', () => (
-            <Fieldset.Root style={authBoxStyle}>
-              <RadioGroup
-                defaultValue="bearer"
-                onValueChange={(details) =>
-                  setTokenType(details.value ?? 'bearer')
-                }
-              >
-                <HStack gap="3">
-                  <Radio value="bearer">Bearer Token</Radio>
-                  <Radio value="x_chroma_token">X-Chroma-Token</Radio>
-                </HStack>
-              </RadioGroup>
-              <Field label="Token" required>
-                <PasswordInput name="token" ref={tokenRef} />
-              </Field>
-            </Fieldset.Root>
-          ))
-          .with('no_auth', () => <></>)
-          .otherwise(() => (
-            <></>
-          ))}
+
+        {mode === 'cloud' && (
+          <Field label="API Key" required mb={2}>
+            <PasswordInput ref={apiKeyRef} data-testid="api-key-input" />
+          </Field>
+        )}
+
         <Button
           type="submit"
-          // colorScheme="teal"
           disabled={loading}
           loading={loading}
           mt={4}
-          // bg={'brand.400'}
-          // colorPalette={'bg'}
         >
           Connect
         </Button>
