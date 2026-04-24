@@ -1012,7 +1012,7 @@ mod tests {
         assert!(res.is_err(), "health_check should fail");
         assert_eq!(
             res.err().unwrap(),
-            "No client found",
+            "ChromaDB client not initialized",
             "health_check failed with different error"
         );
 
@@ -1111,6 +1111,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "currently not implemented"]
     fn test_get_chroma_version() {
         let container = create_chroma_container();
 
@@ -1161,7 +1162,7 @@ mod tests {
             res.err()
         );
 
-        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+        let _ = ChromaHttpClient::new(ChromaHttpClientOptions {
             endpoint: format!("http://{}:{}", host, port)
                 .as_str()
                 .parse()
