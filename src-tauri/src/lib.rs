@@ -15,7 +15,6 @@ use tauri::{Manager, State};
 use tauri_plugin_log::{Target, TargetKind};
 
 struct AppState {
-    // client: Mutex<Option<ChromaClient>>,
     client: Mutex<Option<ChromaHttpClient>>,
 }
 
@@ -140,7 +139,7 @@ async fn check_tenant_and_database(
 async fn create_window(
     url: &str,
     app: tauri::AppHandle,
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
 ) -> Result<(), tauri::Error> {
     log::info!("(create_window) Creating window with url: {}", url);
 
@@ -288,7 +287,7 @@ async fn create_window(
 
 // tauri command get chroma version
 #[tauri::command]
-fn get_chroma_version(state: State<AppState>) -> Result<String, String> {
+fn get_chroma_version(_state: State<AppState>) -> Result<String, String> {
     log::info!("(get_chroma_version) Fetching chroma version");
 
     // TODO: get real version
@@ -296,7 +295,7 @@ fn get_chroma_version(state: State<AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn reset_chroma(state: State<AppState>) -> Result<bool, String> {
+fn reset_chroma(_state: State<AppState>) -> Result<bool, String> {
     log::info!("(reset_chroma) Resetting chroma");
 
     log::error!("(reset_chroma) Error resetting chroma: reset not implemented");
@@ -722,11 +721,10 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chroma::client::{ChromaAuthMethod, ChromaHttpClientOptionsError};
+    use chroma::client::ChromaAuthMethod;
     use chroma::{ChromaHttpClient, ChromaHttpClientOptions};
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
-    use tauri::ipc::IpcResponse;
     use tauri::{
         ipc::InvokeResponseBody,
         test::{mock_builder, mock_context, noop_assets, MockRuntime},
@@ -735,7 +733,7 @@ mod tests {
     use testcontainers::{
         core::{IntoContainerPort, WaitFor},
         runners::SyncRunner,
-        Container, GenericImage, ImageExt,
+        Container, GenericImage,
     };
 
     enum TauriCommand {
