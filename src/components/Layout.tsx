@@ -1,215 +1,151 @@
-import React, { ReactNode, ReactText, useEffect, useState } from 'react'
-import {
-  Box,
-  BoxProps,
-  Container,
-  Flex,
-  FlexProps,
-  Icon,
-  IconButton,
-  Text,
-  useDisclosure,
-  useRecipe,
-} from '@chakra-ui/react'
-import { FiHome, FiList, FiMenu, FiSettings } from 'react-icons/fi'
-import { DrawerRoot, DrawerContent } from '@/components/ui/drawer'
-import { IconType } from 'react-icons'
+import React, { ReactNode, useEffect, useState } from 'react'
+import { getVersion } from '@tauri-apps/api/app'
+import { Box, Flex, Image, Text, useRecipe } from '@chakra-ui/react'
 import { useDispatch, useSelector } from 'react-redux'
 import { CurrentMenuState, updateMenu } from '../slices/currentMenuSlice'
 import { State } from '../types'
-import { match } from 'ts-pattern'
-import { getVersion } from '@tauri-apps/api/app'
-import '../styles/layout.css'
 
-const NAV_WIDTH = 28
+// Inline SVG icons — no external dep, matches design spec
+const HomeIcon = () => (
+  <svg width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <polyline points="9 22 9 12 15 12 15 22"/>
+  </svg>
+)
 
-interface LinkItemProps {
+const ListIcon = () => (
+  <svg width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+    <line x1="8" y1="6" x2="21" y2="6"/>
+    <line x1="8" y1="12" x2="21" y2="12"/>
+    <line x1="8" y1="18" x2="21" y2="18"/>
+    <line x1="3" y1="6" x2="3.01" y2="6"/>
+    <line x1="3" y1="12" x2="3.01" y2="12"/>
+    <line x1="3" y1="18" x2="3.01" y2="18"/>
+  </svg>
+)
+
+const SettingsIcon = () => (
+  <svg width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+)
+
+interface NavItemDef {
   name: CurrentMenuState
-  icon: IconType
-  path: string
+  label: string
+  Icon: React.FC
 }
 
-const LinkItems: Array<LinkItemProps> = [
-  { name: 'Home', icon: FiHome, path: '/home' },
-  // { name: "Trending", icon: FiTrendingUp, path: "/trending" },
-  // { name: "Explore", icon: FiCompass, path: "/explore" },
-  // { name: "Favorites", icon: FiStar, path: "/favorites" },
-  { name: 'Collections', icon: FiList, path: '/collections' },
-  // { name: "Settings", icon: FiSettings, path: "/settings" },
+const NAV_ITEMS: NavItemDef[] = [
+  { name: 'Home', label: 'Home', Icon: HomeIcon },
+  { name: 'Collections', label: 'Collections', Icon: ListIcon },
 ]
+
+interface NavItemProps {
+  item: NavItemDef
+  active: boolean
+  onClick: () => void
+}
+
+const NavItem: React.FC<NavItemProps> = ({ item, active, onClick }) => {
+  const recipe = useRecipe({ key: 'layoutNavs' })
+  const styles = recipe({ navActive: active ? 'true' : undefined })
+
+  return (
+    <Box as="div" onClick={onClick} css={styles} margin="0 auto">
+      <item.Icon />
+      <Text fontSize="10px" fontWeight="300">{item.label}</Text>
+    </Box>
+  )
+}
+
+interface SidebarNavProps {
+  active: CurrentMenuState
+  onNav: (name: CurrentMenuState) => void
+  version: string
+}
+
+const SidebarNav: React.FC<SidebarNavProps> = ({ active, onNav, version }) => {
+  const settingsRecipe = useRecipe({ key: 'layoutNavs' })
+  const settingsStyles = settingsRecipe({ navActive: active === 'Settings' ? 'true' : undefined })
+
+  return (
+    <Flex
+      direction="column"
+      align="center"
+      bg="sidebar"
+      width="64px"
+      flexShrink={0}
+      height="100vh"
+      py="12px"
+    >
+      {/* Logo */}
+      <Box mb={4}>
+        <Image
+          src="/chromamind_app_icon.svg"
+          width="32px"
+          height="32px"
+          alt="ChromaMind"
+        />
+      </Box>
+
+      {/* Main nav items */}
+      <Flex direction="column" gap="4px" width="100%" px="6px">
+        {NAV_ITEMS.map(item => (
+          <NavItem
+            key={item.name}
+            item={item}
+            active={active === item.name}
+            onClick={() => onNav(item.name)}
+          />
+        ))}
+      </Flex>
+
+      <Box flex={1} />
+
+      {/* Settings — pinned to bottom */}
+      <Box
+        as="div"
+        onClick={() => onNav('Settings')}
+        css={settingsStyles}
+        margin="0 6px"
+      >
+        <SettingsIcon />
+        <Text fontSize="10px" fontWeight="300">Settings</Text>
+      </Box>
+
+      {/* Version */}
+      <Text fontSize="9px" color="gray.700" mt={2} pb={1}>
+        {version ? `v ${version}` : ''}
+      </Text>
+    </Flex>
+  )
+}
 
 interface LayoutProps {
   children: ReactNode
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }: LayoutProps) => {
-  const { open, onOpen, onClose } = useDisclosure()
-
-  return (
-    <Container maxW="100vw" centerContent height="100vh" margin={0} padding={0}>
-      <Box minH="100vh" width={'100%'} bg="firstBg">
-        <SidebarContent
-          onClose={() => onClose}
-          display={{ base: 'none', md: 'block' }}
-        />
-        <DrawerRoot open={open} placement="start">
-          <DrawerContent width={'!100px'}>
-            <SidebarContent onClose={onClose} width={'inherit'} />
-          </DrawerContent>
-        </DrawerRoot>
-        {/* mobilenav */}
-        <MobileNav display={{ base: 'flex', md: 'none' }} onOpen={onOpen} />
-        <Box ml={{ base: 0, md: NAV_WIDTH }} bg="secondBg" height={'100%'}>
-          {/* Content */}
-          {children}
-        </Box>
-      </Box>
-    </Container>
-  )
-}
-
-interface SidebarProps extends BoxProps {
-  onClose: () => void
-}
-
-const SidebarContent = ({ ...rest }: SidebarProps) => {
-  const [version, setVersion] = useState('')
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const dispatch = useDispatch()
+  const currentMenu = useSelector<State, CurrentMenuState>((state) => state.currentMenu)
+  const [version, setVersion] = useState<string>('')
 
   useEffect(() => {
-    getVersion()
-      .then((v) => {
-        setVersion(v)
-      })
-      .catch((error) => {
-        console.error('Error fetching version:', error)
-      })
+    getVersion().then(setVersion).catch(() => setVersion(''))
   }, [])
 
   return (
-    <Box
-      flexDirection="column"
-      justifyContent="space-between"
-      borderRight="1px"
-      w={{ base: 'full', md: NAV_WIDTH }}
-      pos="fixed"
-      h="full"
-      style={{ display: 'flex' }}
-      {...rest}
-    >
-      <Box>
-        {LinkItems.map((link) => (
-          <NavItem
-            key={link.name}
-            icon={link.icon}
-            path={link.path}
-            name={link.name}
-          >
-            {link.name}
-          </NavItem>
-        ))}
-      </Box>
-      <Box>
-        <NavItem
-          key="settings"
-          icon={FiSettings}
-          path="/settings"
-          name="Settings"
-        >
-          Settings
-        </NavItem>
-      </Box>
-      <Box flexGrow={1}></Box>
-      <Box
-        as="footer"
-        mt="auto"
-        p={4}
-        textAlign="center"
-        color="gray.500"
-        fontSize="sm"
-      >
-        v {version}
-      </Box>
-    </Box>
-  )
-}
-
-interface NavItemProps extends FlexProps {
-  icon: IconType
-  children: ReactText
-  path: string
-  name: CurrentMenuState
-}
-
-const NavItem = ({ icon, children, name, ...rest }: NavItemProps) => {
-  const dispatch = useDispatch()
-  const currentMenu = useSelector<State, string>(
-    (state: State) => state.currentMenu,
-  )
-  const recipe = useRecipe({ key: 'layoutNavs' })
-  const layoutLavButtonStyles = recipe()
-
-  return (
-    <Box
-      as="a"
-      style={{ textDecoration: 'none' }}
-      _focus={{ boxShadow: 'none' }}
-      onClick={
-        () => dispatch(updateMenu(name)) /* dispatch(updateMenu(name)) */
-      } // dispatch action
-    >
-      <Flex
-        align="center"
-        p="4"
-        mx="2"
-        borderRadius="lg"
-        role="group"
-        cursor="pointer"
-        color={currentMenu === name ? 'buttonSelectedBg' : 'buttonBg'}
-        css={layoutLavButtonStyles}
-        direction={'column'}
-        {...rest}
-      >
-        {icon && (
-          <Icon fontSize="2xl">
-            {match(icon)
-              .with(FiHome, () => <FiHome />)
-              .with(FiSettings, () => <FiSettings />)
-              .with(FiList, () => <FiList />)
-              .otherwise(() => (
-                <></>
-              ))}
-          </Icon>
-        )}
-        <Text fontSize={'1xl'} fontWeight={'lighter'}>
-          {children}
-        </Text>
+    <Flex height="100vh" overflow="hidden" bg="firstBg">
+      <SidebarNav
+        active={currentMenu}
+        onNav={(name) => dispatch(updateMenu(name))}
+        version={version}
+      />
+      <Flex flex={1} direction="column" overflow="hidden">
+        {children}
       </Flex>
-    </Box>
-  )
-}
-
-interface MobileProps extends FlexProps {
-  onOpen: () => void
-}
-
-const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
-  return (
-    <Flex
-      ml={{ base: 0, md: 48 }}
-      px={{ base: 4, md: 24 }}
-      height="20"
-      alignItems="center"
-      borderBottomWidth="1px"
-      justifyContent="flex-start"
-      {...rest}
-    >
-      <IconButton variant="outline" onClick={onOpen} aria-label="open menu">
-        <FiMenu />
-      </IconButton>
-
-      <Text fontSize="2xl" ml="8" fontFamily="monospace" fontWeight="bold">
-        Logo
-      </Text>
     </Flex>
   )
 }
