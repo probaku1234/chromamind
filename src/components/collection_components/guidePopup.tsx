@@ -1,81 +1,74 @@
-import React, { ReactNode, useState } from 'react'
+import React from 'react'
 import {
-  PopoverArrow,
   PopoverBody,
-  PopoverCloseTrigger,
   PopoverContent,
-  PopoverFooter,
-  PopoverHeader,
   PopoverRoot,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Button } from '../ui/button'
-import { Box, Group, PopoverRootProps } from '@chakra-ui/react'
+import { Box, Text } from '@chakra-ui/react'
 
-interface GuidePopupProps extends PopoverRootProps {
-  children: ReactNode
+interface GuidePopupProps {
   messages: string[]
-  title: string
+  title?: string
 }
 
-const GuidePopup: React.FC<GuidePopupProps> = ({
-  children,
-  messages,
-  title,
-  ...rest
-}) => {
-  const [step, setStep] = useState(0)
-
+const GuidePopup: React.FC<GuidePopupProps> = ({ messages, title }) => {
   return (
-    <PopoverRoot
-      closeOnEscape={false}
-      closeOnInteractOutside={false}
-      lazyMount
-      unmountOnExit
-      {...rest}
-    >
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+    <PopoverRoot lazyMount unmountOnExit>
+      <PopoverTrigger asChild>
+        <button
+          title="Collection navigation guide"
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+            fontWeight: 600,
+            fontFamily: 'serif',
+            lineHeight: 1,
+            flexShrink: 0,
+            color: 'var(--chakra-colors-gray-400)',
+          }}
+        >
+          ⓘ
+        </button>
+      </PopoverTrigger>
       <PopoverContent
-        css={{
-          '--popover-bg': 'var(--chakra-colors-brand-500)',
-          color: 'white',
-        }}
+        css={{ '--popover-bg': '#1c1c1e' }}
+        color="white"
+        borderColor="transparent"
+        boxShadow="lg"
+        borderRadius="10px"
+        maxW="220px"
       >
-        <PopoverHeader>{title}</PopoverHeader>
-        <PopoverArrow />
-        <PopoverBody>{messages[step]}</PopoverBody>
-        <PopoverFooter>
-          {messages.length > 1 && (
-            <>
-              <Box fontSize="sm" flex="1">
-                {step + 1} of {messages.length}
-              </Box>
-              <Group>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (step > 0) {
-                      setStep(step - 1)
-                    }
-                  }}
-                >
-                  Back
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (step < messages.length - 1) {
-                      setStep(step + 1)
-                    }
-                  }}
-                >
-                  Next
-                </Button>
-              </Group>
-            </>
+        <PopoverBody>
+          {title && (
+            <Text
+              fontSize="11px"
+              fontWeight="600"
+              color="gray.400"
+              textTransform="uppercase"
+              letterSpacing="wide"
+              mb={2}
+            >
+              {title}
+            </Text>
           )}
-        </PopoverFooter>
-        <PopoverCloseTrigger />
+          <Box as="ul" display="flex" flexDirection="column" gap={2} listStyleType="none" m={0} p={0}>
+            {messages.map((msg, i) => (
+              <Box as="li" key={i} display="flex" gap={2} alignItems="flex-start">
+                <Text color="brand.400" fontSize="12px" lineHeight="1.4" flexShrink={0}>·</Text>
+                <Text fontSize="12px" color="gray.200" lineHeight="1.4">{msg}</Text>
+              </Box>
+            ))}
+          </Box>
+        </PopoverBody>
       </PopoverContent>
     </PopoverRoot>
   )
