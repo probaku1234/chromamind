@@ -10,20 +10,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogRoot,
-  // DialogTitle,
-  // DialogTrigger,
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Box,
   FieldHelperText,
   Fieldset,
+  Flex,
+  Icon,
   Input,
   Spinner,
   Stack,
-  Textarea,
   Text,
-  Icon,
+  Textarea,
 } from '@chakra-ui/react'
 import { Field } from '../ui/field'
 import { Button } from '../ui/button'
@@ -41,9 +39,7 @@ const CreateCollectionDialog = ({
   const [status, setStatus] = useState<{
     type: 'idle' | 'loading' | 'finished' | 'error'
     message?: string
-  }>({
-    type: 'idle',
-  })
+  }>({ type: 'idle' })
   const [nameValid, setNameValid] = useState<boolean[] | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const metadataRef = useRef<HTMLTextAreaElement>(null)
@@ -61,13 +57,10 @@ const CreateCollectionDialog = ({
       }
     }
 
-    const result = await invokeWrapper<boolean>(
-      TauriCommand.CREATE_COLLECTION,
-      {
-        collectionName,
-        metadata,
-      },
-    )
+    const result = await invokeWrapper<boolean>(TauriCommand.CREATE_COLLECTION, {
+      collectionName,
+      metadata,
+    })
 
     match(result)
       .with({ type: 'error' }, ({ error }) => {
@@ -76,26 +69,18 @@ const CreateCollectionDialog = ({
       })
       .with({ type: 'success' }, ({ result }) => {
         setStatus({ type: 'finished' })
-        // fetchCollections()
         console.log(result)
       })
+      .exhaustive()
   }
 
   const validateName = () => {
     const validList = []
-
     const value = nameRef.current?.value || ''
 
-    // 3-63 characters
     validList.push(value.length >= 3 && value.length <= 63)
-
-    // starts and ends with an alphanumeric character, otherwise contains only alphanumeric characters, underscores or hyphens
     validList.push(/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/.test(value))
-
-    // contains no two consecutive periods
     validList.push(!/\.\./.test(value))
-
-    // not a valid IPv4 address
     validList.push(!/\d+\.\d+\.\d+\.\d+/.test(value))
 
     setNameValid(validList)
@@ -117,116 +102,81 @@ const CreateCollectionDialog = ({
           fetchCollections()
         }
       }}
-      scrollBehavior={'inside'}
+      scrollBehavior="inside"
     >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Collection</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <>
-            {match(status)
-              .with({ type: 'idle' }, () => (
-                <>
-                  <Fieldset.Root invalid={!isNameValid}>
-                    <Stack>
-                      <Fieldset.Legend>collection details</Fieldset.Legend>
-                      <Fieldset.HelperText>
-                        Provide new collection&apos;s details below.
-                      </Fieldset.HelperText>
-                    </Stack>
-
-                    <Fieldset.Content>
-                      <Field label="Name" required>
-                        <Input
-                          type="text"
-                          placeholder="collection name"
-                          ref={nameRef}
-                          onChange={() => {
-                            validateName()
-                          }}
-                        />
-                        {nameValid != null && (
-                          <>
-                            <FieldHelperText
-                              color={nameValid[0] ? 'green' : 'red'}
-                              title={nameValid[0] ? '0-valid' : '0-invalid'}
-                            >
-                              • contains 3-63 characters
-                            </FieldHelperText>
-                            <FieldHelperText
-                              color={nameValid[1] ? 'green' : 'red'}
-                              title={nameValid[1] ? '1-valid' : '1-invalid'}
-                            >
-                              • starts and ends with an alphanumeric character,
-                              otherwise contains only alphanumeric characters,
-                              underscores or hyphens
-                            </FieldHelperText>
-                            <FieldHelperText
-                              color={nameValid[2] ? 'green' : 'red'}
-                              title={nameValid[2] ? '2-valid' : '2-invalid'}
-                            >
-                              • contains no two consecutive periods
-                            </FieldHelperText>
-                            <FieldHelperText
-                              color={nameValid[3] ? 'green' : 'red'}
-                              title={nameValid[3] ? '3-valid' : '3-invalid'}
-                            >
-                              • not a valid IPv4 address
-                            </FieldHelperText>
-                          </>
-                        )}
-                      </Field>
-
-                      <Field label="Metadata">
-                        <Textarea placeholder="metadata" ref={metadataRef} />
-                      </Field>
-                    </Fieldset.Content>
-                  </Fieldset.Root>
-                </>
-              ))
-              .with({ type: 'loading' }, () => (
-                <Box textAlign={'center'}>
-                  <Spinner size={'xl'} />
-                  <Text>Loading...</Text>
-                </Box>
-              ))
-              .with({ type: 'finished' }, () => (
-                <Box textAlign={'center'} title="finished">
-                  <Icon w={16} h={16} color="green.500" mt={4}>
-                    <CheckCircleIcon />
-                  </Icon>
-                </Box>
-              ))
-              .with({ type: 'error' }, ({ message }) => (
-                <Box mt={4} textAlign={'center'}>
-                  <Icon w={16} h={16} color="red.500">
-                    <CloseIcon />
-                  </Icon>
-                  <Text color={'red.500'} mt={2}>
-                    {message}
-                  </Text>
-                  <Button
-                    onClick={() =>
-                      setStatus({
-                        type: 'idle',
-                      })
-                    }
-                  >
-                    Retry
-                  </Button>
-                </Box>
-              ))
-              .exhaustive()}
-          </>
+          {match(status)
+            .with({ type: 'idle' }, () => (
+              <Fieldset.Root invalid={!isNameValid}>
+                <Stack>
+                  <Fieldset.Legend>collection details</Fieldset.Legend>
+                  <Fieldset.HelperText>
+                    Provide new collection&apos;s details below.
+                  </Fieldset.HelperText>
+                </Stack>
+                <Fieldset.Content>
+                  <Field label="Name" required>
+                    <Input
+                      type="text"
+                      placeholder="collection name"
+                      ref={nameRef}
+                      onChange={validateName}
+                    />
+                    {nameValid != null && (
+                      <>
+                        <FieldHelperText color={nameValid[0] ? 'green.600' : 'red.500'} title={nameValid[0] ? '0-valid' : '0-invalid'}>
+                          • contains 3-63 characters
+                        </FieldHelperText>
+                        <FieldHelperText color={nameValid[1] ? 'green.600' : 'red.500'} title={nameValid[1] ? '1-valid' : '1-invalid'}>
+                          • starts and ends with an alphanumeric character, otherwise contains only alphanumeric characters, underscores or hyphens
+                        </FieldHelperText>
+                        <FieldHelperText color={nameValid[2] ? 'green.600' : 'red.500'} title={nameValid[2] ? '2-valid' : '2-invalid'}>
+                          • contains no two consecutive periods
+                        </FieldHelperText>
+                        <FieldHelperText color={nameValid[3] ? 'green.600' : 'red.500'} title={nameValid[3] ? '3-valid' : '3-invalid'}>
+                          • not a valid IPv4 address
+                        </FieldHelperText>
+                      </>
+                    )}
+                  </Field>
+                  <Field label="Metadata">
+                    <Textarea placeholder="metadata" ref={metadataRef} />
+                  </Field>
+                </Fieldset.Content>
+              </Fieldset.Root>
+            ))
+            .with({ type: 'loading' }, () => (
+              <Flex direction="column" align="center" py={8}>
+                <Spinner size="xl" color="brand.500" mb={3} />
+                <Text color="gray.500">Loading...</Text>
+              </Flex>
+            ))
+            .with({ type: 'finished' }, () => (
+              <Flex direction="column" align="center" py={8} title="finished">
+                <Icon w={16} h={16} color="green.500" mb={3}>
+                  <CheckCircleIcon />
+                </Icon>
+                <Text color="green.600" fontWeight="500">Collection created!</Text>
+              </Flex>
+            ))
+            .with({ type: 'error' }, ({ message }) => (
+              <Flex direction="column" align="center" py={8}>
+                <Icon w={12} h={12} color="red.500" mb={3}>
+                  <CloseIcon />
+                </Icon>
+                <Text color="red.500" mb={4}>{message}</Text>
+                <Button onClick={() => setStatus({ type: 'idle' })}>Retry</Button>
+              </Flex>
+            ))
+            .exhaustive()}
         </DialogBody>
         <DialogFooter display={status.type === 'idle' ? '' : 'none'}>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            loading={status.type === 'loading'}
-            disabled={!isNameValid}
-            onClick={createCollection}
-          >
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button loading={status.type === 'loading'} disabled={!isNameValid} onClick={createCollection}>
             create
           </Button>
         </DialogFooter>
