@@ -9,7 +9,6 @@ export interface EmbeddingsData {
   id: string
   metadata: Record<string, string | number | boolean>
   document: string
-  embedding: number[]
 }
 
 export type Metadata = {
@@ -20,6 +19,7 @@ export type CollectionData = {
   id: string
   metadata: Metadata
   configuration: Record<string, never>
+  dimension?: number
 }
 
 export type EmbeddingsDataValueType = EmbeddingsData[keyof EmbeddingsData]
@@ -38,6 +38,7 @@ export enum TauriCommand {
   CHECK_TENANT_AND_DATABASE = 'check_tenant_and_database',
   CREATE_COLLECTION = 'create_collection',
   DELETE_COLLECTION = 'delete_collection',
+  FETCH_EMBEDDING = 'fetch_embedding',
 }
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'

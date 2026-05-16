@@ -418,11 +418,7 @@ async fn fetch_embeddings(
             None,
             Some(limit as u32),
             Some(offset as u32),
-            Some(IncludeList(vec![
-                Include::Embedding,
-                Include::Metadata,
-                Include::Document,
-            ])),
+            Some(IncludeList(vec![Include::Metadata, Include::Document])),
         )
         .await;
 
@@ -439,16 +435,13 @@ async fn fetch_embeddings(
 
     let get_result = get_result.unwrap();
     let ids = get_result.ids;
-    let embeddings = get_result.embeddings.unwrap_or_default();
     let documents = get_result.documents.unwrap_or_default();
     let metadatas = get_result.metadatas.unwrap_or_default();
 
-    if ids.len() != embeddings.len() || ids.len() != documents.len() || ids.len() != metadatas.len()
-    {
+    if ids.len() != documents.len() || ids.len() != metadatas.len() {
         log::error!(
-            "(fetch_embeddings) Mismatch in data: ids: {}, embeddings: {}, documents: {}, metadatas: {}",
+            "(fetch_embeddings) Mismatch in data: ids: {}, documents: {}, metadatas: {}",
             ids.len(),
-            embeddings.len(),
             documents.len(),
             metadatas.len()
         );
@@ -457,10 +450,9 @@ async fn fetch_embeddings(
 
     let embeddings_list: Vec<EmbeddingData> = ids
         .into_iter()
-        .zip(embeddings)
         .zip(documents)
         .zip(metadatas)
-        .map(|(((id, embedding), document), metadata)| {
+        .map(|((id, document), metadata)| {
             let metadata = metadata
                 .unwrap_or_default()
                 .into_iter()
@@ -472,8 +464,11 @@ async fn fetch_embeddings(
                             .map(Value::Number)
                             .unwrap_or(Value::Null),
                         MetadataValue::Str(s) => Value::String(s),
-                        MetadataValue::SparseVector(_) => Value::Null,
-                        _ => Value::Null,
+                        MetadataValue::SparseVector(_)
+                        | MetadataValue::BoolArray(_)
+                        | MetadataValue::IntArray(_)
+                        | MetadataValue::FloatArray(_)
+                        | MetadataValue::StringArray(_) => Value::Null,
                     };
                     (k, json_val)
                 })
@@ -482,12 +477,50 @@ async fn fetch_embeddings(
                 id,
                 metadata,
                 document: document.unwrap_or_default(),
-                embedding,
             }
         })
         .collect();
 
     Ok(embeddings_list)
+}
+
+#[tauri::command]
+async fn fetch_embedding(
+    collection_name: &str,
+    id: &str,
+    state: State<'_, AppState>,
+) -> Result<Vec<f32>, String> {
+    log::info!(
+        "(fetch_embedding) Fetching embedding for id: {} in collection: {}",
+        id,
+        collection_name
+    );
+    let client = state.get_client()?;
+
+    let collection = client.get_collection(collection_name).await.map_err(|e| {
+        log::error!("(fetch_embedding) Error fetching collection: {}", e);
+        format!("Error fetching collection: {}", e)
+    })?;
+
+    let get_result = collection
+        .get(
+            Some(vec![id.to_string()]),
+            None,
+            Some(1u32),
+            None,
+            Some(IncludeList(vec![Include::Embedding])),
+        )
+        .await
+        .map_err(|e| {
+            log::error!("(fetch_embedding) Error fetching embedding: {}", e);
+            format!("Error fetching embedding: {}", e)
+        })?;
+
+    let embeddings = get_result.embeddings.unwrap_or_default();
+    embeddings
+        .into_iter()
+        .next()
+        .ok_or_else(|| format!("Embedding not found for id {}", id))
 }
 
 #[tauri::command]
@@ -515,17 +548,33 @@ async fn fetch_collection_data(
     let collection_id = collection.id();
     let collection_metadata = collection.metadata();
 
-    // TODO: get real collection configuration
-    // let collection_configuration = collection.configuration_json();
+    // Probe one record with embedding to determine dimension.
+    // (chroma_types::Collection::dimension is pub(crate) and not exposed by the wrapper.)
+    let dimension: Option<u32> = collection
+        .get(
+            None,
+            None,
+            Some(1u32),
+            Some(0u32),
+            Some(IncludeList(vec![Include::Embedding])),
+        )
+        .await
+        .ok()
+        .and_then(|r| r.embeddings)
+        .and_then(|e| e.into_iter().next())
+        .map(|v| v.len() as u32);
+
     log::debug!(
-        "(fetch_collection_data) Fetched collection: {}, {:?}",
+        "(fetch_collection_data) Fetched collection: {}, {:?}, dimension: {:?}",
         collection_id,
-        collection_metadata
+        collection_metadata,
+        dimension
     );
     let metadata = json!({
         "id": collection_id,
         "metadata": collection_metadata,
         "configuration": json!({}),
+        "dimension": dimension,
     });
 
     Ok(metadata)
@@ -558,7 +607,7 @@ async fn create_collection(
                             }
                         }
                         Value::String(s) => Some(MetadataValue::Str(s.clone())),
-                        _ => None,
+                        Value::Null | Value::Array(_) | Value::Object(_) => None,
                     };
                     mv.map(|v| (k.clone(), v))
                 })
@@ -712,6 +761,7 @@ pub fn run() {
             check_tenant_and_database,
             create_collection,
             delete_collection,
+            fetch_embedding,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -749,6 +799,7 @@ mod tests {
         CheckTenantAndDatabase,
         CreateCollection,
         DeleteCollection,
+        FetchEmbedding,
     }
 
     impl TauriCommand {
@@ -766,6 +817,7 @@ mod tests {
                 TauriCommand::CheckTenantAndDatabase => "check_tenant_and_database",
                 TauriCommand::CreateCollection => "create_collection",
                 TauriCommand::DeleteCollection => "delete_collection",
+                TauriCommand::FetchEmbedding => "fetch_embedding",
             }
         }
     }
@@ -808,6 +860,7 @@ mod tests {
                 check_tenant_and_database,
                 create_collection,
                 delete_collection,
+                fetch_embedding,
             ])
             // remove the string argument to use your app's config file
             .build(mock_context(noop_assets()))
@@ -1513,6 +1566,109 @@ mod tests {
             res.is_empty(),
             "fetch_collection_data should return empty vec since limit is 0"
         );
+    }
+
+    #[test]
+    fn test_fetch_embedding() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        // Should fail without client initialized
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchEmbedding.as_str(),
+            json!({
+                "collectionName": "test_collection",
+                "id": "doc1"
+            }),
+        );
+        assert!(res.is_err(), "fetch_embedding should fail without client");
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "fetch_embedding failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: format!("http://{}:{}", host, port)
+                .as_str()
+                .parse()
+                .unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collection_name = "test_collection_embed";
+        let collection = rt
+            .block_on(client.get_or_create_collection(collection_name, None, None))
+            .unwrap();
+
+        let ids = vec!["doc1".to_string(), "doc2".to_string()];
+        let embeddings = vec![vec![0.1_f32, 0.2_f32, 0.3_f32], vec![0.4_f32, 0.5_f32, 0.6_f32]];
+        rt.block_on(collection.add(
+            ids.clone(),
+            embeddings.clone(),
+            Some(vec![
+                Some("First document".to_string()),
+                Some("Second document".to_string()),
+            ]),
+            None,
+            None,
+        ))
+        .unwrap();
+
+        // Fetch embedding for doc1
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchEmbedding.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "id": "doc1"
+            }),
+        );
+        assert!(res.is_ok(), "fetch_embedding failed: {:?}", res.err());
+        let embedding = res.unwrap().deserialize::<Vec<f32>>();
+        assert!(embedding.is_ok(), "fetch_embedding result is not Vec<f32>: {:?}", embedding.err());
+        let embedding = embedding.unwrap();
+        assert_eq!(embedding.len(), 3, "fetch_embedding returned wrong dimension count");
+        assert!((embedding[0] - 0.1_f32).abs() < 1e-5_f32, "embedding[0] mismatch");
+        assert!((embedding[1] - 0.2_f32).abs() < 1e-5_f32, "embedding[1] mismatch");
+        assert!((embedding[2] - 0.3_f32).abs() < 1e-5_f32, "embedding[2] mismatch");
+
+        // Fetch embedding for unknown id should error
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchEmbedding.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "id": "nonexistent_id"
+            }),
+        );
+        assert!(res.is_err(), "fetch_embedding should fail for unknown id");
     }
 
     #[test]

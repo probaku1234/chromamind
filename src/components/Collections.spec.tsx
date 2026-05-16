@@ -20,6 +20,9 @@ describe('Collections', () => {
     _: InvokeArgs | undefined,
   ): Promise<T> => {
     return match(cmd)
+      .with(TauriCommand.FETCH_COLLECTIONS, () =>
+        Promise.resolve([] as unknown as T),
+      )
       .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
         Promise.resolve({
           id: 1,
@@ -35,15 +38,16 @@ describe('Collections', () => {
             id: 1,
             metadata: {},
             document: 'test',
-            embedding: [1, 2, 3],
           },
           {
             id: 2,
             metadata: {},
             document: 'test',
-            embedding: [1, 2, 3],
           },
         ] as unknown as T),
+      )
+      .with(TauriCommand.FETCH_EMBEDDING, () =>
+        Promise.resolve([1, 2, 3] as unknown as T),
       )
       .otherwise(() => Promise.resolve('unknown command' as unknown as T))
   }
@@ -103,6 +107,9 @@ describe('Collections', () => {
         _: InvokeArgs | undefined,
       ): Promise<T> => {
         return match(cmd)
+          .with(TauriCommand.FETCH_COLLECTIONS, () =>
+            Promise.resolve([] as unknown as T),
+          )
           .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
             Promise.resolve({
               id: 1,
@@ -155,6 +162,9 @@ describe('Collections', () => {
       _: InvokeArgs | undefined,
     ): Promise<T> => {
       return match(cmd)
+        .with(TauriCommand.FETCH_COLLECTIONS, () =>
+          Promise.resolve([] as unknown as T),
+        )
         .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
           Promise.resolve({
             id: collectionId,
@@ -172,7 +182,6 @@ describe('Collections', () => {
                 foo: 'bar',
               },
               document: 'test document 1',
-              embedding: embedding,
             },
             {
               id: 2,
@@ -180,9 +189,11 @@ describe('Collections', () => {
                 foo: 'bar',
               },
               document: 'test document 2',
-              embedding: embedding,
             },
           ] as unknown as T),
+        )
+        .with(TauriCommand.FETCH_EMBEDDING, () =>
+          Promise.resolve(embedding as unknown as T),
         )
         .otherwise(() => Promise.resolve('unknown command' as unknown as T))
     }
@@ -212,9 +223,6 @@ describe('Collections', () => {
       expect(screen.getByText(`collection id`)).toBeInTheDocument()
       expect(
         screen.getByText(`total embeddings: ${totalRows}`),
-      ).toBeInTheDocument()
-      expect(
-        screen.getByText(`dimensions: ${embedding.length}`),
       ).toBeInTheDocument()
     })
 
@@ -267,6 +275,9 @@ describe('Collections', () => {
       args: InvokeArgs | undefined,
     ): Promise<T> => {
       return match(cmd)
+        .with(TauriCommand.FETCH_COLLECTIONS, () =>
+          Promise.resolve([] as unknown as T),
+        )
         .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
           Promise.resolve({
             id: collectionId,
@@ -285,7 +296,6 @@ describe('Collections', () => {
                 foo: 'bar',
               },
               document: 'test document 1',
-              embedding: embedding,
             },
             {
               id: 2,
@@ -293,10 +303,12 @@ describe('Collections', () => {
                 foo: 'bar',
               },
               document: 'test document 2',
-              embedding: embedding,
             },
           ] as unknown as T)
         })
+        .with(TauriCommand.FETCH_EMBEDDING, () =>
+          Promise.resolve(embedding as unknown as T),
+        )
         .otherwise(() => Promise.resolve('unknown command' as unknown as T))
     }
 
@@ -360,7 +372,6 @@ describe('Collections', () => {
               foo: 'bar',
             },
             document: 'test document 1',
-            embedding: embedding,
           },
           {
             id: 2,
@@ -368,7 +379,6 @@ describe('Collections', () => {
               foo: 'bar',
             },
             document: 'test document 2',
-            embedding: embedding,
           },
         ],
         [
@@ -378,7 +388,6 @@ describe('Collections', () => {
               foo: 'bar',
             },
             document: 'test document 3',
-            embedding: embedding,
           },
           {
             id: 4,
@@ -386,7 +395,6 @@ describe('Collections', () => {
               foo: 'bar',
             },
             document: 'test document 4',
-            embedding: embedding,
           },
         ],
       ]
@@ -395,6 +403,9 @@ describe('Collections', () => {
         args: InvokeArgs | undefined,
       ): Promise<T> => {
         return match(cmd)
+          .with(TauriCommand.FETCH_COLLECTIONS, () =>
+            Promise.resolve([] as unknown as T),
+          )
           .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
             Promise.resolve({
               id: collectionId,
@@ -408,6 +419,9 @@ describe('Collections', () => {
             // @ts-ignore
             return Promise.resolve(embeddings[args?.offset | 0] as unknown as T)
           })
+          .with(TauriCommand.FETCH_EMBEDDING, () =>
+            Promise.resolve(embedding as unknown as T),
+          )
           .otherwise(() => Promise.resolve('unknown command' as unknown as T))
       }
 
@@ -449,45 +463,49 @@ describe('Collections', () => {
   })
 
   describe('details view', () => {
-    test('should render the details view when a cell is clicked', async () => {
-      const mockCommandHandler = <T,>(
-        cmd: string,
-        _: InvokeArgs | undefined,
-      ): Promise<T> => {
-        return match(cmd)
-          .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
-            Promise.resolve({
-              id: 1,
-              metadata: {},
-            } as unknown as T),
-          )
-          .with(TauriCommand.FETCH_ROW_COUNT, () =>
-            Promise.resolve(2 as unknown as T),
-          )
-          .with(TauriCommand.FETCH_EMBEDDINGS, () =>
-            Promise.resolve([
-              {
-                id: 1,
-                metadata: {
-                  foo: 'bar',
-                },
-                document: 'test document 1',
-                embedding: [1, 2, 3],
+    const detailsViewMockHandler = <T,>(
+      cmd: string,
+      _: InvokeArgs | undefined,
+    ): Promise<T> => {
+      return match(cmd)
+        .with(TauriCommand.FETCH_COLLECTIONS, () =>
+          Promise.resolve([] as unknown as T),
+        )
+        .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+          Promise.resolve({
+            id: 1,
+            metadata: {},
+          } as unknown as T),
+        )
+        .with(TauriCommand.FETCH_ROW_COUNT, () =>
+          Promise.resolve(2 as unknown as T),
+        )
+        .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+          Promise.resolve([
+            {
+              id: '1',
+              metadata: {
+                foo: 'bar',
               },
-              {
-                id: 2,
-                metadata: {
-                  foo: 'bar',
-                },
-                document: 'test document 2',
-                embedding: [1, 2, 3],
+              document: 'test document 1',
+            },
+            {
+              id: '2',
+              metadata: {
+                foo: 'bar',
               },
-            ] as unknown as T),
-          )
-          .otherwise(() => Promise.resolve('unknown command' as unknown as T))
-      }
+              document: 'test document 2',
+            },
+          ] as unknown as T),
+        )
+        .with(TauriCommand.FETCH_EMBEDDING, () =>
+          Promise.resolve([0.1, 0.2, 0.3] as unknown as T),
+        )
+        .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+    }
 
-      mockIPC(mockCommandHandler)
+    test('should render the details view when a cell is clicked', async () => {
+      mockIPC(detailsViewMockHandler)
 
       // @ts-ignore
       const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
@@ -510,20 +528,75 @@ describe('Collections', () => {
 
       fireEvent.click(screen.getByTestId('0_document'))
 
-      //   await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
-      //     timeout: 5000,
-      //   })
-
       const { getByText } = within(screen.getByTestId('detail-view-string'))
       expect(getByText('test document 1')).toBeInTheDocument()
-
-      fireEvent.click(screen.getByTestId('0_embedding'))
-
-      expect(screen.getByTestId('detail-view-embedding')).toBeInTheDocument()
 
       fireEvent.click(screen.getByTestId('0_metadata'))
 
       expect(screen.getByTestId('detail-view-metadata')).toBeInTheDocument()
+    })
+
+    test('embedding Show/Hide toggle should lazy-fetch and cache', async () => {
+      mockIPC(detailsViewMockHandler)
+
+      // @ts-ignore
+      const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+      renderWithProvider(
+        <Provider>
+          <Collections />
+        </Provider>,
+        {
+          initialState: {
+            currentMenu: 'Collections',
+            currentCollection: 'test',
+          },
+        },
+      )
+
+      await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+        timeout: 5000,
+      })
+
+      // Open the detail sidebar
+      fireEvent.click(screen.getByTestId('0_document'))
+
+      // Embedding values should NOT be visible yet
+      expect(screen.queryByTestId('detail-view-embedding')).not.toBeInTheDocument()
+
+      // Click Show button
+      const showBtn = screen.getByTestId('embedding-toggle-btn')
+      expect(showBtn).toHaveTextContent('Show')
+      fireEvent.click(showBtn)
+
+      // After fetching, embedding values appear and button says Hide
+      await waitFor(() =>
+        expect(screen.getByTestId('detail-view-embedding')).toBeInTheDocument(),
+        { timeout: 3000 },
+      )
+      expect(screen.getByTestId('embedding-toggle-btn')).toHaveTextContent('Hide')
+
+      // Count how many times FETCH_EMBEDDING was called so far
+      const fetchEmbeddingCallCount = mock.mock.calls.filter(
+        ([cmd]: [string]) => cmd === TauriCommand.FETCH_EMBEDDING,
+      ).length
+      expect(fetchEmbeddingCallCount).toBe(1)
+
+      // Click Hide
+      fireEvent.click(screen.getByTestId('embedding-toggle-btn'))
+      expect(screen.queryByTestId('detail-view-embedding')).not.toBeInTheDocument()
+
+      // Click Show again — should NOT trigger another FETCH_EMBEDDING (cache hit)
+      fireEvent.click(screen.getByTestId('embedding-toggle-btn'))
+      await waitFor(() =>
+        expect(screen.getByTestId('detail-view-embedding')).toBeInTheDocument(),
+        { timeout: 1000 },
+      )
+
+      const fetchEmbeddingCallCountAfter = mock.mock.calls.filter(
+        ([cmd]: [string]) => cmd === TauriCommand.FETCH_EMBEDDING,
+      ).length
+      expect(fetchEmbeddingCallCountAfter).toBe(1) // still 1 — cache was used
     })
   })
 
@@ -553,6 +626,9 @@ describe('Collections', () => {
         .with(TauriCommand.FETCH_COLLECTIONS, () =>
           Promise.resolve(testCollections as unknown as T),
         )
+        .with(TauriCommand.CREATE_COLLECTION, () =>
+          Promise.resolve(true as unknown as T),
+        )
         .with('plugin:window|title', () =>
           Promise.resolve(`chromamind: ${testWindowTitle}` as unknown as T),
         )
@@ -573,7 +649,6 @@ describe('Collections', () => {
                 foo: 'bar',
               },
               document: 'test document 1',
-              embedding: [1, 2, 3],
             },
             {
               id: 2,
@@ -581,9 +656,11 @@ describe('Collections', () => {
                 foo: 'bar',
               },
               document: 'test document 2',
-              embedding: [1, 2, 3],
             },
           ] as unknown as T),
+        )
+        .with(TauriCommand.FETCH_EMBEDDING, () =>
+          Promise.resolve([1, 2, 3] as unknown as T),
         )
         .otherwise(() => {
           throw new Error(`Unexpected command: ${cmd}`)
@@ -641,7 +718,7 @@ describe('Collections', () => {
         },
       )
 
-      await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+      await waitFor(() => expect(mock).toHaveBeenCalledTimes(5), {
         timeout: 5000,
       })
 
@@ -674,7 +751,7 @@ describe('Collections', () => {
         },
       )
 
-      await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+      await waitFor(() => expect(mock).toHaveBeenCalledTimes(5), {
         timeout: 5000,
       })
 
@@ -1008,7 +1085,7 @@ describe('Collections', () => {
           timeout: 5000,
         })
 
-        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[1])
+        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[0])
 
         const menu = await screen.findByText('Collection Info')
         expect(menu).toBeInTheDocument()
@@ -1084,7 +1161,7 @@ describe('Collections', () => {
           timeout: 5000,
         })
 
-        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[1])
+        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[0])
 
         const menu = await screen.findByText('Collection Info')
 
@@ -1174,7 +1251,7 @@ describe('Collections', () => {
           timeout: 5000,
         })
 
-        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[1])
+        fireEvent.contextMenu(screen.getAllByText(testCollections[0].name)[0])
 
         const menu = await screen.findByText('Delete Collection')
 

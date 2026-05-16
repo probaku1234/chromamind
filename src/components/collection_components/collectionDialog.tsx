@@ -1,4 +1,3 @@
-// @ts-expect-error react is not used in this file
 import React, { useEffect, useState } from 'react'
 import {
   DialogBackdrop,
@@ -14,8 +13,7 @@ import { Button } from '@/components/ui/button.tsx'
 import { match } from 'ts-pattern'
 import { CollectionData, TauriCommand } from '@/types.ts'
 import { invokeWrapper } from '@/utils/invokeTauri.ts'
-import { Show, Spinner, VStack, Text, Editable } from '@chakra-ui/react'
-import { DataListItem, DataListRoot } from '@/components/ui/data-list'
+import { Box, Flex, Show, Spinner, Text, VStack } from '@chakra-ui/react'
 
 const CollectionDialog = ({
   isOpen,
@@ -29,37 +27,53 @@ const CollectionDialog = ({
   role: 'info'
   collectionName?: string
 }) => {
-  const [collectionData, setCollectionData] = useState<CollectionData | null>(
-    null,
-  )
+  const [collectionData, setCollectionData] = useState<CollectionData | null>(null)
 
   const fetchCollectionData = async () => {
-    const result = await invokeWrapper<CollectionData>(
-      TauriCommand.FETCH_COLLECTION_DATA,
-      {
-        collectionName: collectionName,
-      },
-    )
-
+    const result = await invokeWrapper<CollectionData>(TauriCommand.FETCH_COLLECTION_DATA, {
+      collectionName,
+    })
     match(result)
-      .with({ type: 'error' }, ({ error }) => {
-        console.error(error)
-      })
-      .with({ type: 'success' }, ({ result }) => {
-        setCollectionData(result)
-      })
+      .with({ type: 'error' }, ({ error }) => { console.error(error) })
+      .with({ type: 'success' }, ({ result }) => { setCollectionData(result) })
       .exhaustive()
   }
 
   useEffect(() => {
-    // Fetch collection data when dialog is opened
-    if (isOpen && role == 'info') {
+    if (isOpen && role === 'info') {
       fetchCollectionData()
     }
   }, [isOpen])
 
+  const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <Box mb={4}>
+      <Text
+        fontSize="11px"
+        fontWeight="600"
+        color="gray.400"
+        textTransform="uppercase"
+        letterSpacing="wide"
+        mb="5px"
+      >
+        {label}
+      </Text>
+      <Box
+        fontSize="12px"
+        fontFamily="'JetBrains Mono', monospace"
+        color="gray.900"
+        bg="brand.50"
+        px={3}
+        py="6px"
+        borderRadius="md"
+        wordBreak="break-all"
+      >
+        {value}
+      </Box>
+    </Box>
+  )
+
   return (
-    <DialogRoot open={isOpen} scrollBehavior={'inside'}>
+    <DialogRoot open={isOpen} scrollBehavior="inside">
       <DialogBackdrop />
       <DialogContent>
         {match(role)
@@ -67,67 +81,43 @@ const CollectionDialog = ({
             <Show
               when={collectionData !== null}
               fallback={
-                <VStack colorPalette="teal">
+                <VStack p={8}>
                   <Spinner color="brand.500" />
                   <Text color="brand.500">Loading...</Text>
                 </VStack>
               }
             >
               <DialogHeader>
-                <DialogTitle>
-                  <Editable.Root
-                    textAlign="center"
-                    defaultValue={collectionName}
-                    activationMode="dblclick"
-                    fontSize={'large'}
-                    onValueChange={(value) => {
-                      console.log(value)
-                    }}
-                  >
-                    <Editable.Preview />
-                    <Editable.Input />
-                  </Editable.Root>
-                </DialogTitle>
+                <DialogTitle>{collectionName}</DialogTitle>
               </DialogHeader>
               <DialogCloseTrigger onClick={onClose} />
               <DialogBody>
-                <DataListRoot>
-                  <DataListItem label="ID" value={collectionData?.id} />
-                  <DataListItem
-                    label="Configuration"
-                    value={
-                      <pre>
-                        {JSON.stringify(collectionData?.configuration, null, 2)}
-                      </pre>
-                    }
-                  />
-                  <DataListItem
-                    label="Metadata"
-                    value={
-                      <Editable.Root
-                        textAlign="start"
-                        defaultValue={JSON.stringify(
-                          collectionData?.metadata,
-                          null,
-                          2,
-                        )}
-                        activationMode="dblclick"
-                      >
-                        <Editable.Preview />
-                        <Editable.Input />
-                      </Editable.Root>
-                    }
-                  />
-                </DataListRoot>
+                <InfoRow label="ID" value={collectionData?.id} />
+                <InfoRow
+                  label="Configuration"
+                  value={
+                    <pre style={{ margin: 0, fontSize: 12 }}>
+                      {JSON.stringify(collectionData?.configuration, null, 2)}
+                    </pre>
+                  }
+                />
+                <InfoRow
+                  label="Metadata"
+                  value={
+                    <pre style={{ margin: 0, fontSize: 12 }}>
+                      {JSON.stringify(collectionData?.metadata, null, 2)}
+                    </pre>
+                  }
+                />
               </DialogBody>
               <DialogFooter>
-                <Button onClick={onClose}>Close</Button>
+                <Flex justify="flex-end">
+                  <Button onClick={onClose}>Close</Button>
+                </Flex>
               </DialogFooter>
             </Show>
           ))
-          .otherwise(() => (
-            <></>
-          ))}
+          .otherwise(() => <></>)}
       </DialogContent>
     </DialogRoot>
   )
