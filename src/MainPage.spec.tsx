@@ -1,5 +1,5 @@
-import { describe, test, afterEach, expect, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, test, afterEach, expect } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 import MainPage from './MainPage'
 import renderWithProvider from './utils/renderWithProvider'
@@ -75,9 +75,6 @@ describe('MainPage', () => {
 
     mockIPC(mockCommandHandler)
 
-    // @ts-ignore
-    const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
-
     render(
       <ChakraProvider>
         <Provider store={store}>
@@ -94,9 +91,6 @@ describe('MainPage', () => {
         cancelable: true,
       }),
     )
-    await waitFor(() => expect(mock).toHaveBeenCalledTimes(2), {
-      timeout: 5000,
-    })
 
     const box = await screen.findByText('Reset Chroma')
     expect(box).toBeInTheDocument()

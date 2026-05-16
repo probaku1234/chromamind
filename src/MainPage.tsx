@@ -15,7 +15,10 @@ const MainPage: React.FC = () => {
   return (
     <Layout>
       {currentMenu === 'Home' && <Home />}
-      {currentMenu === 'Collections' && <Collections />}
+      {/* hide collection page when in other page for preventing fetching, rendering again*/}
+      <Collections
+        style={{ display: currentMenu === 'Collections' ? undefined : 'none' }}
+      />
       {currentMenu === 'Settings' && <Settings />}
     </Layout>
   )
