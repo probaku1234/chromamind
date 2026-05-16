@@ -24,25 +24,25 @@ export const defaultCustomConfig: SystemConfig = {
       colors: {
         brand: {
           // @ts-expect-error number key
-          50: '#F0FDFA',
+          50: '#faf5ff',
           // @ts-expect-error number key
-          100: '#CCFBF1',
+          100: '#f3e8ff',
           // @ts-expect-error number key
-          200: '#99F6E4',
+          200: '#e9d5ff',
           // @ts-expect-error number key
-          300: '#5EEAD4',
+          300: '#d8b4fe',
           // @ts-expect-error number key
-          400: '#2DD4BF',
+          400: '#c084fc',
           // @ts-expect-error number key
-          500: '#14B8A6', // Primary Teal
+          500: '#a855f7',
           // @ts-expect-error number key
-          600: '#0D9488',
+          600: '#9333ea', // Primary Purple
           // @ts-expect-error number key
-          700: '#0F766E',
+          700: '#7e22ce',
           // @ts-expect-error number key
-          800: '#115E59',
+          800: '#6b21a8',
           // @ts-expect-error number key
-          900: '#134E4A',
+          900: '#581c87',
         },
         firstBg: {
           value: '#f6f6f6',
@@ -59,6 +59,21 @@ export const defaultCustomConfig: SystemConfig = {
         collectionNavHoverBg: {
           value:
             'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
+        },
+        sidebar: {
+          value: '#18181b',
+        },
+        sidebarHover: {
+          value: '#27272a',
+        },
+        sidebarActive: {
+          value: 'rgba(147,51,234,0.18)',
+        },
+        sidebarText: {
+          value: '#71717a',
+        },
+        sidebarActiveText: {
+          value: '#c084fc',
         },
       },
     },
@@ -86,8 +101,32 @@ export const defaultCustomConfig: SystemConfig = {
       },
       layoutNavs: {
         base: {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '3px',
+          padding: '10px 6px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          width: '52px',
+          color: 'sidebarText',
+          userSelect: 'none',
+          transition: 'background 0.15s, color 0.15s',
           _hover: {
-            bg: 'gray.200',
+            bg: 'sidebarHover',
+            color: 'white',
+          },
+        },
+        variants: {
+          navActive: {
+            true: {
+              bg: 'sidebarActive',
+              color: 'sidebarActiveText',
+              _hover: {
+                bg: 'sidebarActive',
+                color: 'sidebarActiveText',
+              },
+            },
           },
         },
       },
@@ -102,9 +141,13 @@ export const defaultCustomConfig: SystemConfig = {
   },
 }
 
-const themeConfig: SystemConfig = JSON.parse(
-  localStorage.getItem(CUSTOM_THEME_KEY) ?? '{}',
-)
+let themeConfig: SystemConfig = {}
+try {
+  themeConfig = JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY) ?? '{}')
+} catch (e) {
+  console.error('[ChromaMind] Corrupted custom theme in localStorage, falling back to default.', e)
+  localStorage.removeItem(CUSTOM_THEME_KEY)
+}
 const customConfig = defineConfig({ ...defaultCustomConfig, ...themeConfig })
 
 export const system = createSystem(defaultConfig, customConfig)
