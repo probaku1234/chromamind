@@ -297,8 +297,8 @@ async fn create_window(
                 let body = get_github_issue_body(&environment);
                 let cmd = open::commands(create_github_issue_url(&body))[0].status();
 
-                if cmd.is_err() {
-                    log::error!("Error opening github issue page: {}", cmd.err().unwrap());
+                if let Err(e) = cmd {
+                    log::error!("Error opening github issue page: {e}");
                 }
             }
 
@@ -306,12 +306,13 @@ async fn create_window(
                 log::debug!("opening log folder");
                 let log_dir = cloned_app.path().app_log_dir();
 
-                if log_dir.is_err() {
-                    log::error!("Error getting log folder: {}", log_dir.err().unwrap());
-                    return;
-                }
-
-                let log_dir = log_dir.unwrap();
+                let log_dir = match log_dir {
+                    Ok(d) => d,
+                    Err(e) => {
+                        log::error!("Error getting log folder: {e}");
+                        return;
+                    }
+                };
 
                 #[cfg(target_os = "windows")]
                 let cmd = Command::new("explorer").arg(log_dir).spawn();
@@ -322,8 +323,8 @@ async fn create_window(
                 #[cfg(target_os = "linux")]
                 let cmd = Command::new("xdg-open").arg(log_dir).spawn();
 
-                if cmd.is_err() {
-                    log::error!("Error opening log folder: {}", cmd.err().unwrap());
+                if let Err(e) = cmd {
+                    log::error!("Error opening log folder: {e}");
                 }
             }
         })
