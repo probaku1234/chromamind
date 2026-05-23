@@ -41,6 +41,5 @@ reqwest = "0.12.22"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
-rand = "0.8.5"
 testcontainers = { version = "0.23.1", features = ['http_wait', 'blocking'] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

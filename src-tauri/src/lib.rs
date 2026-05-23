@@ -8,17 +8,35 @@ use parking_lot::Mutex;
 use serde_json::{json, Value};
 use std::env;
 use std::process::Command;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use structs::EmbeddingData;
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri::{Manager, State};
 use tauri_plugin_log::{Target, TargetKind};
 
+const TIMEOUT: i32 = 20;
+
+#[derive(Clone)]
+struct HttpContext {
+    endpoint: reqwest::Url,
+    client: reqwest::Client,
+}
+
 struct AppState {
     client: Mutex<Option<ChromaHttpClient>>,
+    http: Mutex<Option<HttpContext>>,
 }
 
 impl AppState {
+    fn get_http(&self) -> Result<HttpContext, String> {
+        let guard = self.http.lock();
+
+        guard
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| "No http context".to_owned())
+    }
+
     fn get_client(&self) -> Result<ChromaHttpClient, String> {
         let guard = self.client.lock();
 
@@ -54,22 +72,29 @@ enum ConnectionConfig {
 
 #[tauri::command]
 fn create_client(config: ConnectionConfig, state: State<AppState>) -> Result<(), String> {
-    let options = match config {
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    let (options, mut endpoint) = match config {
         ConnectionConfig::Local {
             url,
             tenant,
             database,
         } => {
             log::info!("(create_client) Creating local client with url: {}", url);
-            ChromaHttpClientOptions {
-                endpoint: url
-                    .parse::<reqwest::Url>()
-                    .map_err(|err| format!("Invalid endpoint: {err}"))?,
-                auth_method: ChromaAuthMethod::None,
-                tenant_id: Some(tenant),
-                database_name: Some(database),
-                ..Default::default()
-            }
+            let endpoint = url
+                .parse::<reqwest::Url>()
+                .map_err(|err| format!("Invalid endpoint: {err}"))?;
+
+            (
+                ChromaHttpClientOptions {
+                    endpoint: endpoint.clone(),
+                    auth_method: ChromaAuthMethod::None,
+                    tenant_id: Some(tenant),
+                    database_name: Some(database),
+                    ..Default::default()
+                },
+                endpoint,
+            )
         }
         ConnectionConfig::Cloud {
             url,
@@ -77,19 +102,44 @@ fn create_client(config: ConnectionConfig, state: State<AppState>) -> Result<(),
             database,
         } => {
             log::info!("(create_client) Creating cloud client with url: {}", url);
-            ChromaHttpClientOptions {
-                endpoint: url
-                    .parse::<reqwest::Url>()
-                    .map_err(|err| format!("Invalid endpoint: {err}"))?,
-                auth_method: ChromaAuthMethod::cloud_api_key(&api_key)
-                    .map_err(|err| format!("Invalid API key: {err}"))?,
-                database_name: Some(database),
-                ..Default::default()
-            }
+            let endpoint = url
+                .parse::<reqwest::Url>()
+                .map_err(|err| format!("Invalid endpoint: {err}"))?;
+            let mut api_key_header_value = reqwest::header::HeaderValue::from_str(&api_key)
+                .map_err(|err| format!("Invalid api key: {err}"))?;
+            api_key_header_value.set_sensitive(true);
+            headers.append("x-chroma-token", api_key_header_value);
+
+            (
+                ChromaHttpClientOptions {
+                    endpoint: endpoint.clone(),
+                    auth_method: ChromaAuthMethod::cloud_api_key(&api_key)
+                        .map_err(|err| format!("Invalid API key: {err}"))?,
+                    database_name: Some(database),
+                    ..Default::default()
+                },
+                endpoint,
+            )
         }
     };
+
+    if !endpoint.path().ends_with('/') {
+        if let Ok(mut segments) = endpoint.path_segments_mut() {
+            segments.push("");
+        }
+    }
+
     let client = ChromaHttpClient::new(options);
+    let http_client = reqwest::Client::builder()
+        .default_headers(headers)
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|err| format!("{err}"))?;
     *state.client.lock() = Some(client);
+    *state.http.lock() = Some(HttpContext {
+        endpoint,
+        client: http_client,
+    });
     Ok(())
 }
 
@@ -287,11 +337,26 @@ async fn create_window(
 
 // tauri command get chroma version
 #[tauri::command]
-fn get_chroma_version(_state: State<AppState>) -> Result<String, String> {
+async fn get_chroma_version(state: State<'_, AppState>) -> Result<String, String> {
     log::info!("(get_chroma_version) Fetching chroma version");
+    let http = state.get_http()?;
+    let url = http
+        .endpoint
+        .join("api/v2/version")
+        .map_err(|e| format!("Invalid version URL: {e}"))?;
+    let body = http
+        .client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {e}"))?
+        .error_for_status()
+        .map_err(|e| format!("HTTP error: {e}"))?
+        .text()
+        .await
+        .map_err(|e| format!("Response failed: {e}"))?;
 
-    // TODO: get real version
-    Ok(String::from("1.0.0"))
+    Ok(body)
 }
 
 #[tauri::command]
@@ -724,11 +789,12 @@ pub fn run() {
         .setup(|_app| {
             // set timeout for minreq requests to 10 seconds
             // this is to prevent hanging requests
-            env::set_var("MINREQ_TIMEOUT", "20");
+            env::set_var("MINREQ_TIMEOUT", TIMEOUT.to_string());
             Ok(())
         })
         .manage(AppState {
             client: Mutex::new(None),
+            http: Mutex::new(None),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(if cfg!(debug_assertions) {
@@ -845,6 +911,7 @@ mod tests {
         builder
             .manage(AppState {
                 client: Mutex::new(None),
+                http: Mutex::new(None),
             })
             .invoke_handler(tauri::generate_handler![
                 greet,
@@ -1164,7 +1231,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "currently not implemented"]
     fn test_get_chroma_version() {
         let container = create_chroma_container();
 
@@ -1184,7 +1250,7 @@ mod tests {
         assert!(res.is_err(), "get_chroma_version should fail");
         assert_eq!(
             res.err().unwrap(),
-            "No client found",
+            "No http context",
             "get_chroma_version failed with different error"
         );
 
@@ -1215,21 +1281,11 @@ mod tests {
             res.err()
         );
 
-        let _ = ChromaHttpClient::new(ChromaHttpClientOptions {
-            endpoint: format!("http://{}:{}", host, port)
-                .as_str()
-                .parse()
-                .unwrap(),
-            auth_method: ChromaAuthMethod::None,
-            ..Default::default()
-        });
-        // let expected = client.version().unwrap();
-        // let actual = res.unwrap();
-        //
-        // assert_eq!(
-        //     expected, actual,
-        //     "get_chroma_version result is not equal to expected"
-        // );
+        let actual = res.unwrap();
+        assert!(
+            actual.split('.').count() >= 2 && actual.chars().any(|c| c.is_ascii_digit()),
+            "version is not semver-shaped: {actual:?}"
+        );
     }
 
     #[test]
@@ -1628,7 +1684,10 @@ mod tests {
             .unwrap();
 
         let ids = vec!["doc1".to_string(), "doc2".to_string()];
-        let embeddings = vec![vec![0.1_f32, 0.2_f32, 0.3_f32], vec![0.4_f32, 0.5_f32, 0.6_f32]];
+        let embeddings = vec![
+            vec![0.1_f32, 0.2_f32, 0.3_f32],
+            vec![0.4_f32, 0.5_f32, 0.6_f32],
+        ];
         rt.block_on(collection.add(
             ids.clone(),
             embeddings.clone(),
@@ -1652,12 +1711,29 @@ mod tests {
         );
         assert!(res.is_ok(), "fetch_embedding failed: {:?}", res.err());
         let embedding = res.unwrap().deserialize::<Vec<f32>>();
-        assert!(embedding.is_ok(), "fetch_embedding result is not Vec<f32>: {:?}", embedding.err());
+        assert!(
+            embedding.is_ok(),
+            "fetch_embedding result is not Vec<f32>: {:?}",
+            embedding.err()
+        );
         let embedding = embedding.unwrap();
-        assert_eq!(embedding.len(), 3, "fetch_embedding returned wrong dimension count");
-        assert!((embedding[0] - 0.1_f32).abs() < 1e-5_f32, "embedding[0] mismatch");
-        assert!((embedding[1] - 0.2_f32).abs() < 1e-5_f32, "embedding[1] mismatch");
-        assert!((embedding[2] - 0.3_f32).abs() < 1e-5_f32, "embedding[2] mismatch");
+        assert_eq!(
+            embedding.len(),
+            3,
+            "fetch_embedding returned wrong dimension count"
+        );
+        assert!(
+            (embedding[0] - 0.1_f32).abs() < 1e-5_f32,
+            "embedding[0] mismatch"
+        );
+        assert!(
+            (embedding[1] - 0.2_f32).abs() < 1e-5_f32,
+            "embedding[1] mismatch"
+        );
+        assert!(
+            (embedding[2] - 0.3_f32).abs() < 1e-5_f32,
+            "embedding[2] mismatch"
+        );
 
         // Fetch embedding for unknown id should error
         let res = get_command_response(
@@ -1763,6 +1839,7 @@ mod tests {
             // TODO: need to get actual config
             // "configuration": collection.configuration_json(),
             "configuration": {},
+            "dimension": None::<u32>,
         });
 
         assert_eq!(
