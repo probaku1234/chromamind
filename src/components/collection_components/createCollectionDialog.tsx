@@ -34,7 +34,7 @@ const CreateCollectionDialog = ({
 }: {
   open: boolean
   onClose: () => void
-  fetchCollections: () => Promise<void>
+  fetchCollections: () => Promise<boolean>
 }) => {
   const [status, setStatus] = useState<{
     type: 'idle' | 'loading' | 'finished' | 'error'
@@ -57,10 +57,13 @@ const CreateCollectionDialog = ({
       }
     }
 
-    const result = await invokeWrapper<boolean>(TauriCommand.CREATE_COLLECTION, {
-      collectionName,
-      metadata,
-    })
+    const result = await invokeWrapper<boolean>(
+      TauriCommand.CREATE_COLLECTION,
+      {
+        collectionName,
+        metadata,
+      },
+    )
 
     match(result)
       .with({ type: 'error' }, ({ error }) => {
@@ -128,16 +131,30 @@ const CreateCollectionDialog = ({
                     />
                     {nameValid != null && (
                       <>
-                        <FieldHelperText color={nameValid[0] ? 'green.600' : 'red.500'} title={nameValid[0] ? '0-valid' : '0-invalid'}>
+                        <FieldHelperText
+                          color={nameValid[0] ? 'green.600' : 'red.500'}
+                          title={nameValid[0] ? '0-valid' : '0-invalid'}
+                        >
                           • contains 3-63 characters
                         </FieldHelperText>
-                        <FieldHelperText color={nameValid[1] ? 'green.600' : 'red.500'} title={nameValid[1] ? '1-valid' : '1-invalid'}>
-                          • starts and ends with an alphanumeric character, otherwise contains only alphanumeric characters, underscores or hyphens
+                        <FieldHelperText
+                          color={nameValid[1] ? 'green.600' : 'red.500'}
+                          title={nameValid[1] ? '1-valid' : '1-invalid'}
+                        >
+                          • starts and ends with an alphanumeric character,
+                          otherwise contains only alphanumeric characters,
+                          underscores or hyphens
                         </FieldHelperText>
-                        <FieldHelperText color={nameValid[2] ? 'green.600' : 'red.500'} title={nameValid[2] ? '2-valid' : '2-invalid'}>
+                        <FieldHelperText
+                          color={nameValid[2] ? 'green.600' : 'red.500'}
+                          title={nameValid[2] ? '2-valid' : '2-invalid'}
+                        >
                           • contains no two consecutive periods
                         </FieldHelperText>
-                        <FieldHelperText color={nameValid[3] ? 'green.600' : 'red.500'} title={nameValid[3] ? '3-valid' : '3-invalid'}>
+                        <FieldHelperText
+                          color={nameValid[3] ? 'green.600' : 'red.500'}
+                          title={nameValid[3] ? '3-valid' : '3-invalid'}
+                        >
                           • not a valid IPv4 address
                         </FieldHelperText>
                       </>
@@ -160,7 +177,9 @@ const CreateCollectionDialog = ({
                 <Icon w={16} h={16} color="green.500" mb={3}>
                   <CheckCircleIcon />
                 </Icon>
-                <Text color="green.600" fontWeight="500">Collection created!</Text>
+                <Text color="green.600" fontWeight="500">
+                  Collection created!
+                </Text>
               </Flex>
             ))
             .with({ type: 'error' }, ({ message }) => (
@@ -168,15 +187,25 @@ const CreateCollectionDialog = ({
                 <Icon w={12} h={12} color="red.500" mb={3}>
                   <CloseIcon />
                 </Icon>
-                <Text color="red.500" mb={4}>{message}</Text>
-                <Button onClick={() => setStatus({ type: 'idle' })}>Retry</Button>
+                <Text color="red.500" mb={4}>
+                  {message}
+                </Text>
+                <Button onClick={() => setStatus({ type: 'idle' })}>
+                  Retry
+                </Button>
               </Flex>
             ))
             .exhaustive()}
         </DialogBody>
         <DialogFooter display={status.type === 'idle' ? '' : 'none'}>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button loading={status.type === 'loading'} disabled={!isNameValid} onClick={createCollection}>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            loading={status.type === 'loading'}
+            disabled={!isNameValid}
+            onClick={createCollection}
+          >
             create
           </Button>
         </DialogFooter>

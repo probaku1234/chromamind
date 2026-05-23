@@ -623,14 +623,17 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     [table],
   )
 
-  async function fetchCollections() {
+  async function fetchCollections(): Promise<boolean> {
     const result = await invokeWrapper<{ id: string; name: string }[]>(TauriCommand.FETCH_COLLECTIONS)
+    let success = false
     match(result)
       .with({ type: 'error' }, ({ error }) => { console.error(error) })
       .with({ type: 'success' }, ({ result }) => {
         setCollections(result.map((c) => ({ ...c, isFavorite: false })))
+        success = true
       })
       .exhaustive()
+    return success
   }
 
   const onFavoriteCollection = (name: string) => {
@@ -820,7 +823,14 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                 color="gray.600"
                 _hover={{ bg: 'gray.50' }}
                 cursor="pointer"
-                onClick={fetchCollections}
+                onClick={async () => {
+                  const ok = await fetchCollections()
+                  if (ok) {
+                    toaster.create({ title: 'Collections refreshed', type: 'success', duration: 2000 })
+                  } else {
+                    toaster.create({ title: 'Failed to refresh collections', type: 'error', duration: 2000 })
+                  }
+                }}
                 aria-label="Refresh Collections"
               >
                 <RepeatIcon />
