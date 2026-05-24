@@ -60,8 +60,16 @@ Connection details (URL, tenant, database) are persisted to `localStorage` with 
 - `get_client()` returns a mapped guard or `Err("ChromaDB client not initialized")` — this is the standard guard pattern used across all commands.
 - Tauri commands: `create_client`, `health_check`, `fetch_collections`, `fetch_row_count`, `fetch_embeddings`, `fetch_collection_data`, `create_collection`, `delete_collection`, `reset_chroma`, `get_chroma_version`, `create_window`, `check_tenant_and_database`.
 
-### Active migration: `chromadb` → `chroma` crate
-The branch `CHROM-1-replace-chroma-crate-to-new-open` is migrating the ChromaDB client from a custom fork (`chromadb` crate, `probaku1234/chromadb-rs`) to the public `chroma = "0.12.0"` crate. Several commands have their implementations commented out and return stubs: `fetch_embeddings`, `delete_collection`, `reset_chroma`. Tests still import the old `chromadb` crate for test helpers (`ChromaClient`, `CollectionEntries`, auth types) — this is intentional until the migration completes.
-
 ### Clippy configuration
 `src-tauri/Cargo.toml` denies several clippy lints including `index_slicing`, `wildcard_enum_match_arm`, and `must_use_candidate`. Run `cargo clippy` before committing Rust changes.
+
+## Code Design
+
+### Write code that's easy to delete
+Before writing code, ask: *"What would removing this require?"* A clean deletion (single file or a handful of lines) signals good design. A 400-line PR touching 20 files to remove one feature signals a problem.
+
+Practical guidelines:
+- **Keep logic localized.** Prefer a bit of duplication over abstractions that spread a concept across many files.
+- **Respect boundaries.** Don't let implementation details leak across layers (e.g., no database concerns in UI components, no config threaded through unrelated modules).
+- **Limit awareness.** A function should accept inputs, do its job, return outputs — not reach into global state or mutate things it doesn't own.
+- **Use seams.** Feature flags, adapter layers, and clear interfaces act as deletion handles that let you swap or remove things without surgery.
