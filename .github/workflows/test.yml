@@ -1,15 +1,9 @@
-# This is a basic workflow to help you get started with Actions
-
 name: test-build
 
-# Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the $default-branch branch
   push:
   pull_request:
-    branches: [ "develop", "master" ]
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches: ["develop", "master"]
   workflow_dispatch:
 
 jobs:
@@ -18,57 +12,42 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # FIXME: not working!!!!!!!!!!!!
-          # - platform: "macos-latest" # for Arm based macs (M1 and above).
-          #   args: "--target aarch64-apple-darwin"
-          # - platform: "macos-latest" # for Intel based macs.
-          #   args: "--target x86_64-apple-darwin"
-          - platform: "ubuntu-22.04" # for Tauri v1 you could replace this with ubuntu-20.04.
+          - platform: "ubuntu-22.04"
             args: ""
-          # - platform: "windows-latest"
-          #   args: ""
 
     runs-on: ${{ matrix.platform }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04' # This must match the platform value defined above.
+      - name: Install system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-        # webkitgtk 4.0 is for Tauri v1 - webkitgtk 4.1 is for Tauri v2.
-        # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          version: v31.1
-        id: setup-protoc
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: Set PROTOC env
-        run: echo "PROTOC=${{ steps.setup-protoc.outputs.path }}/bin/protoc" >> $GITHUB_ENV
+      - name: Install frontend dependencies
+        run: npm install
 
-      - name: install frontend dependencies
-        run: npm install # change this to npm, pnpm or bun depending on which one you use.
-
-      # If tagName and releaseId are omitted tauri-action will only build the app and won't try to upload any assets.
       - uses: tauri-apps/tauri-action@v0
+        with:
+          args: ${{ matrix.args }}
 
-      - name: test UI
+      - name: Test UI
         run: npm run test:frontend
         continue-on-error: true
-      - name: test Server
-        run: npm run test:backend
+
+      - name: Test backend
+        working-directory: src-tauri
+        run: cargo nextest run --test-threads 1

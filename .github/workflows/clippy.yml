@@ -1,38 +1,31 @@
-on: push
 name: Clippy check
 
-# Make sure CI fails on all warnings, including Clippy lints
+on: push
+
 env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
   clippy_check:
     runs-on: ubuntu-22.04
+    permissions:
+      checks: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          version: v31.1
-        id: setup-protoc
-
-      - name: Set PROTOC env
-        run: echo "PROTOC=${{ steps.setup-protoc.outputs.path }}/bin/protoc" >> $GITHUB_ENV
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-            components: clippy
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          components: clippy
+          install-nextest: "false"
 
       - uses: auguwu/clippy-action@1.4.0
         with:
-            token: ${{secrets.GITHUB_TOKEN}}
-
-    permissions:
-        checks: write
+          token: ${{ secrets.GITHUB_TOKEN }}

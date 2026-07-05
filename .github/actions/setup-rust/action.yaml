@@ -1,0 +1,63 @@
+name: Setup Rust
+description: "Sets up Rust toolchain, Protoc, build cache, and optional nextest"
+
+inputs:
+  github-token:
+    description: "GitHub token (for setup-protoc rate limiting)"
+    required: false
+  toolchain:
+    description: "Rust toolchain to install"
+    required: false
+    default: "stable"
+  components:
+    description: "Rust components to install (comma-separated, e.g. 'clippy,rustfmt')"
+    required: false
+    default: ""
+  targets:
+    description: "Rust targets to install (comma-separated)"
+    required: false
+    default: ""
+  workspaces:
+    description: "Workspace paths for rust-cache (default: src-tauri)"
+    required: false
+    default: "src-tauri"
+  install-nextest:
+    description: "Install cargo-nextest"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
+      id: setup-protoc
+      with:
+        repo-token: ${{ inputs.github-token }}
+        version: v31.1
+
+    - name: Set PROTOC env (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: echo "PROTOC=${{ steps.setup-protoc.outputs.path }}/bin/protoc" >> $GITHUB_ENV
+
+    - name: Set PROTOC env (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: echo "PROTOC=${{ steps.setup-protoc.outputs.path }}/bin/protoc.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+        targets: ${{ inputs.targets }}
+
+    - name: Set up Rust build cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ inputs.workspaces }}
+
+    - name: Install nextest
+      if: ${{ inputs.install-nextest == 'true' }}
+      uses: taiki-e/install-action@nextest
