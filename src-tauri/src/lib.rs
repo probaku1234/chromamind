@@ -295,10 +295,14 @@ async fn create_window(
                     os_version: os_info::get().version().clone(),
                 };
                 let body = get_github_issue_body(&environment);
-                let cmd = open::commands(create_github_issue_url(&body))[0].status();
-
-                if let Err(e) = cmd {
-                    log::error!("Error opening github issue page: {e}");
+                let url = create_github_issue_url(&body);
+                match open::commands(url).into_iter().next() {
+                    Some(mut cmd) => {
+                        if let Err(e) = cmd.status() {
+                            log::error!("Error opening github issue page: {e}");
+                        }
+                    }
+                    None => log::error!("No command available to open github issue page"),
                 }
             }
 
