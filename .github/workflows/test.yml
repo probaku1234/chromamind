@@ -56,6 +56,10 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           version: v31.1
+        id: setup-protoc
+
+      - name: Set PROTOC env
+        run: echo "PROTOC=${{ steps.setup-protoc.outputs.path }}" >> $GITHUB_ENV
 
       - name: install frontend dependencies
         run: npm install # change this to npm, pnpm or bun depending on which one you use.

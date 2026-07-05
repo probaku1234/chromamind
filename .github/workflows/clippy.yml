@@ -21,6 +21,10 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           version: v31.1
+        id: setup-protoc
+
+      - name: Set PROTOC env
+        run: echo "PROTOC=${{ steps.setup-protoc.outputs.path }}" >> $GITHUB_ENV
 
       - uses: dtolnay/rust-toolchain@stable
         with:
