@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ChromaMind — A native GUI for ChromaDB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --brand: #9333ea;
+    --brand-light: #a855f7;
+    --brand-faint: #faf5ff;
+    --brand-border: #e9d5ff;
+    --ink: #0f0f0f;
+    --slate: #52525b;
+    --muted: #a1a1aa;
+    --line: #e4e4e7;
+    --line-soft: #f0f0f1;
+    --bg: #ffffff;
+    --bg-soft: #faf9fb;
+    --ink-900: #18181b;
+    --maxw: 1120px;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+  ::selection { background: #ead9fb; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+
+  /* ── Nav ─────────────────────────────────────── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav {
+    display: flex; align-items: center; gap: 28px;
+    height: 64px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+  .brand .logo {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center; flex-shrink: 0;
+    overflow: hidden;
+  }
+  .nav-links { display: flex; gap: 26px; margin-left: 8px; }
+  .nav-links a { font-size: 14px; color: var(--slate); font-weight: 500; transition: color .15s; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-spacer { flex: 1; }
+  .gh { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; color: var(--slate); }
+  .gh:hover { color: var(--ink); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: inherit; font-weight: 600; font-size: 14px;
+    border-radius: 9px; cursor: pointer; border: 1px solid transparent;
+    transition: background .15s, border-color .15s, transform .05s, box-shadow .15s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--brand); color: #fff; padding: 9px 18px; box-shadow: 0 1px 2px rgba(147,51,234,.4), inset 0 1px 0 rgba(255,255,255,.18); }
+  .btn-primary:hover { background: var(--brand-light); }
+  .btn-outline { background: #fff; color: var(--ink); border-color: var(--line); padding: 9px 18px; }
+  .btn-outline:hover { background: #fafafa; border-color: var(--muted); }
+  .btn-lg { padding: 13px 26px; font-size: 15px; border-radius: 11px; }
+
+  /* ── Hero ─────────────────────────────────────── */
+  .hero { padding: 88px 0 72px; position: relative; overflow: hidden; }
+  .hero-glow {
+    position: absolute; top: -180px; left: 50%; transform: translateX(-50%);
+    width: 760px; height: 460px; pointer-events: none; z-index: 0;
+    background: radial-gradient(closed, ellipse, rgba(168,85,247,.22), transparent 70%);
+    background: radial-gradient(ellipse at center, rgba(168,85,247,.20), transparent 68%);
+    filter: blur(8px);
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--brand-faint); border: 1px solid var(--brand-border);
+    color: #7e22ce; font-size: 12.5px; font-weight: 600;
+    padding: 5px 13px 5px 8px; border-radius: 999px; margin-bottom: 26px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px rgba(147,51,234,.18); }
+  h1 {
+    font-size: clamp(38px, 5.6vw, 62px); font-weight: 800;
+    letter-spacing: -0.035em; line-height: 1.04; max-width: 16ch; margin: 0 auto;
+    text-align: center;
+  }
+  h1 .accent { color: var(--brand); }
+  .sub {
+    font-size: clamp(17px, 2vw, 20px); color: var(--slate);
+    max-width: 56ch; margin: 22px auto 0; text-align: center; text-wrap: pretty;
+  }
+  .hero-cta { display: flex; gap: 12px; justify-content: center; margin-top: 34px; flex-wrap: wrap; }
+  .platforms {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    margin-top: 18px; color: var(--muted); font-size: 13px;
+  }
+  .platforms .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+
+  /* ── App window mockup ────────────────────────── */
+  .stage { margin-top: 60px; position: relative; }
+  .window {
+    background: #fff; border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 40px 80px -28px rgba(24,24,27,.30), 0 8px 24px -12px rgba(24,24,27,.18);
+    overflow: hidden;
+  }
+  .titlebar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 16px; height: 42px; border-bottom: 1px solid var(--line);
+    background: #fbfbfc;
+  }
+  .lights { display: flex; gap: 8px; }
+  .lights span { width: 12px; height: 12px; border-radius: 50%; }
+  .lights .r { background: #ff5f57; } .lights .y { background: #febc2e; } .lights .g { background: #28c840; }
+  .titlebar .addr {
+    flex: 1; height: 24px; border-radius: 7px; background: #f1f1f3;
+    display: flex; align-items: center; padding: 0 12px;
+    font-size: 11.5px; color: var(--muted); max-width: 320px; margin: 0 auto;
+  }
+  .app { display: grid; grid-template-columns: 56px 200px 1fr; height: 446px; }
+  /* rail */
+  .rail { background: #18181b; display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 8px; }
+  .rail .mark { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(140deg, #a855f7, #7c22ce); margin-bottom: 8px; display: grid; place-items: center; }
+  .rail .ico { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: #71717a; }
+  .rail .ico.active { background: rgba(147,51,234,.18); color: #c084fc; }
+  /* collection list */
+  .clist { border-right: 1px solid var(--line); background: #fff; padding: 14px 0; }
+  .clist .hd { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 14px 10px; }
+  .crow { display: flex; align-items: center; gap: 9px; padding: 8px 14px; font-size: 12.5px; color: var(--ink); }
+  .crow .star { color: #d4d4d8; font-size: 12px; }
+  .crow.fav .star { color: #f59e0b; }
+  .crow.sel { background: #f3e8ff; border-left: 3px solid var(--brand); padding-left: 11px; color: #7e22ce; font-weight: 600; }
+  .crow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* main viz */
+  .main { background: #fff; position: relative; display: flex; flex-direction: column; }
+  .main .toolbar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+  .chip.green { background: #dcfce7; color: #15803d; }
+  .chip.blue { background: #dbeafe; color: #1d4ed8; }
+  .chip.purple { background: #f3e8ff; color: #7e22ce; }
+  .viz { flex: 1; position: relative; overflow: hidden; }
+  .viz svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .floatchip {
+    position: absolute; background: #fff; border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 10px; font-size: 10.5px;
+    box-shadow: 0 8px 22px -8px rgba(24,24,27,.22); z-index: 3;
+  }
+  .floatchip .k { color: var(--muted); }
+  .floatchip .v { color: #7e22ce; font-weight: 600; }
+
+  /* ── Section scaffolding ──────────────────────── */
+  section { position: relative; }
+  .band { background: var(--bg-soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .sec-pad { padding: 92px 0; }
+  .eyebrow { font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--brand); margin-bottom: 14px; }
+  .sec-title { font-size: clamp(28px, 3.6vw, 40px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .sec-lead { font-size: 17px; color: var(--slate); max-width: 52ch; margin-top: 14px; text-wrap: pretty; }
+  .sec-head { max-width: 620px; }
+  .sec-head.center { margin: 0 auto; text-align: center; }
+
+  /* ── Features grid ────────────────────────────── */
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 56px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .feat {
+    background: #fff; padding: 30px 28px 34px;
+    transition: background .18s;
+  }
+  .feat:hover { background: var(--brand-faint); }
+  .feat .ficon {
+    width: 42px; height: 42px; border-radius: 11px;
+    display: grid; place-items: center; margin-bottom: 18px;
+    background: var(--brand-faint); color: var(--brand); border: 1px solid var(--brand-border);
+  }
+  .feat h3 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+  .feat p { font-size: 14.5px; color: var(--slate); text-wrap: pretty; }
+
+  /* ── Connect band ─────────────────────────────── */
+  .connect { max-width: 620px; }
+  .check-list { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; }
+  .check-item { display: flex; gap: 13px; align-items: flex-start; }
+  .check-item .cmark { width: 24px; height: 24px; border-radius: 7px; background: var(--brand-faint); color: var(--brand); display: grid; place-items: center; flex-shrink: 0; margin-top: 1px; border: 1px solid var(--brand-border); }
+  .check-item .ct { font-size: 15px; }
+  .check-item .ct b { font-weight: 600; }
+  .check-item .ct span { color: var(--slate); }
+
+  /* ── Download ─────────────────────────────────── */
+  .dl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 52px; }
+  .dl-card {
+    border: 1px solid var(--line); border-radius: var(--radius); background: #fff;
+    padding: 30px 26px; text-align: center; transition: border-color .18s, box-shadow .18s, transform .18s;
+  }
+  .dl-card:hover { border-color: var(--brand-border); box-shadow: 0 18px 40px -24px rgba(147,51,234,.4); transform: translateY(-3px); }
+  .dl-card .os-ico { width: 50px; height: 50px; margin: 0 auto 16px; color: var(--ink); display: grid; place-items: center; }
+  .dl-card h4 { font-size: 17px; font-weight: 700; }
+  .dl-card .ver { font-size: 12.5px; color: var(--muted); margin: 4px 0 18px; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Final CTA ────────────────────────────────── */
+  .final { text-align: center; }
+  .final .sec-title { max-width: 18ch; margin: 0 auto; }
+
+  /* ── Footer ───────────────────────────────────── */
+  footer { border-top: 1px solid var(--line); padding: 48px 0 56px; }
+  .foot { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+  .foot .brand { margin-bottom: 14px; }
+  .foot p { font-size: 13.5px; color: var(--muted); max-width: 30ch; }
+  .foot-cols { display: flex; gap: 64px; flex-wrap: wrap; }
+  .foot-col h5 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); margin-bottom: 14px; }
+  .foot-col a { display: block; font-size: 14px; color: var(--slate); margin-bottom: 10px; transition: color .15s; }
+  .foot-col a:hover { color: var(--brand); }
+  .foot-base { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 860px) {
+    .nav-links { display: none; }
+    .feat-grid { grid-template-columns: 1fr 1fr; }
+    .dl-grid { grid-template-columns: 1fr; }
+    .app { grid-template-columns: 56px 1fr; }
+    .clist { display: none; }
+    .app .clist { display: none; }
+  }
+  @media (max-width: 560px) {
+    .feat-grid { grid-template-columns: 1fr; }
+    .sec-pad { padding: 64px 0; }
+    .app { height: 360px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══════════════════════════════════════ -->
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <span class="logo">
+        <img src="logo.svg" width="30" height="30" alt="ChromaMind logo" />
+      </span>
+      ChromaMind
+    </div>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#connect">How it works</a>
+      <a href="#download">Download</a>
+      <a href="#">Docs</a>
+    </nav>
+    <div class="nav-spacer"></div>
+    <a href="https://github.com/probaku1234/chromamind" class="gh" target="_blank" rel="noopener noreferrer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 5 18.3 5.3 18.3 5.3c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 24 12.5C24 5.9 18.6.5 12 .5z"/></svg>
+      <span>GitHub</span>
+    </a>
+    <a href="#download" class="btn btn-primary">Download</a>
+  </div>
+</header>
+
+<!-- ══ HERO ═════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="wrap">
+    <div style="text-align:center;">
+      <span class="pill"><span class="dot"></span> Now with embedding inspection &amp; metadata filtering</span>
+    </div>
+    <h1>The native GUI your <span class="accent">vector database</span> was missing</h1>
+    <p class="sub">ChromaMind is a fast desktop client for ChromaDB. Browse collections, inspect documents and embeddings, and manage metadata.</p>
+    <div class="hero-cta">
+      <a href="#download" class="btn btn-primary btn-lg">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+      <a href="#features" class="btn btn-outline btn-lg">See features</a>
+    </div>
+    <div class="platforms">
+      <span>Windows</span><span class="sep"></span><span>Linux</span><span class="sep"></span><span class="mono">Free &amp; open source</span>
+    </div>
+
+    <!-- App screenshot -->
+    <div class="stage">
+      <div class="window">
+        <img src="screenshot.PNG" alt="ChromaMind app screenshot" style="display:block; width:100%; height:auto;" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ═════════════════════════════════ -->
+<section id="features" class="sec-pad">
+  <div class="wrap">
+    <div class="sec-head center">
+      <div class="eyebrow">Everything in one window</div>
+      <h2 class="sec-title">Built for the way you actually work with embeddings</h2>
+      <p class="sec-lead" style="margin-left:auto;margin-right:auto;">Stop dropping into a Python REPL just to peek at a collection. ChromaMind gives RAG engineers a real interface for inspecting and managing vector data.</p>
+    </div>
+
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="ficon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+        <h3>Browse every collection</h3>
+        <p>Filter, favorite, and switch between collections instantly. Your whole database, organized in a sidebar you can navigate by keyboard.</p>
+      </div>
+      <div class="feat">
+        <div class="ficon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></div>
+        <h3>Read full documents</h3>
+        <p>Every row opens a detail panel with the complete document text.</p>
+      </div>
+      <div class="feat">
+        <div class="ficon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.2"/><circle cx="17" cy="6" r="2.2"/><circle cx="12" cy="16" r="2.2"/><circle cx="18" cy="16" r="2.2"/><path d="M8 8l3 7M15 7l-3 8M14 16l3 0"/></svg></div>
+        <h3>Inspect embeddings on demand</h3>
+        <p>Vectors stay out of your way until you need them. Expand any row to reveal its full embedding.</p>
+      </div>
+      <div class="feat">
+        <div class="ficon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></div>
+        <h3>Filter by metadata</h3>
+        <p>Slice collections by any metadata field. Find the exact records you're debugging without scrolling through thousands of rows.</p>
+      </div>
+      <div class="feat">
+        <div class="ficon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        <h3>Create &amp; manage collections</h3>
+        <p>Spin up new collections with metadata, or delete.</p>
+      </div>
+      <div class="feat">
+        <div class="ficon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <h3>Local-first &amp; fast</h3>
+        <p>Connects straight to your ChromaDB instance — local or remote. Paginated, responsive, and built to stay snappy at scale.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CONNECT BAND ═════════════════════════════ -->
+<section id="connect" class="band sec-pad">
+  <div class="wrap">
+    <div class="connect">
+      <div class="eyebrow">Zero setup</div>
+      <h2 class="sec-title">Works with whatever ChromaDB you're already running</h2>
+      <p class="sec-lead">Enter a host and port. That's it. ChromaMind connects over ChromaDB's HTTP API — no agent, no sidecar, nothing extra to install.</p>
+      <div class="check-list">
+        <div class="check-item">
+          <span class="cmark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <span class="ct"><b>Local or remote.</b> <span>If ChromaDB is reachable from your machine, ChromaMind can connect to it.</span></span>
+        </div>
+        <div class="check-item">
+          <span class="cmark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <span class="ct"><b>Browsing doesn't touch your data.</b> <span>Writes and deletes require an explicit action — you won't accidentally modify anything.</span></span>
+        </div>
+        <div class="check-item">
+          <span class="cmark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <span class="ct"><b>Runs entirely on your machine.</b> <span>No telemetry, no cloud sync, no third-party requests. Just the app talking to your database.</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DOWNLOAD ═════════════════════════════════ -->
+<section id="download" class="sec-pad">
+  <div class="wrap">
+    <div class="sec-head center">
+      <div class="eyebrow">Free download</div>
+      <h2 class="sec-title">Get ChromaMind</h2>
+      <p class="sec-lead" style="margin-left:auto;margin-right:auto;">One lightweight app. No account required. Pick your platform and you're inspecting collections in under a minute.</p>
+    </div>
+    <div class="dl-grid">
+      <div class="dl-card">
+        <div class="os-ico"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5L10.5 4.4v7.1H3V5.5zM11.5 4.3L21 3v8.5h-9.5V4.3zM3 12.5h7.5v7.1L3 18.5v-6zM11.5 12.5H21V21l-9.5-1.3v-7.2z"/></svg></div>
+        <h4>Windows</h4>
+        <div class="ver">x64</div>
+        <a href="#" class="btn btn-primary" style="width:100%; justify-content:center;">Download .exe</a>
+      </div>
+      <div class="dl-card">
+        <div class="os-ico"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 2c-1.5 0-2.4 1.2-2.4 2.9 0 .8.1 1.7.1 2.4-.4.5-1.4 1.8-2 3.1-.7 1.4-1.4 3-1.8 3.8-.5 1-1.2 1.6-1.3 2.4-.1.6.3 1 .9 1.2-.1.4 0 .9.4 1.2.3.3.8.4 1.3.3.3.5.9.8 1.6.8.8 0 1.4-.4 1.7-.9h2.6c.3.5.9.9 1.7.9.7 0 1.3-.3 1.6-.8.5.1 1 0 1.3-.3.4-.3.5-.8.4-1.2.6-.2 1-.6.9-1.2-.1-.8-.8-1.4-1.3-2.4-.4-.8-1.1-2.4-1.8-3.8-.6-1.3-1.6-2.6-2-3.1 0-.7.1-1.6.1-2.4C14.9 3.2 14 2 12.5 2z"/></svg></div>
+        <h4>Linux</h4>
+        <div class="ver">AppImage</div>
+        <a href="#" class="btn btn-primary" style="width:100%; justify-content:center;">Download</a>
+      </div>
+      <div class="dl-card" style="opacity:.55; cursor:not-allowed;">
+        <div class="os-ico" style="color:var(--muted);"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.18 1.28-2.16 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.37 2.77M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg></div>
+        <h4>macOS</h4>
+        <div class="ver" style="color:var(--muted);">Not supported</div>
+        <button class="btn btn-outline" style="width:100%; justify-content:center; cursor:not-allowed; opacity:.6;" disabled>Not available</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FINAL CTA ════════════════════════════════ -->
+<section class="band sec-pad">
+  <div class="wrap final">
+    <h2 class="sec-title">Stop querying your vector DB blind.</h2>
+    <p class="sec-lead" style="margin:14px auto 0;">Join the engineers who reach for ChromaMind every time they touch a collection.</p>
+    <div class="hero-cta" style="margin-top:30px;">
+      <a href="#download" class="btn btn-primary btn-lg">Download free</a>
+      <a href="https://github.com/probaku1234/chromamind" class="btn btn-outline btn-lg" target="_blank" rel="noopener noreferrer">Star on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ═══════════════════════════════════ -->
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <div class="brand">
+          <span class="logo"><img src="logo.svg" width="30" height="30" alt="ChromaMind logo" /></span>
+          ChromaMind
+        </div>
+        <p>The native desktop GUI for ChromaDB. Built for RAG engineers.</p>
+      </div>
+      <div class="foot-cols">
+        <div class="foot-col">
+          <h5>Product</h5>
+          <a href="#features">Features</a>
+          <a href="#download">Download</a>
+          <a href="#">Changelog</a>
+          <a href="#">Roadmap</a>
+        </div>
+        <div class="foot-col">
+          <h5>Resources</h5>
+          <a href="#">Documentation</a>
+          <a href="https://github.com/probaku1234/chromamind" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="#">ChromaDB docs</a>
+          <a href="#">Community</a>
+        </div>
+        <div class="foot-col">
+          <h5>Company</h5>
+          <a href="#">About</a>
+          <a href="#">Privacy</a>
+          <a href="#">License (MIT)</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 ChromaMind. Open source under the MIT license.</span>
+      <span class="mono">Not affiliated with Chroma, Inc.</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
