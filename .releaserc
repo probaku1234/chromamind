@@ -135,7 +135,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "node scripts/bump-version.js ${nextRelease.version}",
+        "prepareCmd": "node scripts/bump-version.cjs ${nextRelease.version}",
         "successCmd": "echo v${nextRelease.version} > VERSION"
       }
     ],
