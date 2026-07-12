@@ -1,11 +1,6 @@
 {
   "branches": [
-    "master",
-    "next",
-    {
-      "name": "beta",
-      "prerelease": true
-    }
+    "release"
   ],
   "plugins": [
     [
@@ -61,15 +56,6 @@
             "type": "chore",
             "release": false
           }
-        ]
-      }
-    ],
-    "@semantic-release/release-notes-generator",
-    [
-      "@semantic-release/github",
-      {
-        "assets": [
-          "target/**/*.{msi,exe,app,dmg,rpm,deb,AppImage}"
         ]
       }
     ],
@@ -141,9 +127,36 @@
       }
     ],
     [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
       "@semantic-release/exec",
       {
+        "prepareCmd": "node scripts/bump-version.js ${nextRelease.version}",
         "successCmd": "echo v${nextRelease.version} > VERSION"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "CHANGELOG.md",
+          "package.json",
+          "src-tauri/Cargo.toml",
+          "src-tauri/tauri.conf.json"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          "target/**/*.{msi,exe,app,dmg,rpm,deb,AppImage}"
+        ]
       }
     ]
   ]
