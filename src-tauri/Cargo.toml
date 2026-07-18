@@ -36,6 +36,7 @@ os_info = "3.9.0"
 urlencoding = "2.1.3"
 tauri-plugin-devtools = "2.0.0"
 chroma = "0.14.0"
+chroma-types = "0.14.0"
 parking_lot = "0.12.3"
 reqwest = "0.12.22"
 
