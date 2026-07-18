@@ -44,7 +44,8 @@ import {
 } from '@/components/ui/dialog.tsx'
 import { createListCollection } from '@chakra-ui/react'
 import { useDispatch, useSelector } from 'react-redux'
-import { EmbeddingsData, State } from '../types'
+import { ActiveSearch, EmbeddingsData, State } from '../types'
+import SearchToolbar from './collection_components/SearchToolbar'
 import {
   ColumnFiltersState,
   createColumnHelper,
@@ -67,13 +68,24 @@ import {
   RepeatIcon,
 } from '@chakra-ui/icons'
 
-import { FiCheck, FiClipboard, FiCopy, FiPlus, FiStar, FiX } from 'react-icons/fi'
+import {
+  FiCheck,
+  FiClipboard,
+  FiCopy,
+  FiPlus,
+  FiStar,
+  FiX,
+} from 'react-icons/fi'
 import { MiddleTruncate } from '@re-dev/react-truncate'
 import { JsonEditor } from 'json-edit-react'
 import { match } from 'ts-pattern'
 import { copyClipboard } from '../utils/copyToClipboard'
 import { invokeWrapper } from '../utils/invokeTauri.ts'
-import { TauriCommand, LOCAL_STORAGE_KEY_PREFIX, CollectionData } from '../types.ts'
+import {
+  TauriCommand,
+  LOCAL_STORAGE_KEY_PREFIX,
+  CollectionData,
+} from '../types.ts'
 import { updateCollection } from '@/slices/currentCollectionSlice.ts'
 import { updateMenu } from '@/slices/currentMenuSlice.ts'
 import { useLocalStorage } from '@uidotdev/usehooks'
@@ -101,30 +113,73 @@ const frameworks = createListCollection({
 
 // ── Not-selected state ────────────────────────────────────────────────────
 const ListIcon = () => (
-  <svg width="44" height="44" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-    <line x1="8" y1="18" x2="21" y2="18"/>
-    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
-    <line x1="3" y1="18" x2="3.01" y2="18"/>
+  <svg
+    width="44"
+    height="44"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    viewBox="0 0 24 24"
+  >
+    <line x1="8" y1="6" x2="21" y2="6" />
+    <line x1="8" y1="12" x2="21" y2="12" />
+    <line x1="8" y1="18" x2="21" y2="18" />
+    <line x1="3" y1="6" x2="3.01" y2="6" />
+    <line x1="3" y1="12" x2="3.01" y2="12" />
+    <line x1="3" y1="18" x2="3.01" y2="18" />
   </svg>
 )
 
 const NotSelectedState = () => (
-  <Flex flex={1} direction="column" align="center" justify="center" bg="secondBg" gap={3}>
-    <Box color="gray.300"><ListIcon /></Box>
-    <Text fontSize="lg" fontWeight="600" color="gray.500">No Collection Selected</Text>
-    <Text fontSize="sm" color="gray.400">Choose a collection to get started</Text>
+  <Flex
+    flex={1}
+    direction="column"
+    align="center"
+    justify="center"
+    bg="secondBg"
+    gap={3}
+  >
+    <Box color="gray.300">
+      <ListIcon />
+    </Box>
+    <Text fontSize="lg" fontWeight="600" color="gray.500">
+      No Collection Selected
+    </Text>
+    <Text fontSize="sm" color="gray.400">
+      Choose a collection to get started
+    </Text>
   </Flex>
 )
 
 // ── Full Document Modal ───────────────────────────────────────────────────
-const FullDocumentModal = ({ doc, onClose }: { doc: string; onClose: () => void }) => {
+const FullDocumentModal = ({
+  doc,
+  onClose,
+}: {
+  doc: string
+  onClose: () => void
+}) => {
   const [copied, setCopied] = useState(false)
   const copy = () => {
-    copyClipboard(doc, () => { setCopied(true); setTimeout(() => setCopied(false), 1500) }, () => {})
+    copyClipboard(
+      doc,
+      () => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      },
+      () => {},
+    )
   }
   return (
-    <DialogRoot open modal onOpenChange={(d) => { if (!d.open) onClose() }}>
+    <DialogRoot
+      open
+      modal
+      onOpenChange={(d) => {
+        if (!d.open) onClose()
+      }}
+    >
       <DialogContent maxW="600px">
         <DialogHeader>
           <DialogTitle>Full Document</DialogTitle>
@@ -149,10 +204,14 @@ const FullDocumentModal = ({ doc, onClose }: { doc: string; onClose: () => void 
         </DialogBody>
         <DialogFooter>
           <DialogActionTrigger asChild>
-            <Button variant="outline" onClick={onClose}>Close</Button>
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
           </DialogActionTrigger>
           <Button onClick={copy}>
-            <Icon><FiCopy /></Icon>
+            <Icon>
+              <FiCopy />
+            </Icon>
             {copied ? 'Copied!' : 'Copy document'}
           </Button>
         </DialogFooter>
@@ -183,14 +242,18 @@ const DetailSidebar = ({
   const copyDoc = () => {
     copyClipboard(
       row.document,
-      () => { setDocCopied(true); setTimeout(() => setDocCopied(false), 1500) },
+      () => {
+        setDocCopied(true)
+        setTimeout(() => setDocCopied(false), 1500)
+      },
       () => {},
     )
   }
 
-  const truncDoc = row.document.length > 120
-    ? row.document.substring(0, 120) + '…'
-    : row.document
+  const truncDoc =
+    row.document.length > 120
+      ? row.document.substring(0, 120) + '…'
+      : row.document
 
   return (
     <Box
@@ -215,7 +278,9 @@ const DetailSidebar = ({
         bg="brand.50"
       >
         <Box>
-          <Text fontSize="13px" fontWeight="600" color="brand.900">Row Detail</Text>
+          <Text fontSize="13px" fontWeight="600" color="brand.900">
+            Row Detail
+          </Text>
           <Text
             fontSize="10px"
             color="gray.400"
@@ -239,7 +304,11 @@ const DetailSidebar = ({
       <Box overflowY="auto" flex={1}>
         {/* Embedding section */}
         <Box px={4} py={3} bg="gray.50" borderBottom="1px" borderColor="border">
-          <Flex align="center" justify="space-between" mb={embeddingVisible && embeddingValues ? 2 : 0}>
+          <Flex
+            align="center"
+            justify="space-between"
+            mb={embeddingVisible && embeddingValues ? 2 : 0}
+          >
             <Text
               fontSize="10px"
               fontWeight="600"
@@ -283,14 +352,25 @@ const DetailSidebar = ({
                 fontFamily: 'Inter, sans-serif',
               }}
             >
-              {embeddingLoading ? 'Loading…' : embeddingVisible ? 'Hide' : 'Show'}
+              {embeddingLoading
+                ? 'Loading…'
+                : embeddingVisible
+                  ? 'Hide'
+                  : 'Show'}
             </button>
           </Flex>
           {embeddingError && (
-            <Text fontSize="11px" color="red.500" mt={1}>{embeddingError}</Text>
+            <Text fontSize="11px" color="red.500" mt={1}>
+              {embeddingError}
+            </Text>
           )}
           {embeddingVisible && embeddingValues && (
-            <Box data-testid="detail-view-embedding" display="flex" flexWrap="wrap" gap="5px">
+            <Box
+              data-testid="detail-view-embedding"
+              display="flex"
+              flexWrap="wrap"
+              gap="5px"
+            >
               {embeddingValues.slice(0, 4).map((v, i) => (
                 <Box
                   key={i}
@@ -316,8 +396,18 @@ const DetailSidebar = ({
                   onClick={() => {
                     copyClipboard(
                       JSON.stringify(embeddingValues),
-                      () => toaster.create({ title: 'Copied full vector', type: 'success', duration: 2000 }),
-                      () => toaster.create({ title: 'Failed to copy', type: 'error', duration: 2000 }),
+                      () =>
+                        toaster.create({
+                          title: 'Copied full vector',
+                          type: 'success',
+                          duration: 2000,
+                        }),
+                      () =>
+                        toaster.create({
+                          title: 'Failed to copy',
+                          type: 'error',
+                          duration: 2000,
+                        }),
                     )
                   }}
                   style={{
@@ -342,128 +432,130 @@ const DetailSidebar = ({
 
         {/* ID, Document, Metadata */}
         <Box px={4} py="14px">
-        {/* ID */}
-        <Box mb={4}>
-          <Text
-            fontSize="10px"
-            fontWeight="600"
-            color="gray.400"
-            textTransform="uppercase"
-            letterSpacing="wide"
-            mb="5px"
-          >
-            ID
-          </Text>
-          <Box
-            fontSize="11px"
-            fontFamily="'JetBrains Mono', monospace"
-            color="gray.900"
-            bg="brand.50"
-            px="9px"
-            py="6px"
-            borderRadius="md"
-            wordBreak="break-all"
-          >
-            {row.id}
-          </Box>
-        </Box>
-
-        {/* Document */}
-        <Box mb={4}>
-          <Flex align="center" justify="space-between" mb="5px">
+          {/* ID */}
+          <Box mb={4}>
             <Text
               fontSize="10px"
               fontWeight="600"
               color="gray.400"
               textTransform="uppercase"
               letterSpacing="wide"
+              mb="5px"
             >
-              Document
+              ID
             </Text>
-            <Flex gap="5px" align="center">
-              <button
-                onClick={() => onShowFullDoc(row.document)}
-                style={{
-                  fontSize: 10,
-                  color: 'var(--chakra-colors-brand-600)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontFamily: 'Inter, sans-serif',
-                }}
-              >
-                View full
-              </button>
-              <Text fontSize="10px" color="gray.300">|</Text>
-              <button
-                onClick={copyDoc}
-                style={{
-                  fontSize: 10,
-                  color: docCopied
-                    ? 'var(--chakra-colors-green-500)'
-                    : 'var(--chakra-colors-brand-600)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  fontFamily: 'Inter, sans-serif',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 3,
-                }}
-              >
-                {docCopied ? 'Copied' : 'Copy'}
-              </button>
-            </Flex>
-          </Flex>
-          <Box
-            data-testid="detail-view-string"
-            fontSize="12px"
-            color="gray.900"
-            lineHeight="1.65"
-            bg="gray.50"
-            px="10px"
-            py="8px"
-            borderRadius="md"
-            borderWidth="1px"
-            borderColor="border"
-          >
-            {truncDoc}
-            {row.document.length > 120 && (
-              <Box
-                as="button"
-                display="block"
-                mt="6px"
-                fontSize="11px"
-                color="brand.600"
-                bg="none"
-                border="none"
-                cursor="pointer"
-                fontWeight="500"
-                onClick={() => onShowFullDoc(row.document)}
-              >
-                Show full document →
-              </Box>
-            )}
+            <Box
+              fontSize="11px"
+              fontFamily="'JetBrains Mono', monospace"
+              color="gray.900"
+              bg="brand.50"
+              px="9px"
+              py="6px"
+              borderRadius="md"
+              wordBreak="break-all"
+            >
+              {row.id}
+            </Box>
           </Box>
-        </Box>
 
-        {/* Metadata */}
-        <Box>
-          <Text
-            fontSize="10px"
-            fontWeight="600"
-            color="gray.400"
-            textTransform="uppercase"
-            letterSpacing="wide"
-            mb={2}
-          >
-            Metadata
-          </Text>
-          <Box data-testid="detail-view-metadata">
-            {typeof row.metadata === 'object' && row.metadata !== null
-              ? Object.entries(row.metadata).map(([k, v]) => (
+          {/* Document */}
+          <Box mb={4}>
+            <Flex align="center" justify="space-between" mb="5px">
+              <Text
+                fontSize="10px"
+                fontWeight="600"
+                color="gray.400"
+                textTransform="uppercase"
+                letterSpacing="wide"
+              >
+                Document
+              </Text>
+              <Flex gap="5px" align="center">
+                <button
+                  onClick={() => onShowFullDoc(row.document)}
+                  style={{
+                    fontSize: 10,
+                    color: 'var(--chakra-colors-brand-600)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  View full
+                </button>
+                <Text fontSize="10px" color="gray.300">
+                  |
+                </Text>
+                <button
+                  onClick={copyDoc}
+                  style={{
+                    fontSize: 10,
+                    color: docCopied
+                      ? 'var(--chakra-colors-green-500)'
+                      : 'var(--chakra-colors-brand-600)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontFamily: 'Inter, sans-serif',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 3,
+                  }}
+                >
+                  {docCopied ? 'Copied' : 'Copy'}
+                </button>
+              </Flex>
+            </Flex>
+            <Box
+              data-testid="detail-view-string"
+              fontSize="12px"
+              color="gray.900"
+              lineHeight="1.65"
+              bg="gray.50"
+              px="10px"
+              py="8px"
+              borderRadius="md"
+              borderWidth="1px"
+              borderColor="border"
+            >
+              {truncDoc}
+              {row.document.length > 120 && (
+                <Box
+                  as="button"
+                  display="block"
+                  mt="6px"
+                  fontSize="11px"
+                  color="brand.600"
+                  bg="none"
+                  border="none"
+                  cursor="pointer"
+                  fontWeight="500"
+                  onClick={() => onShowFullDoc(row.document)}
+                >
+                  Show full document →
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+          {/* Metadata */}
+          <Box>
+            <Text
+              fontSize="10px"
+              fontWeight="600"
+              color="gray.400"
+              textTransform="uppercase"
+              letterSpacing="wide"
+              mb={2}
+            >
+              Metadata
+            </Text>
+            <Box data-testid="detail-view-metadata">
+              {typeof row.metadata === 'object' && row.metadata !== null ? (
+                Object.entries(row.metadata).map(([k, v]) => (
                   <Flex
                     key={k}
                     justify="space-between"
@@ -472,7 +564,13 @@ const DetailSidebar = ({
                     borderBottom="1px"
                     borderColor="gray.100"
                   >
-                    <Text fontSize="11px" fontWeight="600" color="brand.700" flexShrink={0} mr={2}>
+                    <Text
+                      fontSize="11px"
+                      fontWeight="600"
+                      color="brand.700"
+                      flexShrink={0}
+                      mr={2}
+                    >
                       {k}
                     </Text>
                     <Text
@@ -486,11 +584,12 @@ const DetailSidebar = ({
                     </Text>
                   </Flex>
                 ))
-              : <JsonEditor data={row.metadata} maxWidth="100%" />
-            }
+              ) : (
+                <JsonEditor data={row.metadata} maxWidth="100%" />
+              )}
+            </Box>
           </Box>
         </Box>
-      </Box>
       </Box>
 
       {/* Footer actions */}
@@ -503,12 +602,25 @@ const DetailSidebar = ({
           onClick={() => {
             copyClipboard(
               row.id,
-              () => toaster.create({ title: 'Copied to clipboard', type: 'success', duration: 2000 }),
-              () => toaster.create({ title: 'Failed to copy', type: 'error', duration: 2000 }),
+              () =>
+                toaster.create({
+                  title: 'Copied to clipboard',
+                  type: 'success',
+                  duration: 2000,
+                }),
+              () =>
+                toaster.create({
+                  title: 'Failed to copy',
+                  type: 'error',
+                  duration: 2000,
+                }),
             )
           }}
         >
-          <Icon><FiClipboard /></Icon> Copy ID
+          <Icon>
+            <FiClipboard />
+          </Icon>{' '}
+          Copy ID
         </Button>
         <Button
           variant="ghost"
@@ -520,15 +632,32 @@ const DetailSidebar = ({
               const embedding = await fetchAndCacheEmbedding(row.id)
               copyClipboard(
                 JSON.stringify({ ...row, embedding }),
-                () => toaster.create({ title: 'Copied to clipboard', type: 'success', duration: 2000 }),
-                () => toaster.create({ title: 'Failed to copy', type: 'error', duration: 2000 }),
+                () =>
+                  toaster.create({
+                    title: 'Copied to clipboard',
+                    type: 'success',
+                    duration: 2000,
+                  }),
+                () =>
+                  toaster.create({
+                    title: 'Failed to copy',
+                    type: 'error',
+                    duration: 2000,
+                  }),
               )
             } catch {
-              toaster.create({ title: 'Failed to fetch embedding', type: 'error', duration: 2000 })
+              toaster.create({
+                title: 'Failed to fetch embedding',
+                type: 'error',
+                duration: 2000,
+              })
             }
           }}
         >
-          <Icon><FiCopy /></Icon> Copy JSON
+          <Icon>
+            <FiCopy />
+          </Icon>{' '}
+          Copy JSON
         </Button>
       </Flex>
     </Box>
@@ -538,10 +667,14 @@ const DetailSidebar = ({
 // ── Collections ───────────────────────────────────────────────────────────
 const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   const url = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`) || ''
-  const currentCollection = useSelector<State, string>((state: State) => state.currentCollection)
+  const currentCollection = useSelector<State, string>(
+    (state: State) => state.currentCollection,
+  )
   const [embeddings, setEmbeddings] = useState<EmbeddingsData[]>([])
   const [collectionId, setCollectionId] = useState<string | null>(null)
-  const [collectionDimension, setCollectionDimension] = useState<number | null>(null)
+  const [collectionDimension, setCollectionDimension] = useState<number | null>(
+    null,
+  )
   const [loading, setLoading] = useState(false)
   const [tableLoading, setTableLoading] = useState(true)
   const [error, setError] = useState<string | undefined>()
@@ -551,10 +684,15 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGES[0])
   const [rowCount, setRowCount] = useState<number | undefined>()
+  const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null)
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
-  const [embeddingCache, setEmbeddingCache] = useState<Map<string, number[]>>(new Map())
+  const [embeddingCache, setEmbeddingCache] = useState<Map<string, number[]>>(
+    new Map(),
+  )
   const [fullDoc, setFullDoc] = useState<string | null>(null)
-  const [demoState, setDemoState] = useState<'loaded' | 'empty' | 'error' | null>(null)
+  const [demoState, setDemoState] = useState<
+    'loaded' | 'empty' | 'error' | null
+  >(null)
   const { open, onOpen, onClose } = useDisclosure()
   const {
     open: openCreateCollection,
@@ -562,21 +700,23 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     onClose: onCloseCreateCollection,
   } = useDisclosure()
   const currentContextCollection = useRef('')
-  const [collections, setCollections] = useState<{ id: string; name: string; isFavorite: boolean }[]>([])
+  const [collections, setCollections] = useState<
+    { id: string; name: string; isFavorite: boolean }[]
+  >([])
   const [collectionFilter, setCollectionFilter] = useState('')
-  const [favoriteCollections, setFavoriteCollections] = useLocalStorage<string[]>(
-    `${FAVORITE_COLLECTIONS_KEY}:${url}`,
-    [],
-  )
+  const [favoriteCollections, setFavoriteCollections] = useLocalStorage<
+    string[]
+  >(`${FAVORITE_COLLECTIONS_KEY}:${url}`, [])
   const [selectedCollectionIds, setSelectedCollections] = useState<string[]>([])
   const navRef = useRef<HTMLDivElement>(null)
   const moveToInputRef = useRef<HTMLInputElement>(null)
   const dispatch = useDispatch()
   const columnHelper = useMemo(() => createColumnHelper<EmbeddingsData>(), [])
 
-  const selectedRow = selectedRowId !== null
-    ? embeddings.find((e) => e.id === selectedRowId) ?? null
-    : null
+  const selectedRow =
+    selectedRowId !== null
+      ? (embeddings.find((e) => e.id === selectedRowId) ?? null)
+      : null
 
   const columns = useMemo(
     () => [
@@ -585,7 +725,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor('document', {
-        cell: (info) => <MiddleTruncate end={0}>{info.getValue()}</MiddleTruncate>,
+        cell: (info) => (
+          <MiddleTruncate end={0}>{info.getValue()}</MiddleTruncate>
+        ),
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor('metadata', {
@@ -624,10 +766,14 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   )
 
   async function fetchCollections(): Promise<boolean> {
-    const result = await invokeWrapper<{ id: string; name: string }[]>(TauriCommand.FETCH_COLLECTIONS)
+    const result = await invokeWrapper<{ id: string; name: string }[]>(
+      TauriCommand.FETCH_COLLECTIONS,
+    )
     let success = false
     match(result)
-      .with({ type: 'error' }, ({ error }) => { console.error(error) })
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+      })
       .with({ type: 'success' }, ({ result }) => {
         setCollections(result.map((c) => ({ ...c, isFavorite: false })))
         success = true
@@ -650,19 +796,29 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     )
     if (names.includes(undefined)) {
       console.error('Collection not found', selectedCollectionIds, names)
-      toaster.create({ title: 'Failed to delete collection', type: 'error', duration: 2000 })
+      toaster.create({
+        title: 'Failed to delete collection',
+        type: 'error',
+        duration: 2000,
+      })
       throw new Error('Collection not found')
     }
     const result = await invokeWrapper<void>(TauriCommand.DELETE_COLLECTION, {
       collectionNames:
         selectedCollectionIds.length > 0
-          ? selectedCollectionIds.map((id) => collections.find((v) => v.id === id)?.name)
+          ? selectedCollectionIds.map(
+              (id) => collections.find((v) => v.id === id)?.name,
+            )
           : [collectionName],
     })
     match(result)
       .with({ type: 'error' }, ({ error }) => {
         console.error(error)
-        toaster.create({ title: 'Failed to delete collection', type: 'error', duration: 2000 })
+        toaster.create({
+          title: 'Failed to delete collection',
+          type: 'error',
+          duration: 2000,
+        })
       })
       .with({ type: 'success' }, async () => {
         dispatch(updateCollection(''))
@@ -677,17 +833,25 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
     setSelectedCollections([])
   }
 
-  useEffect(() => { fetchCollections() }, [])
+  useEffect(() => {
+    fetchCollections()
+  }, [])
 
   useEffect(() => {
     const fetchCollectionData = async () => {
       if (!currentCollection) return
       setError(undefined)
-      const result = await invokeWrapper<CollectionData>(TauriCommand.FETCH_COLLECTION_DATA, {
-        collectionName: currentCollection,
-      })
+      const result = await invokeWrapper<CollectionData>(
+        TauriCommand.FETCH_COLLECTION_DATA,
+        {
+          collectionName: currentCollection,
+        },
+      )
       match(result)
-        .with({ type: 'error' }, ({ error }) => { console.error(error); setError(error) })
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          setError(error)
+        })
         .with({ type: 'success' }, ({ result }) => {
           setCollectionId(result.id)
           setCollectionDimension(result.dimension ?? null)
@@ -703,51 +867,78 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       setLoading(true)
       const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
         collectionName: currentCollection,
+        ids: activeSearch?.ids,
+        whereFilter: activeSearch?.whereFilter,
       })
       match(result)
-        .with({ type: 'error' }, ({ error }) => { console.error(error); setError(error) })
-        .with({ type: 'success' }, ({ result }) => { setRowCount(result) })
+        .with({ type: 'error' }, ({ error }) => {
+          console.error(error)
+          setError(error)
+        })
+        .with({ type: 'success' }, ({ result }) => {
+          setRowCount(result)
+        })
         .exhaustive()
       setLoading(false)
     }
     fetchRowCount()
-  }, [pageSize, currentCollection])
+  }, [pageSize, currentCollection, activeSearch])
 
   const fetchEmbeddings = async () => {
     if (!currentCollection) return
     setTableLoading(true)
     setError(undefined)
-    const result = await invokeWrapper<EmbeddingsData[]>(TauriCommand.FETCH_EMBEDDINGS, {
-      collectionName: currentCollection,
-      limit: pageSize,
-      offset: pageIndex,
-    })
+    const result = await invokeWrapper<EmbeddingsData[]>(
+      TauriCommand.FETCH_EMBEDDINGS,
+      {
+        collectionName: currentCollection,
+        limit: pageSize,
+        offset: pageIndex,
+        ids: activeSearch?.ids,
+        whereFilter: activeSearch?.whereFilter,
+      },
+    )
     match(result)
-      .with({ type: 'error' }, ({ error }) => { console.error(error); setError(error) })
-      .with({ type: 'success' }, ({ result }) => { setEmbeddings(result) })
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        setError(error)
+      })
+      .with({ type: 'success' }, ({ result }) => {
+        setEmbeddings(result)
+      })
       .exhaustive()
     setTableLoading(false)
+  }
+
+  // Applying a new search resets to the first page so results start from the top.
+  const handleSearch = (search: ActiveSearch | null) => {
+    setActiveSearch(search)
+    setPageIndex(0)
   }
 
   useEffect(() => {
     setEmbeddingCache(new Map())
     setSelectedRowId(null)
     setCollectionDimension(null)
+    setActiveSearch(null)
   }, [currentCollection])
 
   useEffect(() => {
     fetchEmbeddings()
-  }, [pageIndex, pageSize, currentCollection])
+  }, [pageIndex, pageSize, currentCollection, activeSearch])
 
   const fetchAndCacheEmbedding = useCallback(
     async (id: string): Promise<number[]> => {
       if (embeddingCache.has(id)) {
         return embeddingCache.get(id)!
       }
-      const result = await invokeWrapper<number[]>(TauriCommand.FETCH_EMBEDDING, {
-        collectionName: currentCollection,
-        id,
-      })
+      const result = await invokeWrapper<number[]>(
+        TauriCommand.FETCH_EMBEDDING,
+        {
+          collectionName: currentCollection,
+          id,
+        },
+      )
       if (result.type === 'error') throw new Error(result.error)
       const vec = result.result
       setEmbeddingCache((prev) => new Map(prev).set(id, vec))
@@ -771,7 +962,14 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         overflow="hidden"
       >
         {/* Panel header */}
-        <Box px={3} pt="14px" pb="10px" borderBottom="1px" borderColor="border" ref={navRef}>
+        <Box
+          px={3}
+          pt="14px"
+          pb="10px"
+          borderBottom="1px"
+          borderColor="border"
+          ref={navRef}
+        >
           <Text
             fontSize="11px"
             fontWeight="600"
@@ -826,9 +1024,17 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                 onClick={async () => {
                   const ok = await fetchCollections()
                   if (ok) {
-                    toaster.create({ title: 'Collections refreshed', type: 'success', duration: 2000 })
+                    toaster.create({
+                      title: 'Collections refreshed',
+                      type: 'success',
+                      duration: 2000,
+                    })
                   } else {
-                    toaster.create({ title: 'Failed to refresh collections', type: 'error', duration: 2000 })
+                    toaster.create({
+                      title: 'Failed to refresh collections',
+                      type: 'error',
+                      duration: 2000,
+                    })
                   }
                 }}
                 aria-label="Refresh Collections"
@@ -853,14 +1059,19 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
         <Box overflowY="auto" flex={1}>
           <MenuRoot>
             {collections
-              .map((c) => ({ ...c, isFavorite: favoriteCollections.includes(c.name) }))
+              .map((c) => ({
+                ...c,
+                isFavorite: favoriteCollections.includes(c.name),
+              }))
               .filter((c) => c.name.includes(collectionFilter))
               .sort((a, b) => (a.isFavorite ? -1 : 0) - (b.isFavorite ? -1 : 0))
               .map((collection) => (
                 <MenuContextTrigger
                   asChild
                   key={collection.id}
-                  onContextMenu={() => { currentContextCollection.current = collection.name }}
+                  onContextMenu={() => {
+                    currentContextCollection.current = collection.name
+                  }}
                   onClick={() => {
                     setSelectedCollections((prev) =>
                       prev.includes(collection.id)
@@ -875,14 +1086,19 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                     onFavorite={onFavoriteCollection}
                     isSelected={selectedCollectionIds.includes(collection.id)}
                   >
-                    <Text truncate fontSize="12px" title={collection.name}>{collection.name}</Text>
+                    <Text truncate fontSize="12px" title={collection.name}>
+                      {collection.name}
+                    </Text>
                   </CollectionNavItem>
                 </MenuContextTrigger>
               ))}
             {collections.length > 0 &&
-              collections.filter((c) => c.name.includes(collectionFilter)).length === 0 && (
+              collections.filter((c) => c.name.includes(collectionFilter))
+                .length === 0 && (
                 <Box px={3} py={8} textAlign="center">
-                  <Text fontSize="12px" color="gray.400">No collections match your filter</Text>
+                  <Text fontSize="12px" color="gray.400">
+                    No collections match your filter
+                  </Text>
                 </Box>
               )}
             <MenuContent>
@@ -891,7 +1107,11 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
               </MenuItem>
               <DialogRoot role="alertdialog">
                 <DialogTrigger asChild>
-                  <MenuItem value="delete" color="fg.error" _hover={{ bg: 'bg.error', color: 'fg.error' }}>
+                  <MenuItem
+                    value="delete"
+                    color="fg.error"
+                    _hover={{ bg: 'bg.error', color: 'fg.error' }}
+                  >
                     Delete Collection
                   </MenuItem>
                 </DialogTrigger>
@@ -900,7 +1120,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                     <DialogTitle>Are you sure?</DialogTitle>
                   </DialogHeader>
                   <DialogBody>
-                    <p>This action cannot be undone. This will permanently delete the collection.</p>
+                    <p>
+                      This action cannot be undone. This will permanently delete
+                      the collection.
+                    </p>
                   </DialogBody>
                   <DialogFooter>
                     <DialogActionTrigger asChild>
@@ -909,7 +1132,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                     <DialogActionTrigger asChild>
                       <Button
                         buttonType="critical"
-                        onClick={() => deleteCollection(currentContextCollection.current)}
+                        onClick={() =>
+                          deleteCollection(currentContextCollection.current)
+                        }
                       >
                         Delete
                       </Button>
@@ -935,23 +1160,49 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
 
       {/* ── Center: Main content ────────────────────────────────────── */}
       {demoState === 'empty' ? (
-        <Box flex={1} h="100%"><NoDataDisplay /></Box>
+        <Box flex={1} h="100%">
+          <NoDataDisplay />
+        </Box>
       ) : demoState === 'error' ? (
-        <Box flex={1} h="100%"><ErrorDisplay message="Demo error: something went wrong" /></Box>
+        <Box flex={1} h="100%">
+          <ErrorDisplay message="Demo error: something went wrong" />
+        </Box>
       ) : currentCollection === '' && !loading ? (
         <NotSelectedState />
       ) : loading ? (
-        <Box flex={1} h="100%"><LoadingDataDisplay /></Box>
+        <Box flex={1} h="100%">
+          <LoadingDataDisplay />
+        </Box>
       ) : error && !demoState ? (
-        <Box flex={1} h="100%"><ErrorDisplay message={error} onRetry={fetchEmbeddings} /></Box>
+        <Box flex={1} h="100%">
+          <ErrorDisplay message={error} onRetry={fetchEmbeddings} />
+        </Box>
       ) : embeddings.length === 0 && tableLoading ? (
-        <Box flex={1} h="100%"><LoadingDataDisplay /></Box>
-      ) : embeddings.length === 0 ? (
-        <Box flex={1} h="100%"><NoDataDisplay /></Box>
+        <Box flex={1} h="100%">
+          <LoadingDataDisplay />
+        </Box>
+      ) : embeddings.length === 0 && !activeSearch ? (
+        <Box flex={1} h="100%">
+          <NoDataDisplay />
+        </Box>
       ) : (
-        <Box flex={1} overflow="hidden" display="flex" flexDirection="column" bg="secondBg">
+        <Box
+          flex={1}
+          overflow="hidden"
+          display="flex"
+          flexDirection="column"
+          bg="secondBg"
+        >
           {/* Badges header */}
-          <Flex align="center" gap={2} px="14px" py="10px" borderBottom="1px" borderColor="border" flexShrink={0}>
+          <Flex
+            align="center"
+            gap={2}
+            px="14px"
+            py="10px"
+            borderBottom="1px"
+            borderColor="border"
+            flexShrink={0}
+          >
             {collectionId ? (
               <>
                 <Tooltip content={collectionId}>
@@ -968,26 +1219,66 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                     onClick={() => {
                       copyClipboard(
                         collectionId,
-                        () => toaster.create({ title: 'Copied to clipboard', type: 'success', duration: 2000 }),
-                        () => toaster.create({ title: 'Failed to copy', type: 'error', duration: 2000 }),
+                        () =>
+                          toaster.create({
+                            title: 'Copied to clipboard',
+                            type: 'success',
+                            duration: 2000,
+                          }),
+                        () =>
+                          toaster.create({
+                            title: 'Failed to copy',
+                            type: 'error',
+                            duration: 2000,
+                          }),
                       )
                     }}
                   >
-                    <Icon><FiCopy /></Icon> collection id
+                    <Icon>
+                      <FiCopy />
+                    </Icon>{' '}
+                    collection id
                   </Badge>
                 </Tooltip>
-                <Badge colorPalette="blue" fontSize="12px" borderRadius="md" px={2} py="2px">
+                <Badge
+                  colorPalette="blue"
+                  fontSize="12px"
+                  borderRadius="md"
+                  px={2}
+                  py="2px"
+                >
                   total embeddings: {rowCount}
                 </Badge>
                 {collectionDimension !== null && (
-                  <Badge colorPalette="purple" fontSize="12px" borderRadius="md" px={2} py="2px">
+                  <Badge
+                    colorPalette="purple"
+                    fontSize="12px"
+                    borderRadius="md"
+                    px={2}
+                    py="2px"
+                  >
                     dimensions: {collectionDimension}
                   </Badge>
                 )}
               </>
             ) : null}
             <Spacer />
+          </Flex>
 
+          {/* Search toolbar */}
+          <Flex
+            align="center"
+            gap={2}
+            px="14px"
+            py="10px"
+            borderBottom="1px"
+            borderColor="border"
+            flexShrink={0}
+          >
+            <SearchToolbar
+              activeSearch={activeSearch}
+              onSearch={handleSearch}
+            />
           </Flex>
 
           {/* Table */}
@@ -996,7 +1287,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
               <CKTable.Root size="sm" variant="line">
                 <CKTable.Header>
                   {table.getHeaderGroups().map((headerGroup, hgIndex) => (
-                    <CKTable.Row key={`header-group-${headerGroup.id}-${hgIndex}`}>
+                    <CKTable.Row
+                      key={`header-group-${headerGroup.id}-${hgIndex}`}
+                    >
                       {headerGroup.headers.map((header, headerIndex) => {
                         // eslint-disable-next-line
                         const meta: any = header.column.columnDef
@@ -1011,8 +1304,16 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                             borderBottom="2px"
                             borderColor="border"
                           >
-                            <Text fontSize="13px" fontWeight="600" color="gray.900" py={1}>
-                              {flexRender(header.column.columnDef.header, header.getContext())}
+                            <Text
+                              fontSize="13px"
+                              fontWeight="600"
+                              color="gray.900"
+                              py={1}
+                            >
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
                             </Text>
                           </CKTable.ColumnHeader>
                         )
@@ -1032,7 +1333,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                   <CKTable.Body>
                     <CKTable.Row>
                       <CKTable.Cell colSpan={countMaxColumns}>
-                        <ErrorDisplay message={error} onRetry={fetchEmbeddings} />
+                        <ErrorDisplay
+                          message={error}
+                          onRetry={fetchEmbeddings}
+                        />
                       </CKTable.Cell>
                     </CKTable.Row>
                   </CKTable.Body>
@@ -1040,7 +1344,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                   <CKTable.Body>
                     <CKTable.Row>
                       <CKTable.Cell colSpan={countMaxColumns}>
-                        <NoDataDisplay />
+                        <NoDataDisplay
+                          title="No matching records"
+                          message="No records match this filter. Try adjusting or clearing it."
+                        />
                       </CKTable.Cell>
                     </CKTable.Row>
                   </CKTable.Body>
@@ -1056,10 +1363,14 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                             isSelected
                               ? 'brand.50'
                               : index % 2 === 0
-                              ? 'secondBg'
-                              : 'gray.50'
+                                ? 'secondBg'
+                                : 'gray.50'
                           }
-                          borderLeft={isSelected ? '3px solid var(--chakra-colors-brand-600)' : '3px solid transparent'}
+                          borderLeft={
+                            isSelected
+                              ? '3px solid var(--chakra-colors-brand-600)'
+                              : '3px solid transparent'
+                          }
                           transition="background 0.1s"
                           _hover={{ bg: isSelected ? 'brand.50' : 'gray.100' }}
                         >
@@ -1071,7 +1382,8 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                               fontSize="12px"
                               color={isSelected ? 'brand.800' : 'gray.700'}
                               fontFamily={
-                                cell.column.id === 'id' || cell.column.id === 'embedding'
+                                cell.column.id === 'id' ||
+                                cell.column.id === 'embedding'
                                   ? "'JetBrains Mono', monospace"
                                   : undefined
                               }
@@ -1079,7 +1391,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                                 setSelectedRowId(row.original.id)
                               }}
                             >
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
                             </CKTable.Cell>
                           ))}
                         </CKTable.Row>
@@ -1094,7 +1409,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                         <Flex gap={1} align="center">
                           <Button
                             size="sm"
-                            onClick={() => { table.setPageIndex(0); setPageIndex(0) }}
+                            onClick={() => {
+                              table.setPageIndex(0)
+                              setPageIndex(0)
+                            }}
                             disabled={!table.getCanPreviousPage()}
                           >
                             <ArrowBackIcon />
@@ -1107,7 +1425,12 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                           >
                             <ChevronLeftIcon />
                           </Button>
-                          <Text fontSize="12px" color="gray.600" mx={2} whiteSpace="nowrap">
+                          <Text
+                            fontSize="12px"
+                            color="gray.600"
+                            mx={2}
+                            whiteSpace="nowrap"
+                          >
                             {`Page ${table.getState().pagination.pageIndex + 1} / ${table.getPageCount()}`}
                           </Text>
                           <Button
@@ -1120,7 +1443,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => { table.setPageIndex(table.getPageCount() - 1); setPageIndex(table.getPageCount() - 1) }}
+                            onClick={() => {
+                              table.setPageIndex(table.getPageCount() - 1)
+                              setPageIndex(table.getPageCount() - 1)
+                            }}
                             disabled={!table.getCanNextPage()}
                           >
                             <ArrowForwardIcon />
@@ -1138,7 +1464,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                           >
                             <Flex align="center" gap={2}>
                               <NumberInput.DecrementTrigger asChild>
-                                <IconButton variant="outline" size="sm"><LuMinus /></IconButton>
+                                <IconButton variant="outline" size="sm">
+                                  <LuMinus />
+                                </IconButton>
                               </NumberInput.DecrementTrigger>
                               <NumberInput.Input
                                 textAlign="center"
@@ -1146,7 +1474,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                                 ref={moveToInputRef}
                               />
                               <NumberInput.IncrementTrigger asChild>
-                                <IconButton variant="outline" size="sm"><LuPlus /></IconButton>
+                                <IconButton variant="outline" size="sm">
+                                  <LuPlus />
+                                </IconButton>
                               </NumberInput.IncrementTrigger>
                             </Flex>
                           </NumberInput.Root>
@@ -1172,7 +1502,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                           // @ts-expect-error pageSize is string
                           defaultValue={[pageSize]}
                         >
-                          <SelectLabel fontSize="12px" color="gray.400">Page Size</SelectLabel>
+                          <SelectLabel fontSize="12px" color="gray.400">
+                            Page Size
+                          </SelectLabel>
                           <SelectTrigger>
                             <SelectValueText />
                           </SelectTrigger>
@@ -1202,7 +1534,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
               bg="gray.50"
               flexShrink={0}
             >
-              <Text fontSize="12px" color="gray.400">Click on a cell to view details</Text>
+              <Text fontSize="12px" color="gray.400">
+                Click on a cell to view details
+              </Text>
             </Box>
           )}
         </Box>
@@ -1219,7 +1553,9 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
       )}
 
       {/* Full document modal */}
-      {fullDoc && <FullDocumentModal doc={fullDoc} onClose={() => setFullDoc(null)} />}
+      {fullDoc && (
+        <FullDocumentModal doc={fullDoc} onClose={() => setFullDoc(null)} />
+      )}
 
       {/* ── Dev: Demo state controls ────────────────────────────────── */}
       {import.meta.env.DEV && (
@@ -1238,7 +1574,14 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
           boxShadow="sm"
           zIndex={1000}
         >
-          <Text fontSize="10px" fontWeight="600" color="gray.400" textTransform="uppercase" letterSpacing="wide" mr={1}>
+          <Text
+            fontSize="10px"
+            fontWeight="600"
+            color="gray.400"
+            textTransform="uppercase"
+            letterSpacing="wide"
+            mr={1}
+          >
             Demo State
           </Text>
           {(['loaded', 'empty', 'error'] as const).map((state) => (
@@ -1255,7 +1598,10 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
               borderColor={demoState === state ? 'brand.600' : 'gray.200'}
               bg={demoState === state ? 'brand.600' : 'white'}
               color={demoState === state ? 'white' : 'gray.600'}
-              _hover={{ borderColor: 'brand.400', color: demoState === state ? 'white' : 'brand.600' }}
+              _hover={{
+                borderColor: 'brand.400',
+                color: demoState === state ? 'white' : 'brand.600',
+              }}
               transition="all 0.12s"
               onClick={() => setDemoState(demoState === state ? null : state)}
             >
@@ -1288,7 +1634,9 @@ const CollectionNavItem = ({
   ...rest
 }: CollectionNavItemProps) => {
   const dispatch = useDispatch()
-  const currentCollection = useSelector<State, string>((state: State) => state.currentCollection)
+  const currentCollection = useSelector<State, string>(
+    (state: State) => state.currentCollection,
+  )
   const isActive = currentCollection === name
   const recipe = useRecipe({ key: 'layoutCollectionNavs' })
   const layoutCollectionNavsStyles = recipe()
@@ -1310,7 +1658,11 @@ const CollectionNavItem = ({
         cursor="pointer"
         role="group"
         bg={isActive ? 'brand.50' : isSelected ? 'gray.50' : 'transparent'}
-        borderLeft={isActive ? '3px solid var(--chakra-colors-brand-600)' : '3px solid transparent'}
+        borderLeft={
+          isActive
+            ? '3px solid var(--chakra-colors-brand-600)'
+            : '3px solid transparent'
+        }
         transition="all 0.12s"
         _hover={{ bg: isActive ? 'brand.50' : 'gray.50' }}
         css={layoutCollectionNavsStyles}
@@ -1333,7 +1685,13 @@ const CollectionNavItem = ({
         </Icon>
         {children}
         {isActive && (
-          <Icon ml="auto" mr="4px" fontSize="12px" color="green.500" flexShrink={0}>
+          <Icon
+            ml="auto"
+            mr="4px"
+            fontSize="12px"
+            color="green.500"
+            flexShrink={0}
+          >
             <FiCheck />
           </Icon>
         )}
