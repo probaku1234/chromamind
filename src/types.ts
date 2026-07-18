@@ -24,6 +24,49 @@ export type CollectionData = {
 
 export type EmbeddingsDataValueType = EmbeddingsData[keyof EmbeddingsData]
 
+// ---------------------------------------------------------------------------
+// Record search / metadata filtering
+// ---------------------------------------------------------------------------
+
+export type SearchMode = 'text' | 'id' | 'metadata'
+
+export type MetadataValueType = 'string' | 'number' | 'boolean'
+
+// Scalar comparison operators supported by ChromaDB's `where` filter.
+export type MetadataOperator = '$eq' | '$ne' | '$gt' | '$gte' | '$lt' | '$lte'
+
+export interface MetadataCondition {
+  field: string
+  operator: MetadataOperator
+  value: string
+  type: MetadataValueType
+}
+
+// Human-readable labels for the operator dropdown.
+export const OPERATOR_LABELS: Record<MetadataOperator, string> = {
+  $eq: 'equals',
+  $ne: 'not equals',
+  $gt: 'greater than',
+  $gte: 'greater than or equal to',
+  $lt: 'less than',
+  $lte: 'less than or equal to',
+}
+
+// Which operators are valid for each value type. Ordering comparisons only
+// make sense for numbers (mirrors the ChromaDB Cloud filter UI).
+export const OPERATORS_BY_TYPE: Record<MetadataValueType, MetadataOperator[]> =
+  {
+    string: ['$eq', '$ne'],
+    boolean: ['$eq', '$ne'],
+    number: ['$eq', '$ne', '$gt', '$gte', '$lt', '$lte'],
+  }
+
+// The active, submitted search passed to the backend fetch commands.
+export interface ActiveSearch {
+  ids?: string[]
+  whereFilter?: Record<string, unknown>
+}
+
 export enum TauriCommand {
   GREAT = 'great',
   CREATE_CLIENT = 'create_client',
