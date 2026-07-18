@@ -562,7 +562,9 @@ describe('Collections', () => {
       fireEvent.click(screen.getByTestId('0_document'))
 
       // Embedding values should NOT be visible yet
-      expect(screen.queryByTestId('detail-view-embedding')).not.toBeInTheDocument()
+      expect(
+        screen.queryByTestId('detail-view-embedding'),
+      ).not.toBeInTheDocument()
 
       // Click Show button
       const showBtn = screen.getByTestId('embedding-toggle-btn')
@@ -570,11 +572,16 @@ describe('Collections', () => {
       fireEvent.click(showBtn)
 
       // After fetching, embedding values appear and button says Hide
-      await waitFor(() =>
-        expect(screen.getByTestId('detail-view-embedding')).toBeInTheDocument(),
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('detail-view-embedding'),
+          ).toBeInTheDocument(),
         { timeout: 3000 },
       )
-      expect(screen.getByTestId('embedding-toggle-btn')).toHaveTextContent('Hide')
+      expect(screen.getByTestId('embedding-toggle-btn')).toHaveTextContent(
+        'Hide',
+      )
 
       // Count how many times FETCH_EMBEDDING was called so far
       const fetchEmbeddingCallCount = mock.mock.calls.filter(
@@ -584,12 +591,17 @@ describe('Collections', () => {
 
       // Click Hide
       fireEvent.click(screen.getByTestId('embedding-toggle-btn'))
-      expect(screen.queryByTestId('detail-view-embedding')).not.toBeInTheDocument()
+      expect(
+        screen.queryByTestId('detail-view-embedding'),
+      ).not.toBeInTheDocument()
 
       // Click Show again — should NOT trigger another FETCH_EMBEDDING (cache hit)
       fireEvent.click(screen.getByTestId('embedding-toggle-btn'))
-      await waitFor(() =>
-        expect(screen.getByTestId('detail-view-embedding')).toBeInTheDocument(),
+      await waitFor(
+        () =>
+          expect(
+            screen.getByTestId('detail-view-embedding'),
+          ).toBeInTheDocument(),
         { timeout: 1000 },
       )
 

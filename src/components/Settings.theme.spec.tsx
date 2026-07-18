@@ -8,7 +8,15 @@
  * avoiding cross-document Emotion/Chakra conflicts in jsdom.
  */
 import React from 'react'
-import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest'
 import { clearMocks } from '@tauri-apps/api/mocks'
 import { fireEvent, screen } from '@testing-library/react'
 import renderWithProvider from '../utils/renderWithProvider'
@@ -116,7 +124,9 @@ describe('Settings — theme dialog', () => {
     renderSettings()
     await openThemeDialog()
 
-    expect((screen.getByTestId('monaco-editor') as HTMLTextAreaElement).value).toBe(wip)
+    expect(
+      (screen.getByTestId('monaco-editor') as HTMLTextAreaElement).value,
+    ).toBe(wip)
   })
 
   test('editor falls back to CUSTOM_THEME_KEY when no WIP preview exists', async () => {
@@ -126,7 +136,9 @@ describe('Settings — theme dialog', () => {
     renderSettings()
     await openThemeDialog()
 
-    expect((screen.getByTestId('monaco-editor') as HTMLTextAreaElement).value).toBe(saved)
+    expect(
+      (screen.getByTestId('monaco-editor') as HTMLTextAreaElement).value,
+    ).toBe(saved)
   })
 
   test('editor uses built-in defaultCustomConfig when neither localStorage key exists', async () => {
@@ -134,7 +146,9 @@ describe('Settings — theme dialog', () => {
     await openThemeDialog()
 
     // The editor must show something — not empty
-    const editorValue = (screen.getByTestId('monaco-editor') as HTMLTextAreaElement).value
+    const editorValue = (
+      screen.getByTestId('monaco-editor') as HTMLTextAreaElement
+    ).value
     expect(editorValue.length).toBeGreaterThan(0)
     expect(JSON.parse(editorValue)).toMatchObject({ theme: expect.anything() })
   })
@@ -181,7 +195,9 @@ describe('Settings — theme dialog', () => {
     })
     fireEvent.click(screen.getByText('Save'))
 
-    expect(JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY)!)).toEqual(JSON.parse(newTheme))
+    expect(JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY)!)).toEqual(
+      JSON.parse(newTheme),
+    )
   })
 
   test('Save removes CUSTOM_THEME_PREVIEW_KEY so the next session starts from the saved theme', async () => {

@@ -145,7 +145,10 @@ let themeConfig: SystemConfig = {}
 try {
   themeConfig = JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY) ?? '{}')
 } catch (e) {
-  console.error('[ChromaMind] Corrupted custom theme in localStorage, falling back to default.', e)
+  console.error(
+    '[ChromaMind] Corrupted custom theme in localStorage, falling back to default.',
+    e,
+  )
   localStorage.removeItem(CUSTOM_THEME_KEY)
 }
 const customConfig = defineConfig({ ...defaultCustomConfig, ...themeConfig })

@@ -27,15 +27,24 @@ const CollectionDialog = ({
   role: 'info'
   collectionName?: string
 }) => {
-  const [collectionData, setCollectionData] = useState<CollectionData | null>(null)
+  const [collectionData, setCollectionData] = useState<CollectionData | null>(
+    null,
+  )
 
   const fetchCollectionData = async () => {
-    const result = await invokeWrapper<CollectionData>(TauriCommand.FETCH_COLLECTION_DATA, {
-      collectionName,
-    })
+    const result = await invokeWrapper<CollectionData>(
+      TauriCommand.FETCH_COLLECTION_DATA,
+      {
+        collectionName,
+      },
+    )
     match(result)
-      .with({ type: 'error' }, ({ error }) => { console.error(error) })
-      .with({ type: 'success' }, ({ result }) => { setCollectionData(result) })
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+      })
+      .with({ type: 'success' }, ({ result }) => {
+        setCollectionData(result)
+      })
       .exhaustive()
   }
 
@@ -45,7 +54,13 @@ const CollectionDialog = ({
     }
   }, [isOpen])
 
-  const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  const InfoRow = ({
+    label,
+    value,
+  }: {
+    label: string
+    value: React.ReactNode
+  }) => (
     <Box mb={4}>
       <Text
         fontSize="11px"
@@ -117,7 +132,9 @@ const CollectionDialog = ({
               </DialogFooter>
             </Show>
           ))
-          .otherwise(() => <></>)}
+          .otherwise(() => (
+            <></>
+          ))}
       </DialogContent>
     </DialogRoot>
   )

@@ -60,11 +60,34 @@ const GuidePopup: React.FC<GuidePopupProps> = ({ messages, title }) => {
               {title}
             </Text>
           )}
-          <Box as="ul" display="flex" flexDirection="column" gap={2} listStyleType="none" m={0} p={0}>
+          <Box
+            as="ul"
+            display="flex"
+            flexDirection="column"
+            gap={2}
+            listStyleType="none"
+            m={0}
+            p={0}
+          >
             {messages.map((msg, i) => (
-              <Box as="li" key={i} display="flex" gap={2} alignItems="flex-start">
-                <Text color="brand.400" fontSize="12px" lineHeight="1.4" flexShrink={0}>·</Text>
-                <Text fontSize="12px" color="gray.200" lineHeight="1.4">{msg}</Text>
+              <Box
+                as="li"
+                key={i}
+                display="flex"
+                gap={2}
+                alignItems="flex-start"
+              >
+                <Text
+                  color="brand.400"
+                  fontSize="12px"
+                  lineHeight="1.4"
+                  flexShrink={0}
+                >
+                  ·
+                </Text>
+                <Text fontSize="12px" color="gray.200" lineHeight="1.4">
+                  {msg}
+                </Text>
               </Box>
             ))}
           </Box>

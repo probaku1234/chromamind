@@ -1,5 +1,13 @@
 import Home from './Home'
-import { describe, test, beforeAll, afterEach, beforeEach, expect, vi } from 'vitest'
+import {
+  describe,
+  test,
+  beforeAll,
+  afterEach,
+  beforeEach,
+  expect,
+  vi,
+} from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
 import { InvokeArgs } from '@tauri-apps/api/core'
@@ -178,8 +186,9 @@ describe('Home', () => {
   describe('Skeleton loading states', () => {
     test('should show skeletons before data loads', () => {
       // Use a never-resolving promise so data never arrives
-      mockIPC(<T,>(_cmd: string, _: InvokeArgs | undefined): Promise<T> =>
-        new Promise(() => {}),
+      mockIPC(
+        <T,>(_cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+          new Promise(() => {}),
       )
 
       render(
@@ -192,7 +201,9 @@ describe('Home', () => {
       expect(screen.getByText('Collections')).toBeInTheDocument()
       expect(screen.getByText('Version')).toBeInTheDocument()
       expect(screen.queryByText(chromaVersion)).not.toBeInTheDocument()
-      expect(screen.queryByText(String(testCollections.length))).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(String(testCollections.length)),
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -223,7 +234,10 @@ describe('Home', () => {
 
   describe('Connection info from localStorage', () => {
     test('should display URL from localStorage', async () => {
-      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`, 'http://localhost:8000')
+      localStorage.setItem(
+        `${LOCAL_STORAGE_KEY_PREFIX}_url`,
+        'http://localhost:8000',
+      )
       mockIPC(mockCommandHandler)
 
       // @ts-ignore
@@ -241,7 +255,10 @@ describe('Home', () => {
 
     test('should display tenant and database when set in localStorage', async () => {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_tenant`, 'my-tenant')
-      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_database`, 'my-database')
+      localStorage.setItem(
+        `${LOCAL_STORAGE_KEY_PREFIX}_database`,
+        'my-database',
+      )
       mockIPC(mockCommandHandler)
 
       // @ts-ignore
@@ -279,9 +296,14 @@ describe('Home', () => {
 
   describe('Error states', () => {
     test('should keep skeletons visible when GET_CHROMA_VERSION fails', async () => {
-      const errorHandler = <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+      const errorHandler = <T,>(
+        cmd: string,
+        _: InvokeArgs | undefined,
+      ): Promise<T> =>
         match(cmd)
-          .with(TauriCommand.GET_CHROMA_VERSION, () => Promise.reject('version error' as unknown as T))
+          .with(TauriCommand.GET_CHROMA_VERSION, () =>
+            Promise.reject('version error' as unknown as T),
+          )
           .with(TauriCommand.FETCH_COLLECTIONS, () =>
             Promise.resolve(testCollections as unknown as T),
           )
@@ -304,12 +326,17 @@ describe('Home', () => {
     })
 
     test('should keep collections skeleton visible when FETCH_COLLECTIONS fails', async () => {
-      const errorHandler = <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+      const errorHandler = <T,>(
+        cmd: string,
+        _: InvokeArgs | undefined,
+      ): Promise<T> =>
         match(cmd)
           .with(TauriCommand.GET_CHROMA_VERSION, () =>
             Promise.resolve(chromaVersion as unknown as T),
           )
-          .with(TauriCommand.FETCH_COLLECTIONS, () => Promise.reject('fetch error' as unknown as T))
+          .with(TauriCommand.FETCH_COLLECTIONS, () =>
+            Promise.reject('fetch error' as unknown as T),
+          )
           .otherwise(() => Promise.resolve(true as unknown as T))
 
       mockIPC(errorHandler)
@@ -332,7 +359,10 @@ describe('Home', () => {
   describe('Test Connection button states', () => {
     test('should show "Testing…" and be disabled while health check is in progress', async () => {
       let resolveHealthCheck!: (value: boolean) => void
-      const slowHandler = <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+      const slowHandler = <T,>(
+        cmd: string,
+        _: InvokeArgs | undefined,
+      ): Promise<T> =>
         match(cmd)
           .with(TauriCommand.GET_CHROMA_VERSION, () =>
             Promise.resolve(chromaVersion as unknown as T),
@@ -340,10 +370,12 @@ describe('Home', () => {
           .with(TauriCommand.FETCH_COLLECTIONS, () =>
             Promise.resolve(testCollections as unknown as T),
           )
-          .with(TauriCommand.HEALTH_CHECK, () =>
-            new Promise<T>((resolve) => {
-              resolveHealthCheck = (v) => resolve(v as unknown as T)
-            }),
+          .with(
+            TauriCommand.HEALTH_CHECK,
+            () =>
+              new Promise<T>((resolve) => {
+                resolveHealthCheck = (v) => resolve(v as unknown as T)
+              }),
           )
           .otherwise(() => Promise.resolve(true as unknown as T))
 
@@ -363,12 +395,16 @@ describe('Home', () => {
       fireEvent.click(screen.getByText('Test Connection'))
 
       // While in-flight the button label changes and becomes disabled
-      await waitFor(() => expect(screen.getByText('Testing…')).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByText('Testing…')).toBeInTheDocument(),
+      )
       expect(screen.getByText('Testing…')).toBeDisabled()
 
       // Resolve the health check so the component finishes
       resolveHealthCheck(true)
-      await waitFor(() => expect(screen.getByText('Test Connection')).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByText('Test Connection')).toBeInTheDocument(),
+      )
     })
   })
 })
