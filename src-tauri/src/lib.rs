@@ -2,8 +2,9 @@ pub mod structs;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 use chroma::client::ChromaAuthMethod;
-use chroma::types::{Include, IncludeList, Metadata, MetadataValue};
+use chroma::types::{Include, IncludeList, Metadata, MetadataValue, Where};
 use chroma::{ChromaHttpClient, ChromaHttpClientOptions};
+use chroma_types::RawWhereFields;
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use std::env;
@@ -411,8 +412,21 @@ async fn fetch_collections(state: State<'_, AppState>) -> Result<Vec<Value>, Str
     Ok(collections_list)
 }
 
+/// Build an `Option<Where>` metadata filter from the optional Mongo-style JSON `where`
+/// payload sent by the frontend. Returns `Ok(None)` when no filter is set.
+fn build_where_filter(where_filter: Option<Value>) -> Result<Option<Where>, String> {
+    let raw = RawWhereFields::new(where_filter.unwrap_or(Value::Null), Value::Null);
+    raw.parse()
+        .map_err(|e| format!("Invalid metadata filter: {}", e))
+}
+
 #[tauri::command]
-async fn fetch_row_count(collection_name: &str, state: State<'_, AppState>) -> Result<u32, String> {
+async fn fetch_row_count(
+    collection_name: &str,
+    ids: Option<Vec<String>>,
+    where_filter: Option<Value>,
+    state: State<'_, AppState>,
+) -> Result<u32, String> {
     let start_time = Instant::now();
     log::info!(
         "(fetch_row_count) Fetching row count for collection: {}",
@@ -433,16 +447,27 @@ async fn fetch_row_count(collection_name: &str, state: State<'_, AppState>) -> R
     }
 
     let collection = collection.unwrap();
-    let count = collection.count().await;
 
-    if count.is_err() {
-        return Err(format!(
-            "Error fetching row count: {}",
-            count.err().unwrap()
-        ));
-    }
+    let where_clause = build_where_filter(where_filter)?;
+    let has_filter = ids.is_some() || where_clause.is_some();
 
-    let count = count.unwrap();
+    // `count()` has no filter parameter, so when a filter/ids are active we count the
+    // matching ids returned by a metadata-only `get`.
+    let count = if has_filter {
+        let get_result = collection
+            .get(ids, where_clause, None, None, Some(IncludeList(vec![])))
+            .await;
+        match get_result {
+            Ok(res) => res.ids.len() as u32,
+            Err(e) => return Err(format!("Error fetching row count: {}", e)),
+        }
+    } else {
+        match collection.count().await {
+            Ok(c) => c,
+            Err(e) => return Err(format!("Error fetching row count: {}", e)),
+        }
+    };
+
     let elapsed_time = start_time.elapsed();
     log::debug!(
         "(fetch_row_count) Fetched total row count {} for collection: {} in: {}ms",
@@ -459,6 +484,8 @@ async fn fetch_embeddings(
     collection_name: &str,
     limit: usize,
     offset: usize,
+    ids: Option<Vec<String>>,
+    where_filter: Option<Value>,
     state: State<'_, AppState>,
 ) -> Result<Vec<EmbeddingData>, String> {
     log::info!(
@@ -467,6 +494,8 @@ async fn fetch_embeddings(
     );
     log::debug!("(fetch_embeddings) limit: {}, offset: {}", limit, offset,);
     let client = state.get_client()?;
+
+    let where_clause = build_where_filter(where_filter)?;
 
     let collection = client.get_collection(collection_name).await;
     if collection.is_err() {
@@ -484,8 +513,8 @@ async fn fetch_embeddings(
 
     let get_result = collection
         .get(
-            None,
-            None,
+            ids,
+            where_clause,
             Some(limit as u32),
             Some(offset as u32),
             Some(IncludeList(vec![Include::Metadata, Include::Document])),
@@ -856,6 +885,7 @@ mod tests {
         runners::SyncRunner,
         Container, GenericImage,
     };
+
 
     enum TauriCommand {
         Greet,
@@ -1627,6 +1657,156 @@ mod tests {
             res.is_empty(),
             "fetch_collection_data should return empty vec since limit is 0"
         );
+    }
+
+    #[test]
+    fn test_fetch_embeddings_and_row_count_filters() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: connect_url.as_str().parse().unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collection_name = "filter_collection";
+        let collection = rt
+            .block_on(client.get_or_create_collection(collection_name, None, None))
+            .unwrap();
+
+        let ids = vec!["doc1".to_string(), "doc2".to_string(), "doc3".to_string()];
+        let metadatas: Vec<Option<Metadata>> = vec![
+            Some(HashMap::from([
+                ("page".to_string(), MetadataValue::Int(1)),
+                ("category".to_string(), MetadataValue::Str("a".to_string())),
+            ])),
+            Some(HashMap::from([
+                ("page".to_string(), MetadataValue::Int(5)),
+                ("category".to_string(), MetadataValue::Str("b".to_string())),
+            ])),
+            Some(HashMap::from([
+                ("page".to_string(), MetadataValue::Int(10)),
+                ("category".to_string(), MetadataValue::Str("a".to_string())),
+            ])),
+        ];
+        rt.block_on(collection.add(
+            ids.clone(),
+            vec![vec![0.1, 0.2], vec![0.3, 0.4], vec![0.5, 0.6]],
+            Some(vec![
+                Some("apple pie".to_string()),
+                Some("banana bread".to_string()),
+                Some("cherry cake".to_string()),
+            ]),
+            None,
+            Some(metadatas),
+        ))
+        .unwrap();
+
+        // Helper to fetch ids for a given fetch_embeddings payload.
+        let fetch_ids = |payload: serde_json::Value| -> Vec<String> {
+            let res =
+                get_command_response(&webview, TauriCommand::FetchEmbeddings.as_str(), payload);
+            assert!(res.is_ok(), "fetch_embeddings failed: {:?}", res.err());
+            let mut ids = res
+                .unwrap()
+                .deserialize::<Vec<EmbeddingData>>()
+                .unwrap()
+                .into_iter()
+                .map(|x| x.id)
+                .collect::<Vec<_>>();
+            ids.sort();
+            ids
+        };
+
+        // Metadata filter: page > 4 -> doc2, doc3
+        assert_eq!(
+            fetch_ids(json!({
+                "collectionName": collection_name,
+                "limit": 100,
+                "offset": 0,
+                "whereFilter": { "page": { "$gt": 4 } }
+            })),
+            vec!["doc2".to_string(), "doc3".to_string()]
+        );
+
+        // Metadata filter: category == "a" -> doc1, doc3
+        assert_eq!(
+            fetch_ids(json!({
+                "collectionName": collection_name,
+                "limit": 100,
+                "offset": 0,
+                "whereFilter": { "category": { "$eq": "a" } }
+            })),
+            vec!["doc1".to_string(), "doc3".to_string()]
+        );
+
+        // Composite $and: page >= 5 AND category == "a" -> doc3
+        assert_eq!(
+            fetch_ids(json!({
+                "collectionName": collection_name,
+                "limit": 100,
+                "offset": 0,
+                "whereFilter": { "$and": [
+                    { "page": { "$gte": 5 } },
+                    { "category": { "$eq": "a" } }
+                ]}
+            })),
+            vec!["doc3".to_string()]
+        );
+
+        // ID lookup -> doc1
+        assert_eq!(
+            fetch_ids(json!({
+                "collectionName": collection_name,
+                "limit": 100,
+                "offset": 0,
+                "ids": ["doc1"]
+            })),
+            vec!["doc1".to_string()]
+        );
+
+        // Unfiltered row count -> 3
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchRowCount.as_str(),
+            json!({ "collectionName": collection_name }),
+        );
+        assert_eq!(res.unwrap().deserialize::<u32>().unwrap(), 3);
+
+        // Filtered row count: page > 4 -> 2
+        let res = get_command_response(
+            &webview,
+            TauriCommand::FetchRowCount.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "whereFilter": { "page": { "$gt": 4 } }
+            }),
+        );
+        assert_eq!(res.unwrap().deserialize::<u32>().unwrap(), 2);
     }
 
     #[test]
