@@ -16,6 +16,7 @@
   - [Development](#development)
     - [Prerequisites](#prerequisites)
     - [Build from Source](#build-from-source)
+    - [Tests](#tests)
   - [Contribution](#contribution)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
@@ -33,34 +34,6 @@
   - Browse and visualize embeddings within collections
 - **Custom Theme:**
   - Personalize the application's appearance to suit your preferences
-
-**Home View**
-<p align="center">
-    <img src="screenshots/home.PNG">
-</p>
-
-**Overview**
-<p align="center">
-    <img src="screenshots/overview.PNG">
-</p>
-
-**Collections Tree**
-<p align="center">
-    <img src="screenshots/collection tree.PNG">
-</p>
-
-**Collection Overview**
-<p align="center">
-    <img src="screenshots/collection overview.PNG">
-</p>
-
-**Create Collction**
-<p align="center">
-    <img src="screenshots/create collection.PNG">
-</p>
-
-
-
 
 
 ## Quickstart
@@ -99,8 +72,35 @@ docker run -d -v ./chroma-data:/data -p 8000:8000 chromadb/chroma
    npm run tauri dev
    ```
 
+### Tests
 
+**Frontend**
 
+```bash
+npm run test:frontend      # Vitest (jsdom, React Testing Library)
+```
+
+**Backend**
+
+Rust tests use [`cargo-nextest`](https://nexte.st/):
+
+```bash
+cargo install cargo-nextest --locked
+cd src-tauri
+cargo nextest run
+```
+
+> Backend tests spin up real Docker containers via `testcontainers`.
+
+**Coverage**
+
+Backend test coverage uses [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov):
+
+```bash
+cargo install cargo-llvm-cov
+cd src-tauri
+cargo llvm-cov nextest
+```
 
 
 

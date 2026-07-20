@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test:frontend": "vitest",
-    "test:backend": "cd ./src-tauri & cargo test -- --test-threads=1",
+    "test:frontend:coverage": "vitest run --coverage",
+    "test:backend": "cargo nextest run",
+    "test:backend:coverage": "cargo llvm-cov nextest",
     "lint": "eslint ./src",
     "format": "prettier --write --cache src/**/*.ts src/**/*.tsx"
   },
@@ -52,6 +54,7 @@
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^2.1.9",
     "conventional-changelog-conventionalcommits": "^8.0.0",
     "eslint": "^9.11.1",
     "eslint-config-prettier": "^9.1.0",
