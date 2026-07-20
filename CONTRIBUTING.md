@@ -1,14 +1,25 @@
-1. Fork the repository.
-2. Create a new branch:
+# Contributing
+
+Thanks for taking the time to contribute! Here's the basic workflow:
+
+1. **Branch from `main`**
+
    ```bash
-   git checkout -b feature-name
+   git checkout -b feat/cool-new-feature
    ```
-3. Commit your changes:
+
+2. **Write your code, then commit**
+
    ```bash
-   git commit -m "Add your message here"
+   git commit -m "Add cool new feature"
    ```
-4. Push to your branch:
+
+3. **Format and lint before pushing**
+
    ```bash
-   git push origin feature-name
+   npm run format              # Prettier
+   npm run lint                # ESLint
+   cd src-tauri && cargo clippy  # Rust
    ```
-5. Open a pull request.
+
+4. **Open a pull request**
