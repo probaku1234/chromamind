@@ -2,6 +2,7 @@ import {
   MetadataCondition,
   MetadataOperator,
   MetadataValueType,
+  OPERATOR_LABELS,
 } from '../types'
 
 /**
@@ -19,8 +20,12 @@ export function coerceValue(
       const n = Number(value)
       return Number.isNaN(n) ? undefined : n
     }
-    case 'boolean':
-      return value === 'true'
+    case 'boolean': {
+      const v = value.trim()
+      if (v === 'true') return true
+      if (v === 'false') return false
+      return undefined
+    }
     case 'string':
       return value
     default:
@@ -47,7 +52,7 @@ export function buildWhereFromConditions(
   conditions: MetadataCondition[],
 ): Record<string, unknown> | null {
   const clauses = conditions.filter(isConditionComplete).map((c) => ({
-    [c.field]: { [c.operator]: coerceValue(c.value, c.type) },
+    [c.field.trim()]: { [c.operator]: coerceValue(c.value, c.type) },
   }))
 
   if (clauses.length === 0) return null
@@ -61,23 +66,37 @@ const valueType = (value: unknown): MetadataValueType => {
   return 'string'
 }
 
-/** Turn a single `{ field: { $op: value } }` clause into a `MetadataCondition`. */
+const ALLOWED_OPERATORS = new Set<string>(Object.keys(OPERATOR_LABELS))
+
+/**
+ * Turn a single `{ field: { $op: value } }` clause into a `MetadataCondition`.
+ * Returns `null` for any shape that isn't exactly one field mapping to exactly
+ * one recognised operator, so unparseable input can be dropped by the caller.
+ */
 function parseClause(
   clause: Record<string, unknown>,
 ): MetadataCondition | null {
-  const [field] = Object.keys(clause)
-  if (!field) return null
+  const keys = Object.keys(clause)
+  if (keys.length !== 1) return null
+  const field = keys[0]
+  if (!field || field === '$and') return null
+
   const opValue = clause[field]
-  if (typeof opValue !== 'object' || opValue === null) return null
-  const [operator] = Object.keys(opValue as Record<string, unknown>)
-  if (!operator) return null
+  if (typeof opValue !== 'object' || opValue === null || Array.isArray(opValue)) {
+    return null
+  }
+
+  const opKeys = Object.keys(opValue as Record<string, unknown>)
+  if (opKeys.length !== 1) return null
+  const operator = opKeys[0]
+  if (!ALLOWED_OPERATORS.has(operator)) return null
+
   const value = (opValue as Record<string, unknown>)[operator]
-  const type = valueType(value)
   return {
     field,
     operator: operator as MetadataOperator,
     value: String(value),
-    type,
+    type: valueType(value),
   }
 }
 

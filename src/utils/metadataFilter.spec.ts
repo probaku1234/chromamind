@@ -23,9 +23,18 @@ describe('coerceValue', () => {
     expect(coerceValue('', 'number')).toBeUndefined()
   })
 
-  test('coerces booleans', () => {
+  test('coerces booleans and trims surrounding whitespace', () => {
     expect(coerceValue('true', 'boolean')).toBe(true)
     expect(coerceValue('false', 'boolean')).toBe(false)
+    expect(coerceValue('  true  ', 'boolean')).toBe(true)
+    expect(coerceValue(' false ', 'boolean')).toBe(false)
+  })
+
+  test('rejects non-boolean strings rather than defaulting to false', () => {
+    expect(coerceValue('yes', 'boolean')).toBeUndefined()
+    expect(coerceValue('TRUE', 'boolean')).toBeUndefined()
+    expect(coerceValue('1', 'boolean')).toBeUndefined()
+    expect(coerceValue('', 'boolean')).toBeUndefined()
   })
 
   test('passes strings through', () => {
@@ -70,6 +79,14 @@ describe('buildWhereFromConditions', () => {
     })
   })
 
+  test('trims surrounding whitespace from the field name', () => {
+    expect(
+      buildWhereFromConditions([
+        cond({ field: '  page  ', operator: '$gt', value: '5' }),
+      ]),
+    ).toEqual({ page: { $gt: 5 } })
+  })
+
   test('coerces boolean values', () => {
     expect(
       buildWhereFromConditions([
@@ -105,6 +122,29 @@ describe('parseConditionsFromWhere', () => {
       { field: 'page', operator: '$gte', value: '5', type: 'number' },
       { field: 'category', operator: '$eq', value: 'a', type: 'string' },
     ])
+  })
+
+  test('rejects unparseable shapes', () => {
+    // $and that is not an array falls through to being treated as a clause
+    expect(parseConditionsFromWhere({ $and: { foo: 'bar' } })).toEqual([])
+    // unknown operator
+    expect(parseConditionsFromWhere({ price: { $regex: 'x' } })).toEqual([])
+    // multiple fields in a single clause
+    expect(
+      parseConditionsFromWhere({ a: { $eq: 1 }, b: { $eq: 2 } }),
+    ).toEqual([])
+    // multiple operators for a single field
+    expect(parseConditionsFromWhere({ page: { $eq: 1, $ne: 2 } })).toEqual([])
+    // operator value that is an array rather than an object of operators
+    expect(parseConditionsFromWhere({ page: [1, 2] })).toEqual([])
+  })
+
+  test('drops only the unparseable clause within an $and list', () => {
+    expect(
+      parseConditionsFromWhere({
+        $and: [{ page: { $gte: 5 } }, { bad: { $regex: 'x' } }],
+      }),
+    ).toEqual([{ field: 'page', operator: '$gte', value: '5', type: 'number' }])
   })
 
   test('round-trips through buildWhereFromConditions', () => {
