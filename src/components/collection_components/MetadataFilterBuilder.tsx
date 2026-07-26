@@ -51,6 +51,16 @@ const MetadataFilterBuilder: React.FC<MetadataFilterBuilderProps> = ({
         ) {
           next.operator = OPERATORS_BY_TYPE[next.type][0]
         }
+        // Boolean rows have no free-text input, so an empty value would never be
+        // corrected by the user. Normalize to the displayed default ('true') so
+        // the stored value matches what the dropdown shows.
+        if (
+          patch.type === 'boolean' &&
+          next.value !== 'true' &&
+          next.value !== 'false'
+        ) {
+          next.value = 'true'
+        }
         return next
       }),
     )

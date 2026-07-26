@@ -50,6 +50,28 @@ describe('MetadataFilterBuilder', () => {
     expect(options).toEqual(['true', 'false'])
   })
 
+  test('normalizes an empty value to "true" when switching a row to boolean', () => {
+    const { onChange } = renderBuilder([emptyCondition()])
+    fireEvent.change(screen.getByLabelText('Type'), {
+      target: { value: 'boolean' },
+    })
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ type: 'boolean', value: 'true' }),
+    ])
+  })
+
+  test('preserves an existing value when switching a row to boolean', () => {
+    const { onChange } = renderBuilder([
+      { field: 'active', operator: '$eq', value: 'false', type: 'string' },
+    ])
+    fireEvent.change(screen.getByLabelText('Type'), {
+      target: { value: 'boolean' },
+    })
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ type: 'boolean', value: 'false' }),
+    ])
+  })
+
   test('edits a field and reports the change', () => {
     const { onChange } = renderBuilder([emptyCondition()])
     fireEvent.change(screen.getByPlaceholderText('Field'), {
