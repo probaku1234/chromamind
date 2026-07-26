@@ -76,7 +76,10 @@ describe('Layout', () => {
   test('should dispatch updateMenu("Home") when Home is clicked', () => {
     vi.mocked(getVersion).mockResolvedValue('1.0.0')
 
-    const store = mockStore({ currentMenu: 'Collections', currentCollection: '' })
+    const store = mockStore({
+      currentMenu: 'Collections',
+      currentCollection: '',
+    })
 
     renderWithProvider(
       <Provider>

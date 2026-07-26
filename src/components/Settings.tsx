@@ -53,7 +53,8 @@ const Settings: React.FC = () => {
     localStorage.getItem(CUSTOM_THEME_PREVIEW_KEY) ??
     localStorage.getItem(CUSTOM_THEME_KEY) ??
     JSON.stringify(defaultCustomConfig, null, 2)
-  const [editorDefaultValue, setEditorDefaultValue] = useState<string>(defaultEditorValue)
+  const [editorDefaultValue, setEditorDefaultValue] =
+    useState<string>(defaultEditorValue)
   const [text, setText] = useState<string>(defaultEditorValue)
 
   const resetChroma = async () => {
@@ -86,8 +87,11 @@ const Settings: React.FC = () => {
   const onChange = debounce((val: string) => {
     try {
       const obj: SystemConfig = JSON.parse(val)
-      localStorage.setItem(CUSTOM_THEME_PREVIEW_KEY, JSON.stringify(obj, null, 2))
-      setChecksum(c => c + 1)
+      localStorage.setItem(
+        CUSTOM_THEME_PREVIEW_KEY,
+        JSON.stringify(obj, null, 2),
+      )
+      setChecksum((c) => c + 1)
       setIsThemeError(false)
     } catch (e) {
       console.error(e)
@@ -101,9 +105,9 @@ const Settings: React.FC = () => {
     localStorage.removeItem(CUSTOM_THEME_PREVIEW_KEY)
     setText(defaults)
     setEditorDefaultValue(defaults)
-    setEditorKey(k => k + 1)
+    setEditorKey((k) => k + 1)
     setIsThemeError(false)
-    setChecksum(c => c + 1)
+    setChecksum((c) => c + 1)
   }
 
   const onSaveClick = () => {
@@ -160,11 +164,15 @@ const Settings: React.FC = () => {
             closeOnInteractOutside={false}
           >
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">Manage</Button>
+              <Button variant="outline" size="sm">
+                Manage
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader borderBottomWidth="1px" borderColor="border">
-                <DialogTitle fontSize="16px" fontWeight="700">Theme</DialogTitle>
+                <DialogTitle fontSize="16px" fontWeight="700">
+                  Theme
+                </DialogTitle>
               </DialogHeader>
               <DialogBody p={0}>
                 <Flex h="100%">
@@ -190,7 +198,12 @@ const Settings: React.FC = () => {
                     />
                   </Box>
                   <Box w="1/2">
-                    <Frame height="100%" width="100%" key={checksum} loading="lazy">
+                    <Frame
+                      height="100%"
+                      width="100%"
+                      key={checksum}
+                      loading="lazy"
+                    >
                       <FrameContextConsumer>
                         {(frameContext) => {
                           const cache = createCache({
@@ -198,13 +211,17 @@ const Settings: React.FC = () => {
                             key: 'css',
                           })
                           const previewThemeConfig: SystemConfig = JSON.parse(
-                            localStorage.getItem(CUSTOM_THEME_PREVIEW_KEY) || '{}',
+                            localStorage.getItem(CUSTOM_THEME_PREVIEW_KEY) ||
+                              '{}',
                           )
                           const previewConfig = defineConfig({
                             ...defaultCustomConfig,
                             ...previewThemeConfig,
                           })
-                          const previewSystem = createSystem(defaultConfig, previewConfig)
+                          const previewSystem = createSystem(
+                            defaultConfig,
+                            previewConfig,
+                          )
 
                           return (
                             <CacheProvider value={cache}>
@@ -216,7 +233,7 @@ const Settings: React.FC = () => {
                                   bg="brand.600"
                                   top={0}
                                   right={0}
-                                  onClick={() => setChecksum(c => c + 1)}
+                                  onClick={() => setChecksum((c) => c + 1)}
                                 >
                                   <RepeatIcon />
                                 </IconButton>
@@ -231,14 +248,20 @@ const Settings: React.FC = () => {
                 </Flex>
               </DialogBody>
               <DialogFooter borderTopWidth="1px" borderColor="border">
-                <Button variant="outline" colorPalette="gray" onClick={onResetTheme}>
+                <Button
+                  variant="outline"
+                  colorPalette="gray"
+                  onClick={onResetTheme}
+                >
                   Reset to Default
                 </Button>
                 <Spacer />
                 <DialogActionTrigger asChild>
                   <Button variant="outline">Cancel</Button>
                 </DialogActionTrigger>
-                <Button disabled={isThemeError} onClick={onSaveClick}>Save</Button>
+                <Button disabled={isThemeError} onClick={onSaveClick}>
+                  Save
+                </Button>
               </DialogFooter>
               <DialogCloseTrigger />
             </DialogContent>
@@ -264,7 +287,9 @@ const Settings: React.FC = () => {
         <DialogContent maxW="380px" borderRadius="14px">
           <DialogCloseTrigger onClick={onClose} />
           <DialogHeader pb={2}>
-            <DialogTitle fontSize="17px" fontWeight="700">Reset Database</DialogTitle>
+            <DialogTitle fontSize="17px" fontWeight="700">
+              Reset Database
+            </DialogTitle>
           </DialogHeader>
           <DialogBody>
             <Text fontSize="13px" color="gray.500" lineHeight="1.6">
@@ -272,8 +297,12 @@ const Settings: React.FC = () => {
             </Text>
           </DialogBody>
           <DialogFooter gap={2}>
-            <Button ref={cancelRef} variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={resetChroma} buttonType="critical">Delete</Button>
+            <Button ref={cancelRef} variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={resetChroma} buttonType="critical">
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </DialogRoot>
@@ -288,13 +317,25 @@ interface OptionRowProps {
   action: ReactNode
 }
 
-const OptionRow = ({ title, description, descriptionColor, action }: OptionRowProps) => (
+const OptionRow = ({
+  title,
+  description,
+  descriptionColor,
+  action,
+}: OptionRowProps) => (
   <Box borderBottomWidth="1px" borderColor="border">
     <Flex align="center" py={5} gap={6}>
       <Box flex={1}>
-        <Text fontSize="14px" fontWeight="500" color="gray.950">{title}</Text>
+        <Text fontSize="14px" fontWeight="500" color="gray.950">
+          {title}
+        </Text>
         {description && (
-          <Text fontSize="12px" color={descriptionColor ?? 'gray.500'} mt="3px" lineHeight="1.5">
+          <Text
+            fontSize="12px"
+            color={descriptionColor ?? 'gray.500'}
+            mt="3px"
+            lineHeight="1.5"
+          >
             {description}
           </Text>
         )}

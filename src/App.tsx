@@ -9,9 +9,18 @@ import { Button } from './components/ui/button'
 import { PasswordInput } from '@/components/ui/password-input'
 
 const CheckCircle = () => (
-  <svg width={48} height={48} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-    <polyline points="22 4 12 14.01 9 11.01"/>
+  <svg
+    width={48}
+    height={48}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    viewBox="0 0 24 24"
+  >
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
   </svg>
 )
 
@@ -30,7 +39,9 @@ const App: React.FC = () => {
     setSuccess(false)
     setError(null)
 
-    const url = urlRef.current?.value || (mode === 'local' ? 'http://localhost:8000' : 'https://api.trychroma.com')
+    const url =
+      urlRef.current?.value ||
+      (mode === 'local' ? 'http://localhost:8000' : 'https://api.trychroma.com')
     const database = dbRef.current?.value || 'default_database'
 
     const config =
@@ -48,11 +59,12 @@ const App: React.FC = () => {
             database,
           }
 
-    match(
-      await invokeWrapper(TauriCommand.CREATE_CLIENT, { config }),
-    ).with({ type: 'error' }, ({ error }) => {
-      console.error(error)
-    })
+    match(await invokeWrapper(TauriCommand.CREATE_CLIENT, { config })).with(
+      { type: 'error' },
+      ({ error }) => {
+        console.error(error)
+      },
+    )
 
     const healthOk = match(await invokeWrapper(TauriCommand.HEALTH_CHECK))
       .with({ type: 'error' }, ({ error }) => {
@@ -104,7 +116,10 @@ const App: React.FC = () => {
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`, url)
       localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_database`, database)
       if (mode === 'local' && config.mode === 'local') {
-        localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}_tenant`, config.tenant)
+        localStorage.setItem(
+          `${LOCAL_STORAGE_KEY_PREFIX}_tenant`,
+          config.tenant,
+        )
       }
       invokeWrapper(TauriCommand.CREATE_WINDOW, { url })
     }, 2000)
@@ -131,7 +146,13 @@ const App: React.FC = () => {
       >
         {/* Logo + title */}
         <Flex direction="column" align="center" mb={8}>
-          <Image src="/chromamind_app_icon.svg" w="72px" h="72px" alt="ChromaMind" mb={4} />
+          <Image
+            src="/chromamind_app_icon.svg"
+            w="72px"
+            h="72px"
+            alt="ChromaMind"
+            mb={4}
+          />
           <Text
             as="h1"
             fontSize="24px"
@@ -164,7 +185,9 @@ const App: React.FC = () => {
                   fontWeight: '500',
                   transition: 'all 0.15s',
                   background: isActive ? 'white' : 'transparent',
-                  color: isActive ? 'var(--chakra-colors-brand-600)' : 'var(--chakra-colors-gray-500)',
+                  color: isActive
+                    ? 'var(--chakra-colors-brand-600)'
+                    : 'var(--chakra-colors-gray-500)',
                   boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 }}
               >
@@ -175,31 +198,56 @@ const App: React.FC = () => {
         </Flex>
 
         {/* Fields */}
-        <form onSubmit={(e) => { e.preventDefault(); connect() }} aria-label="form" noValidate>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            connect()
+          }}
+          aria-label="form"
+          noValidate
+        >
           <Flex direction="column" gap={4}>
             <Field label="URL" required>
               <Input
                 type="text"
                 ref={urlRef}
                 data-testid="url-input"
-                placeholder={mode === 'local' ? 'http://localhost:8000' : 'https://api.trychroma.com'}
+                placeholder={
+                  mode === 'local'
+                    ? 'http://localhost:8000'
+                    : 'https://api.trychroma.com'
+                }
                 size="sm"
               />
             </Field>
 
             {mode === 'local' && (
               <Field label="Tenant">
-                <Input type="text" ref={tenantRef} placeholder="default_tenant" size="sm" />
+                <Input
+                  type="text"
+                  ref={tenantRef}
+                  placeholder="default_tenant"
+                  size="sm"
+                />
               </Field>
             )}
 
             <Field label="Database">
-              <Input type="text" ref={dbRef} placeholder="default_database" size="sm" />
+              <Input
+                type="text"
+                ref={dbRef}
+                placeholder="default_database"
+                size="sm"
+              />
             </Field>
 
             {mode === 'cloud' && (
               <Field label="API Key" required>
-                <PasswordInput ref={apiKeyRef} data-testid="api-key-input" size="sm" />
+                <PasswordInput
+                  ref={apiKeyRef}
+                  data-testid="api-key-input"
+                  size="sm"
+                />
               </Field>
             )}
           </Flex>
@@ -219,14 +267,26 @@ const App: React.FC = () => {
 
         {/* Status feedback */}
         {success && (
-          <Flex data-testid="success-feedback" align="center" justify="center" mt={5} p={4} bg="green.100" borderRadius="lg">
-            <Box color="green.600"><CheckCircle /></Box>
+          <Flex
+            data-testid="success-feedback"
+            align="center"
+            justify="center"
+            mt={5}
+            p={4}
+            bg="green.100"
+            borderRadius="lg"
+          >
+            <Box color="green.600">
+              <CheckCircle />
+            </Box>
           </Flex>
         )}
 
         {error && (
           <Box mt={5} px={4} py={3} bg="red.50" borderRadius="lg">
-            <Text fontSize="13px" color="red.600" lineHeight="1.5">{error}</Text>
+            <Text fontSize="13px" color="red.600" lineHeight="1.5">
+              {error}
+            </Text>
           </Box>
         )}
 

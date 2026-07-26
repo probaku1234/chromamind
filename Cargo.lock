@@ -764,6 +764,7 @@ name = "chromamind"
 version = "0.1.0"
 dependencies = [
  "chroma",
+ "chroma-types",
  "chrono",
  "log",
  "open",
