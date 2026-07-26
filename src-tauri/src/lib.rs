@@ -452,7 +452,10 @@ async fn fetch_row_count(
     let has_filter = ids.is_some() || where_clause.is_some();
 
     // `count()` has no filter parameter, so when a filter/ids are active we count the
-    // matching ids returned by a metadata-only `get`.
+    // matching ids returned by a metadata-only `get` (empty include -> ids only, no
+    // embeddings/documents over the wire). NOTE: this materializes all matching ids in
+    // memory, so it can be slow for very large filtered result sets. Move to a
+    // server-side filtered count when the chroma crate exposes one.
     let count = if has_filter {
         let get_result = collection
             .get(ids, where_clause, None, None, Some(IncludeList(vec![])))
