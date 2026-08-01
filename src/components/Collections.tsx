@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import {
   Badge,
   Box,
+  BoxProps,
   Flex,
   FlexProps,
   Icon,
@@ -640,7 +641,9 @@ const DetailSidebar = ({
 }
 
 // ── Collections ───────────────────────────────────────────────────────────
-const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
+const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
+  display,
+}) => {
   const url = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`) || ''
   const currentCollection = useSelector<State, string>(
     (state: State) => state.currentCollection,
@@ -923,7 +926,12 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   )
 
   return (
-    <Box display="flex" h="100vh" overflow="hidden" style={style}>
+    <Box
+      data-testid="collections-root"
+      display={display ?? 'flex'}
+      h="100vh"
+      overflow="hidden"
+    >
       <Toaster />
 
       {/* ── Left: Collection list panel ─────────────────────────────── */}
