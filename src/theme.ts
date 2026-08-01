@@ -24,26 +24,16 @@ export const defaultCustomConfig: SystemConfig = {
     tokens: {
       colors: {
         brand: {
-          // @ts-expect-error number key
-          50: '#faf5ff',
-          // @ts-expect-error number key
-          100: '#f3e8ff',
-          // @ts-expect-error number key
-          200: '#e9d5ff',
-          // @ts-expect-error number key
-          300: '#d8b4fe',
-          // @ts-expect-error number key
-          400: '#c084fc',
-          // @ts-expect-error number key
-          500: '#a855f7',
-          // @ts-expect-error number key
-          600: '#9333ea', // Primary Purple
-          // @ts-expect-error number key
-          700: '#7e22ce',
-          // @ts-expect-error number key
-          800: '#6b21a8',
-          // @ts-expect-error number key
-          900: '#581c87',
+          50: { value: '#faf5ff' },
+          100: { value: '#f3e8ff' },
+          200: { value: '#e9d5ff' },
+          300: { value: '#d8b4fe' },
+          400: { value: '#c084fc' },
+          500: { value: '#a855f7' },
+          600: { value: '#9333ea' }, // Primary Purple
+          700: { value: '#7e22ce' },
+          800: { value: '#6b21a8' },
+          900: { value: '#581c87' },
         },
         firstBg: {
           value: '#f6f6f6',
@@ -55,11 +45,10 @@ export const defaultCustomConfig: SystemConfig = {
           value: 'black',
         },
         buttonSelectedBg: {
-          value: 'var(--chakra-colors-brand-300)',
+          value: '{colors.brand.300}',
         },
         collectionNavHoverBg: {
-          value:
-            'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
+          value: 'linear-gradient(to right, #FFFFFF, {colors.brand.500})',
         },
         sidebar: {
           value: '#18181b',
@@ -136,7 +125,7 @@ export const defaultCustomConfig: SystemConfig = {
       layoutCollectionNavs: {
         base: {
           _hover: {
-            background: 'var(--chakra-colors-collection-nav-hover-bg)', // TODO: token this style
+            background: 'collectionNavHoverBg',
           },
         },
       },
