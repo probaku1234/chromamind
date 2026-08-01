@@ -2,6 +2,7 @@ import {
   createSystem,
   defaultConfig,
   defineConfig,
+  mergeConfigs,
   SystemConfig,
 } from '@chakra-ui/react'
 import { CUSTOM_THEME_KEY } from './types'
@@ -77,26 +78,28 @@ export const defaultCustomConfig: SystemConfig = {
         },
       },
     },
-    recipes: {
-      buttons: {
-        base: {
-          bg: 'brand.500',
-          color: 'white',
-          cursor: 'pointer',
-          _hover: {
-            bg: 'brand.300',
-            transition: 'background-color 0.2s ease-in-out',
-          },
+    // Required for `colorPalette="brand"` to resolve. Chakra maps every
+    // `colorPalette` consumer (Button, Badge, …) onto these seven roles.
+    semanticTokens: {
+      colors: {
+        brand: {
+          solid: { value: '{colors.brand.500}' },
+          contrast: { value: '{colors.brand.50}' },
+          fg: { value: '{colors.brand.700}' },
+          muted: { value: '{colors.brand.100}' },
+          subtle: { value: '{colors.brand.50}' },
+          emphasized: { value: '{colors.brand.300}' },
+          focusRing: { value: '{colors.brand.500}' },
         },
-        variants: {
-          visual: {
-            critical: {
-              bg: 'red.500',
-              _hover: {
-                bg: 'red.300',
-              },
-            },
-          },
+      },
+    },
+    recipes: {
+      // Extends Chakra's built-in button recipe rather than overlaying a
+      // separate one, so `variant`/`size` keep working.
+      button: {
+        base: {
+          colorPalette: 'brand',
+          cursor: 'pointer',
         },
       },
       layoutNavs: {
@@ -151,6 +154,10 @@ try {
   )
   localStorage.removeItem(CUSTOM_THEME_KEY)
 }
-const customConfig = defineConfig({ ...defaultCustomConfig, ...themeConfig })
+// Deep merge — a spread would let a custom theme that only sets `theme.tokens`
+// replace the whole `theme` key, dropping every recipe and brand token with it.
+const customConfig = defineConfig(
+  mergeConfigs(defaultCustomConfig, themeConfig),
+)
 
 export const system = createSystem(defaultConfig, customConfig)
