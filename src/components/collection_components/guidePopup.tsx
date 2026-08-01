@@ -5,7 +5,7 @@ import {
   PopoverRoot,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Box, Text } from '@chakra-ui/react'
+import { Box, IconButton, Text } from '@chakra-ui/react'
 
 interface GuidePopupProps {
   messages: string[]
@@ -16,28 +16,23 @@ const GuidePopup: React.FC<GuidePopupProps> = ({ messages, title }) => {
   return (
     <PopoverRoot lazyMount unmountOnExit>
       <PopoverTrigger asChild>
-        <button
+        <IconButton
+          aria-label="Collection navigation guide"
           title="Collection navigation guide"
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: '50%',
-            border: 'none',
-            background: 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 14,
-            fontWeight: 600,
-            fontFamily: 'serif',
-            lineHeight: 1,
-            flexShrink: 0,
-            color: 'var(--chakra-colors-gray-400)',
-          }}
+          variant="plain"
+          minW="22px"
+          width="22px"
+          height="22px"
+          borderRadius="full"
+          fontSize="14px"
+          fontWeight="600"
+          fontFamily="serif"
+          lineHeight="1"
+          flexShrink={0}
+          color="gray.400"
         >
           ⓘ
-        </button>
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent
         css={{ '--popover-bg': '#1c1c1e' }}

@@ -111,17 +111,17 @@ const CollectionDialog = ({
                 <InfoRow
                   label="Configuration"
                   value={
-                    <pre style={{ margin: 0, fontSize: 12 }}>
+                    <Box as="pre" margin={0} fontSize="12px">
                       {JSON.stringify(collectionData?.configuration, null, 2)}
-                    </pre>
+                    </Box>
                   }
                 />
                 <InfoRow
                   label="Metadata"
                   value={
-                    <pre style={{ margin: 0, fontSize: 12 }}>
+                    <Box as="pre" margin={0} fontSize="12px">
                       {JSON.stringify(collectionData?.metadata, null, 2)}
-                    </pre>
+                    </Box>
                   }
                 />
               </DialogBody>
