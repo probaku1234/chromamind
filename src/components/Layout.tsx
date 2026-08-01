@@ -77,10 +77,10 @@ interface NavItemProps {
 
 const NavItem: React.FC<NavItemProps> = ({ item, active, onClick }) => {
   const recipe = useRecipe({ key: 'layoutNavs' })
-  const styles = recipe({ navActive: active ? 'true' : undefined })
+  const styles = recipe({ navActive: active })
 
   return (
-    <Box as="div" onClick={onClick} css={styles} margin="0 auto">
+    <Box onClick={onClick} css={styles} margin="0 auto">
       <item.Icon />
       <Text fontSize="10px" fontWeight="300">
         {item.label}
@@ -97,9 +97,7 @@ interface SidebarNavProps {
 
 const SidebarNav: React.FC<SidebarNavProps> = ({ active, onNav, version }) => {
   const settingsRecipe = useRecipe({ key: 'layoutNavs' })
-  const settingsStyles = settingsRecipe({
-    navActive: active === 'Settings' ? 'true' : undefined,
-  })
+  const settingsStyles = settingsRecipe({ navActive: active === 'Settings' })
 
   return (
     <Flex
@@ -137,7 +135,6 @@ const SidebarNav: React.FC<SidebarNavProps> = ({ active, onNav, version }) => {
 
       {/* Settings — pinned to bottom */}
       <Box
-        as="div"
         onClick={() => onNav('Settings')}
         css={settingsStyles}
         margin="0 6px"
