@@ -7,6 +7,7 @@ import { match } from 'ts-pattern'
 import { Field } from '@/components/ui/field'
 import { Button } from './components/ui/button'
 import { PasswordInput } from '@/components/ui/password-input'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 
 const CheckCircle = () => (
   <svg
@@ -167,35 +168,17 @@ const App: React.FC = () => {
         </Flex>
 
         {/* Mode toggle */}
-        <Flex bg="gray.100" borderRadius="lg" p="3px" mb={6} gap="3px">
-          {(['Local', 'Cloud'] as const).map((m) => {
-            const isActive = mode === m.toLowerCase()
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m.toLowerCase() as 'local' | 'cloud')}
-                style={{
-                  flex: 1,
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  transition: 'all 0.15s',
-                  background: isActive ? 'white' : 'transparent',
-                  color: isActive
-                    ? 'var(--chakra-colors-brand-600)'
-                    : 'var(--chakra-colors-gray-500)',
-                  boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                }}
-              >
-                {m}
-              </button>
-            )
-          })}
-        </Flex>
+        <SegmentedControl
+          mb={6}
+          width="full"
+          size="sm"
+          items={[
+            { value: 'local', label: 'Local' },
+            { value: 'cloud', label: 'Cloud' },
+          ]}
+          value={mode}
+          onValueChange={(e) => setMode(e.value as 'local' | 'cloud')}
+        />
 
         {/* Fields */}
         <form

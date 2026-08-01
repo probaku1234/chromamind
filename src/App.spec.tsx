@@ -1,12 +1,22 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { InvokeArgs } from '@tauri-apps/api/core'
 import { match } from 'ts-pattern'
 import { LOCAL_STORAGE_KEY_PREFIX, TauriCommand } from './types.ts'
 import { mockWindows } from '@tauri-apps/api/mocks'
 import App from './App.tsx'
 import { Provider } from '@/components/ui/provider'
+
+/**
+ * The Local/Cloud toggle is a SegmentGroup, i.e. a radio group whose input is
+ * visually hidden. Ark UI drives it from real pointer events, so
+ * `fireEvent.click` on the label text (or on the hidden radio) is a no-op —
+ * only userEvent's full pointer sequence flips it.
+ */
+const selectMode = (label: 'Local' | 'Cloud') =>
+  userEvent.click(screen.getByText(label))
 
 beforeEach(() => {
   localStorage.clear()
@@ -83,7 +93,7 @@ describe('App', () => {
     expect(screen.queryByTestId('api-key-input')).not.toBeInTheDocument()
   })
 
-  test('should show API key field when switching to cloud mode', () => {
+  test('should show API key field when switching to cloud mode', async () => {
     mockIPC(mockCommandHandler)
     mockWindows('main')
 
@@ -93,7 +103,7 @@ describe('App', () => {
       </Provider>,
     )
 
-    fireEvent.click(screen.getByText('Cloud'))
+    await selectMode('Cloud')
 
     expect(screen.getByTestId('api-key-input')).toBeInTheDocument()
     expect(
@@ -257,7 +267,7 @@ describe('App', () => {
       </Provider>,
     )
 
-    fireEvent.click(screen.getByText('Cloud'))
+    await selectMode('Cloud')
 
     fireEvent.change(screen.getByTestId('url-input'), {
       target: { value: 'https://api.trychroma.com' },
@@ -287,7 +297,7 @@ describe('App', () => {
     expect(screen.getByText('ChromaMind v0.1.0')).toBeInTheDocument()
   })
 
-  test('should render database field in both modes', () => {
+  test('should render database field in both modes', async () => {
     mockIPC(mockCommandHandler)
     mockWindows('main')
 
@@ -299,12 +309,12 @@ describe('App', () => {
 
     expect(screen.getByPlaceholderText('default_database')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Cloud'))
+    await selectMode('Cloud')
 
     expect(screen.getByPlaceholderText('default_database')).toBeInTheDocument()
   })
 
-  test('should change URL placeholder when switching to cloud mode', () => {
+  test('should change URL placeholder when switching to cloud mode', async () => {
     mockIPC(mockCommandHandler)
     mockWindows('main')
 
@@ -318,7 +328,7 @@ describe('App', () => {
       screen.getByPlaceholderText('http://localhost:8000'),
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Cloud'))
+    await selectMode('Cloud')
 
     expect(
       screen.getByPlaceholderText('https://api.trychroma.com'),
@@ -476,11 +486,10 @@ describe('App', () => {
     })
     fireEvent.click(screen.getByText('Connect'))
 
-    await vi.runAllTimersAsync()
-
-    // Advance past the 2 s setTimeout
-    vi.advanceTimersByTime(2000)
-    await vi.runAllTimersAsync()
+    // Bounded advances, not runAllTimersAsync: the SegmentGroup indicator
+    // reschedules a frame callback indefinitely, so "run until empty" never
+    // terminates while the mode toggle is mounted.
+    await vi.advanceTimersByTimeAsync(2000)
 
     expect(localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`)).toBe(
       'http://localhost:8000',
@@ -494,7 +503,6 @@ describe('App', () => {
   })
 
   test('should not save tenant to localStorage on successful cloud connection', async () => {
-    vi.useFakeTimers()
     mockIPC(mockCommandHandler)
     mockWindows('main')
 
@@ -504,16 +512,19 @@ describe('App', () => {
       </Provider>,
     )
 
-    fireEvent.click(screen.getByText('Cloud'))
+    // Switch mode on the real clock — userEvent's pointer sequence has its own
+    // internal delays that deadlock against vitest's fake timers. Only the
+    // post-connect setTimeout below actually needs faking.
+    await selectMode('Cloud')
+    vi.useFakeTimers()
+
     fireEvent.change(screen.getByTestId('url-input'), {
       target: { value: 'https://api.trychroma.com' },
     })
     fireEvent.click(screen.getByText('Connect'))
 
-    await vi.runAllTimersAsync()
-
-    vi.advanceTimersByTime(2000)
-    await vi.runAllTimersAsync()
+    // See note above: bounded advance, runAllTimersAsync would spin forever.
+    await vi.advanceTimersByTimeAsync(2000)
 
     expect(localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`)).toBe(
       'https://api.trychroma.com',
