@@ -62,18 +62,15 @@ import {
   VisibilityState,
 } from '@tanstack/react-table'
 import {
-  ArrowBackIcon,
-  ArrowForwardIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  RepeatIcon,
-} from '@chakra-ui/icons'
-
-import {
+  FiArrowLeft,
+  FiArrowRight,
   FiCheck,
+  FiChevronLeft,
+  FiChevronRight,
   FiClipboard,
   FiCopy,
   FiPlus,
+  FiRefreshCw,
   FiStar,
   FiX,
 } from 'react-icons/fi'
@@ -1022,7 +1019,7 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                 }}
                 aria-label="Refresh Collections"
               >
-                <RepeatIcon />
+                <FiRefreshCw />
               </IconButton>
             </Tooltip>
             <GuidePopup
@@ -1398,7 +1395,7 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                             }}
                             disabled={!table.getCanPreviousPage()}
                           >
-                            <ArrowBackIcon />
+                            <FiArrowLeft />
                           </Button>
                           <Button
                             size="sm"
@@ -1406,7 +1403,7 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                             disabled={!table.getCanPreviousPage()}
                             data-testid="data-view-previous-button"
                           >
-                            <ChevronLeftIcon />
+                            <FiChevronLeft />
                           </Button>
                           <Text
                             fontSize="12px"
@@ -1422,7 +1419,7 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                             disabled={!table.getCanNextPage()}
                             data-testid="data-view-next-button"
                           >
-                            <ChevronRightIcon />
+                            <FiChevronRight />
                           </Button>
                           <Button
                             size="sm"
@@ -1432,7 +1429,7 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                             }}
                             disabled={!table.getCanNextPage()}
                           >
-                            <ArrowForwardIcon />
+                            <FiArrowRight />
                           </Button>
                         </Flex>
                         <Flex align="center" gap={2} ml={4}>

@@ -25,7 +25,7 @@ import {
 } from '@chakra-ui/react'
 import { Field } from '../ui/field'
 import { Button } from '../ui/button'
-import { CheckCircleIcon, CloseIcon } from '@chakra-ui/icons'
+import { FiCheckCircle, FiX } from 'react-icons/fi'
 
 const CreateCollectionDialog = ({
   open,
@@ -175,7 +175,7 @@ const CreateCollectionDialog = ({
             .with({ type: 'finished' }, () => (
               <Flex direction="column" align="center" py={8} title="finished">
                 <Icon w={16} h={16} color="green.500" mb={3}>
-                  <CheckCircleIcon />
+                  <FiCheckCircle />
                 </Icon>
                 <Text color="green.600" fontWeight="500">
                   Collection created!
@@ -185,7 +185,7 @@ const CreateCollectionDialog = ({
             .with({ type: 'error' }, ({ message }) => (
               <Flex direction="column" align="center" py={8}>
                 <Icon w={12} h={12} color="red.500" mb={3}>
-                  <CloseIcon />
+                  <FiX />
                 </Icon>
                 <Text color="red.500" mb={4}>
                   {message}
