@@ -610,6 +610,245 @@ describe('Collections', () => {
       ).length
       expect(fetchEmbeddingCallCountAfter).toBe(1) // still 1 — cache was used
     })
+
+    describe('metadata editing', () => {
+      const editMockHandler =
+        (updateResult: 'ok' | 'error') =>
+        <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+          match(cmd)
+            .with(TauriCommand.FETCH_COLLECTIONS, () =>
+              Promise.resolve([] as unknown as T),
+            )
+            .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+              Promise.resolve({ id: 1, metadata: {} } as unknown as T),
+            )
+            .with(TauriCommand.FETCH_ROW_COUNT, () =>
+              Promise.resolve(1 as unknown as T),
+            )
+            .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+              Promise.resolve([
+                {
+                  id: '1',
+                  metadata: { foo: 'bar', score: 42 },
+                  document: 'test document 1',
+                },
+              ] as unknown as T),
+            )
+            .with(TauriCommand.UPDATE_RECORD_METADATA, () =>
+              updateResult === 'ok'
+                ? Promise.resolve(null as unknown as T)
+                : // Tauri rejects with the command's `Err(String)`, not an Error.
+                  Promise.reject('backend exploded' as unknown as T),
+            )
+            .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+
+      // Renders Collections, opens the sidebar on the first row and enters
+      // metadata edit mode. Returns the invoke spy for payload assertions.
+      const openEditor = async (updateResult: 'ok' | 'error' = 'ok') => {
+        mockIPC(editMockHandler(updateResult))
+
+        // @ts-ignore
+        const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+        renderWithProvider(
+          <Provider>
+            <Collections />
+          </Provider>,
+          {
+            initialState: {
+              currentMenu: 'Collections',
+              currentCollection: 'test',
+            },
+          },
+        )
+
+        await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+          timeout: 5000,
+        })
+
+        fireEvent.click(screen.getByTestId('0_document'))
+        fireEvent.click(screen.getByText('Edit'))
+
+        return mock
+      }
+
+      const updateCalls = (mock: Awaited<ReturnType<typeof openEditor>>) =>
+        mock.mock.calls.filter(
+          ([cmd]: [string]) => cmd === TauriCommand.UPDATE_RECORD_METADATA,
+        )
+
+      test('should prefill the editor from the record metadata', async () => {
+        await openEditor()
+
+        expect(screen.getByLabelText('Metadata key 1')).toHaveValue('foo')
+        expect(screen.getByLabelText('Metadata value 1')).toHaveValue('bar')
+        expect(screen.getByLabelText('Metadata type 1')).toHaveValue('string')
+
+        expect(screen.getByLabelText('Metadata key 2')).toHaveValue('score')
+        expect(screen.getByLabelText('Metadata value 2')).toHaveValue('42')
+        // The type is inferred from the value's runtime type.
+        expect(screen.getByLabelText('Metadata type 2')).toHaveValue('number')
+      })
+
+      test('should send an edited value and refetch the rows', async () => {
+        const mock = await openEditor()
+
+        const fetchEmbeddingsBefore = mock.mock.calls.filter(
+          ([cmd]: [string]) => cmd === TauriCommand.FETCH_EMBEDDINGS,
+        ).length
+
+        fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+          target: { value: 'baz' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { foo: 'baz', score: 42 },
+          removedKeys: [],
+        })
+
+        // The table and sidebar refresh from the server after a save.
+        await waitFor(() =>
+          expect(
+            mock.mock.calls.filter(
+              ([cmd]: [string]) => cmd === TauriCommand.FETCH_EMBEDDINGS,
+            ).length,
+          ).toBe(fetchEmbeddingsBefore + 1),
+        )
+
+        // Editor closes on success.
+        await waitFor(() =>
+          expect(
+            screen.queryByLabelText('Metadata key 1'),
+          ).not.toBeInTheDocument(),
+        )
+      })
+
+      test('should send a newly added key', async () => {
+        const mock = await openEditor()
+
+        fireEvent.click(screen.getByText('Add metadata'))
+        fireEvent.change(screen.getByLabelText('Metadata key 3'), {
+          target: { value: 'active' },
+        })
+        fireEvent.change(screen.getByLabelText('Metadata type 3'), {
+          target: { value: 'boolean' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { foo: 'bar', score: 42, active: true },
+          removedKeys: [],
+        })
+      })
+
+      test('should report a removed key in removedKeys', async () => {
+        const mock = await openEditor()
+
+        fireEvent.click(screen.getByLabelText('Remove metadata 2'))
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { foo: 'bar' },
+          removedKeys: ['score'],
+        })
+      })
+
+      test('should treat a renamed key as add-new plus remove-old', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata key 1'), {
+          target: { value: 'renamed' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { renamed: 'bar', score: 42 },
+          removedKeys: ['foo'],
+        })
+      })
+
+      test('should block saving a non-numeric value on a number row', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata value 2'), {
+          target: { value: 'not a number' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        expect(
+          await screen.findByText('score must be a number'),
+        ).toBeInTheDocument()
+        expect(updateCalls(mock)).toHaveLength(0)
+      })
+
+      test('should block saving an empty key', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata key 1'), {
+          target: { value: '' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        expect(
+          await screen.findByText('Key cannot be empty'),
+        ).toBeInTheDocument()
+        expect(updateCalls(mock)).toHaveLength(0)
+      })
+
+      test('should block saving duplicate keys', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata key 2'), {
+          target: { value: 'foo' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        expect(
+          await screen.findByText('Duplicate key: foo'),
+        ).toBeInTheDocument()
+        expect(updateCalls(mock)).toHaveLength(0)
+      })
+
+      test('should stay in edit mode when the backend fails', async () => {
+        const mock = await openEditor('error')
+
+        fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+          target: { value: 'baz' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        // Inputs are still on screen with the user's pending edit intact.
+        expect(screen.getByLabelText('Metadata value 1')).toHaveValue('baz')
+      })
+
+      test('should discard pending edits on Cancel', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+          target: { value: 'baz' },
+        })
+        fireEvent.click(screen.getByText('Cancel'))
+
+        expect(updateCalls(mock)).toHaveLength(0)
+        // Back to the read-only list showing the original value.
+        const { getByText } = within(screen.getByTestId('detail-view-metadata'))
+        expect(getByText('bar')).toBeInTheDocument()
+      })
+    })
   })
 
   describe('Collection Nav', () => {

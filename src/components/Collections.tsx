@@ -8,6 +8,7 @@ import {
   Icon,
   IconButton,
   Input,
+  NativeSelect,
   NumberInput,
   Spacer,
   Table as CKTable,
@@ -45,7 +46,13 @@ import {
 } from '@/components/ui/dialog.tsx'
 import { createListCollection } from '@chakra-ui/react'
 import { useDispatch, useSelector } from 'react-redux'
-import { ActiveSearch, EmbeddingsData, State } from '../types'
+import {
+  ActiveSearch,
+  EmbeddingsData,
+  MetadataEditRow,
+  MetadataValueType,
+  State,
+} from '../types'
 import SearchToolbar from './collection_components/SearchToolbar'
 import {
   ColumnFiltersState,
@@ -239,23 +246,129 @@ const FullDocumentModal = ({
   )
 }
 
+// ── Metadata editing helpers ──────────────────────────────────────────────
+const METADATA_TYPE_OPTIONS: MetadataValueType[] = [
+  'string',
+  'number',
+  'boolean',
+]
+
+// Row identities only need to be unique within one editing session; a counter
+// avoids depending on crypto.randomUUID being present in the test environment.
+let metadataRowId = 0
+const nextMetadataRowId = () => `metadata-row-${++metadataRowId}`
+
+const inferMetadataType = (value: unknown): MetadataValueType => {
+  if (typeof value === 'number') return 'number'
+  if (typeof value === 'boolean') return 'boolean'
+  return 'string'
+}
+
+const toEditRows = (metadata: EmbeddingsData['metadata']): MetadataEditRow[] =>
+  Object.entries(metadata).map(([key, value]) => ({
+    id: nextMetadataRowId(),
+    key,
+    value: String(value),
+    type: inferMetadataType(value),
+  }))
+
+const coerceRowValue = (row: MetadataEditRow): string | number | boolean =>
+  match(row.type)
+    .with('number', () => Number(row.value))
+    .with('boolean', () => row.value === 'true')
+    .with('string', () => row.value)
+    .exhaustive()
+
+/** Returns the first problem with the rows, or null when they are all valid. */
+const validateEditRows = (rows: MetadataEditRow[]): string | null => {
+  const seen = new Set<string>()
+  for (const row of rows) {
+    if (row.key.trim() === '') return 'Key cannot be empty'
+    if (seen.has(row.key)) return `Duplicate key: ${row.key}`
+    seen.add(row.key)
+    if (
+      row.type === 'number' &&
+      (row.value.trim() === '' || Number.isNaN(Number(row.value)))
+    ) {
+      return `${row.key} must be a number`
+    }
+  }
+  return null
+}
+
 // ── Detail Sidebar ────────────────────────────────────────────────────────
 const DetailSidebar = ({
   row,
   onClose,
   onShowFullDoc,
   fetchAndCacheEmbedding,
+  onSaveMetadata,
 }: {
   row: EmbeddingsData
   onClose: () => void
   onShowFullDoc: (doc: string) => void
   fetchAndCacheEmbedding: (id: string) => Promise<number[]>
+  onSaveMetadata: (
+    id: string,
+    metadata: Record<string, string | number | boolean>,
+    removedKeys: string[],
+  ) => Promise<boolean>
 }) => {
   const [docCopied, setDocCopied] = useState(false)
   const [embeddingVisible, setEmbeddingVisible] = useState(false)
   const [embeddingValues, setEmbeddingValues] = useState<number[] | null>(null)
   const [embeddingLoading, setEmbeddingLoading] = useState(false)
   const [embeddingError, setEmbeddingError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [editRows, setEditRows] = useState<MetadataEditRow[]>([])
+  const [originalKeys, setOriginalKeys] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const startEditing = () => {
+    setEditRows(toEditRows(row.metadata))
+    setOriginalKeys(Object.keys(row.metadata))
+    setSaveError(null)
+    setEditing(true)
+  }
+
+  const updateEditRow = (index: number, patch: Partial<MetadataEditRow>) => {
+    setEditRows((rows) =>
+      rows.map((r, i) => {
+        if (i !== index) return r
+        const next = { ...r, ...patch }
+        // A boolean row has no free-text input, so an out-of-range value would
+        // never be correctable by the user. Match the dropdown's default.
+        if (
+          patch.type === 'boolean' &&
+          next.value !== 'true' &&
+          next.value !== 'false'
+        ) {
+          next.value = 'true'
+        }
+        return next
+      }),
+    )
+  }
+
+  const saveMetadata = async () => {
+    const problem = validateEditRows(editRows)
+    if (problem !== null) {
+      setSaveError(problem)
+      return
+    }
+    setSaving(true)
+    setSaveError(null)
+    const metadata = Object.fromEntries(
+      editRows.map((r) => [r.key, coerceRowValue(r)]),
+    )
+    const removedKeys = originalKeys.filter(
+      (k) => !editRows.some((r) => r.key === k),
+    )
+    const ok = await onSaveMetadata(row.id, metadata, removedKeys)
+    setSaving(false)
+    if (ok) setEditing(false)
+  }
 
   const copyDoc = () => {
     copyClipboard(
@@ -516,18 +629,150 @@ const DetailSidebar = ({
 
           {/* Metadata */}
           <Box>
-            <Text
-              fontSize="10px"
-              fontWeight="600"
-              color="gray.400"
-              textTransform="uppercase"
-              letterSpacing="wide"
-              mb={2}
-            >
-              Metadata
-            </Text>
+            <Flex align="center" justify="space-between" mb={2}>
+              <Text
+                fontSize="10px"
+                fontWeight="600"
+                color="gray.400"
+                textTransform="uppercase"
+                letterSpacing="wide"
+              >
+                Metadata
+              </Text>
+              {!editing && typeof row.metadata === 'object' && (
+                <InlineAction onClick={startEditing}>Edit</InlineAction>
+              )}
+            </Flex>
             <Box data-testid="detail-view-metadata">
-              {typeof row.metadata === 'object' && row.metadata !== null ? (
+              {editing ? (
+                <Flex direction="column" gap={2}>
+                  {editRows.map((editRow, index) => (
+                    <Box
+                      key={editRow.id}
+                      borderWidth="1px"
+                      borderColor="border"
+                      borderRadius="md"
+                      p="6px"
+                    >
+                      <Flex align="center" gap={1} mb={1}>
+                        <Input
+                          size="xs"
+                          flex={1}
+                          placeholder="Key"
+                          aria-label={`Metadata key ${index + 1}`}
+                          value={editRow.key}
+                          onChange={(e) =>
+                            updateEditRow(index, { key: e.target.value })
+                          }
+                        />
+                        <IconButton
+                          size="xs"
+                          variant="ghost"
+                          aria-label={`Remove metadata ${index + 1}`}
+                          onClick={() =>
+                            setEditRows((rows) =>
+                              rows.filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          <FiX />
+                        </IconButton>
+                      </Flex>
+                      <Flex align="center" gap={1}>
+                        <NativeSelect.Root size="xs" w="88px" flexShrink={0}>
+                          <NativeSelect.Field
+                            aria-label={`Metadata type ${index + 1}`}
+                            value={editRow.type}
+                            onChange={(e) =>
+                              updateEditRow(index, {
+                                type: e.target.value as MetadataValueType,
+                              })
+                            }
+                          >
+                            {METADATA_TYPE_OPTIONS.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
+                        {editRow.type === 'boolean' ? (
+                          <NativeSelect.Root size="xs" flex={1}>
+                            <NativeSelect.Field
+                              aria-label={`Metadata value ${index + 1}`}
+                              value={editRow.value}
+                              onChange={(e) =>
+                                updateEditRow(index, { value: e.target.value })
+                              }
+                            >
+                              <option value="true">true</option>
+                              <option value="false">false</option>
+                            </NativeSelect.Field>
+                            <NativeSelect.Indicator />
+                          </NativeSelect.Root>
+                        ) : (
+                          <Input
+                            size="xs"
+                            flex={1}
+                            placeholder="Value"
+                            aria-label={`Metadata value ${index + 1}`}
+                            value={editRow.value}
+                            onChange={(e) =>
+                              updateEditRow(index, { value: e.target.value })
+                            }
+                          />
+                        )}
+                      </Flex>
+                    </Box>
+                  ))}
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    alignSelf="flex-start"
+                    onClick={() =>
+                      setEditRows((rows) => [
+                        ...rows,
+                        {
+                          id: nextMetadataRowId(),
+                          key: '',
+                          value: '',
+                          type: 'string',
+                        },
+                      ])
+                    }
+                  >
+                    <FiPlus /> Add metadata
+                  </Button>
+                  {saveError && (
+                    <Text fontSize="11px" color="red.500">
+                      {saveError}
+                    </Text>
+                  )}
+                  <Flex gap={2} mt={1}>
+                    <Button
+                      size="xs"
+                      flex={1}
+                      loading={saving}
+                      onClick={saveMetadata}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="xs"
+                      flex={1}
+                      variant="outline"
+                      disabled={saving}
+                      onClick={() => {
+                        setEditing(false)
+                        setSaveError(null)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </Flex>
+                </Flex>
+              ) : typeof row.metadata === 'object' && row.metadata !== null ? (
                 Object.entries(row.metadata).map(([k, v]) => (
                   <Flex
                     key={k}
@@ -921,6 +1166,45 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
     },
     [embeddingCache, currentCollection],
   )
+
+  // Returns whether the save succeeded so the sidebar knows to leave edit mode.
+  const updateRecordMetadata = async (
+    id: string,
+    metadata: Record<string, string | number | boolean>,
+    removedKeys: string[],
+  ): Promise<boolean> => {
+    const result = await invokeWrapper<null>(
+      TauriCommand.UPDATE_RECORD_METADATA,
+      {
+        collectionName: currentCollection,
+        id,
+        metadata,
+        removedKeys,
+      },
+    )
+    return match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        toaster.create({
+          title: 'Failed to update metadata',
+          description: error,
+          type: 'error',
+          duration: 2000,
+        })
+        return false
+      })
+      .with({ type: 'success' }, () => {
+        toaster.create({
+          title: 'Metadata updated',
+          type: 'success',
+          duration: 2000,
+        })
+        // Refresh the page of rows so the table and sidebar show the new values.
+        fetchEmbeddings()
+        return true
+      })
+      .exhaustive()
+  }
 
   return (
     <Box
@@ -1525,10 +1809,14 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
       {/* ── Right: Detail sidebar ───────────────────────────────────── */}
       {selectedRow && (
         <DetailSidebar
+          // Remount on record change so per-record state (shown embedding,
+          // in-progress metadata edits) never leaks to the next selection.
+          key={selectedRow.id}
           row={selectedRow}
           onClose={() => setSelectedRowId(null)}
           onShowFullDoc={(doc) => setFullDoc(doc)}
           fetchAndCacheEmbedding={fetchAndCacheEmbedding}
+          onSaveMetadata={updateRecordMetadata}
         />
       )}
 
