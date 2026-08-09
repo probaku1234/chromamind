@@ -851,6 +851,181 @@ describe('Collections', () => {
     })
   })
 
+  describe('bulk delete', () => {
+    const deleteMockHandler =
+      (deleteResult: 'ok' | 'error') =>
+      <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+        match(cmd)
+          .with(TauriCommand.FETCH_COLLECTIONS, () =>
+            Promise.resolve([] as unknown as T),
+          )
+          .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+            Promise.resolve({ id: 1, metadata: {} } as unknown as T),
+          )
+          // More than one page's worth, so the Next button is enabled.
+          .with(TauriCommand.FETCH_ROW_COUNT, () =>
+            Promise.resolve(25 as unknown as T),
+          )
+          .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+            Promise.resolve([
+              { id: 'a', metadata: {}, document: 'doc a' },
+              { id: 'b', metadata: {}, document: 'doc b' },
+            ] as unknown as T),
+          )
+          .with(TauriCommand.DELETE_RECORDS, () =>
+            deleteResult === 'ok'
+              ? Promise.resolve(null as unknown as T)
+              : // Tauri rejects with the command's `Err(String)`, not an Error.
+                Promise.reject('backend exploded' as unknown as T),
+          )
+          .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+
+    const renderTable = async (deleteResult: 'ok' | 'error' = 'ok') => {
+      mockIPC(deleteMockHandler(deleteResult))
+
+      // @ts-ignore
+      const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+      renderWithProvider(
+        <Provider>
+          <Collections />
+        </Provider>,
+        {
+          initialState: {
+            currentMenu: 'Collections',
+            currentCollection: 'test',
+          },
+        },
+      )
+
+      await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+        timeout: 5000,
+      })
+
+      return mock
+    }
+
+    const deleteCalls = (mock: Awaited<ReturnType<typeof renderTable>>) =>
+      mock.mock.calls.filter(
+        ([cmd]: [string]) => cmd === TauriCommand.DELETE_RECORDS,
+      )
+
+    const countOf = (
+      mock: Awaited<ReturnType<typeof renderTable>>,
+      command: TauriCommand,
+    ) => mock.mock.calls.filter(([cmd]: [string]) => cmd === command).length
+
+    test('should not show the action bar until a row is selected', async () => {
+      await renderTable()
+
+      expect(screen.queryByText('1 selected')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+
+      expect(await screen.findByText('1 selected')).toBeInTheDocument()
+    })
+
+    test('should select every row on the page from the header checkbox', async () => {
+      await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select all rows'))
+
+      expect(await screen.findByText('2 selected')).toBeInTheDocument()
+    })
+
+    test('should not open the detail sidebar when ticking a checkbox', async () => {
+      await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+
+      expect(await screen.findByText('1 selected')).toBeInTheDocument()
+      // The sidebar renders this heading; the row click handler must not fire.
+      expect(screen.queryByText('Row Detail')).not.toBeInTheDocument()
+    })
+
+    test('should delete the selected ids after confirming', async () => {
+      const mock = await renderTable()
+
+      const embeddingsBefore = countOf(mock, TauriCommand.FETCH_EMBEDDINGS)
+      const rowCountBefore = countOf(mock, TauriCommand.FETCH_ROW_COUNT)
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      fireEvent.click(screen.getByLabelText('Select row b'))
+      fireEvent.click(await screen.findByText('Delete'))
+
+      expect(await screen.findByText('Are you sure?')).toBeInTheDocument()
+      expect(
+        screen.getByText(/permanently delete 2 record\(s\)/),
+      ).toBeInTheDocument()
+
+      // The dialog's Delete is the second one on screen (action bar + dialog).
+      const deleteButtons = screen.getAllByText('Delete')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+
+      await waitFor(() => expect(deleteCalls(mock)).toHaveLength(1))
+      expect(deleteCalls(mock)[0][1]).toEqual({
+        collectionName: 'test',
+        ids: ['a', 'b'],
+      })
+
+      // Both the rows and the total count must be refreshed.
+      await waitFor(() => {
+        expect(countOf(mock, TauriCommand.FETCH_EMBEDDINGS)).toBe(
+          embeddingsBefore + 1,
+        )
+        expect(countOf(mock, TauriCommand.FETCH_ROW_COUNT)).toBe(
+          rowCountBefore + 1,
+        )
+      })
+
+      // Selection cleared, so the action bar goes away.
+      await waitFor(() =>
+        expect(screen.queryByText('2 selected')).not.toBeInTheDocument(),
+      )
+    })
+
+    test('should not delete anything when the dialog is cancelled', async () => {
+      const mock = await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      fireEvent.click(await screen.findByText('Delete'))
+      expect(await screen.findByText('Are you sure?')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Cancel'))
+
+      expect(deleteCalls(mock)).toHaveLength(0)
+      // Selection survives a cancel.
+      expect(screen.getByText('1 selected')).toBeInTheDocument()
+    })
+
+    test('should keep the selection when the backend fails', async () => {
+      const mock = await renderTable('error')
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      fireEvent.click(await screen.findByText('Delete'))
+      expect(await screen.findByText('Are you sure?')).toBeInTheDocument()
+
+      const deleteButtons = screen.getAllByText('Delete')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+
+      await waitFor(() => expect(deleteCalls(mock)).toHaveLength(1))
+      expect(screen.getByText('1 selected')).toBeInTheDocument()
+    })
+
+    test('should clear the selection when the page changes', async () => {
+      await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      expect(await screen.findByText('1 selected')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('data-view-next-button'))
+
+      await waitFor(() =>
+        expect(screen.queryByText('1 selected')).not.toBeInTheDocument(),
+      )
+    })
+  })
+
   describe('Collection Nav', () => {
     const testCollections = [
       {

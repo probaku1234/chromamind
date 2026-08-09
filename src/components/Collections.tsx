@@ -33,6 +33,13 @@ import {
   SelectValueText,
 } from '@/components/ui/select'
 import { Button, ButtonProps } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  ActionBarContent,
+  ActionBarRoot,
+  ActionBarSelectionTrigger,
+  ActionBarSeparator,
+} from '@/components/ui/action-bar'
 import {
   DialogActionTrigger,
   DialogBody,
@@ -79,6 +86,7 @@ import {
   FiPlus,
   FiRefreshCw,
   FiStar,
+  FiTrash2,
   FiX,
 } from 'react-icons/fi'
 import { MiddleTruncate } from '@re-dev/react-truncate'
@@ -906,6 +914,12 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
   const [rowCount, setRowCount] = useState<number | undefined>()
   const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null)
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
+  // Checkbox selection for bulk actions, keyed by record id. Deliberately not
+  // TanStack's rowSelection: the table has no `getRowId`, so its row ids are
+  // array indices, and switching would change every cell id (and test id).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [embeddingCache, setEmbeddingCache] = useState<Map<string, number[]>>(
     new Map(),
   )
@@ -938,8 +952,56 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
       ? (embeddings.find((e) => e.id === selectedRowId) ?? null)
       : null
 
+  // Selection acts on the rows currently on screen — pagination is server-side,
+  // so no other row exists client-side to select.
+  // Guarded because `embeddings` is not always an array — the same reason the
+  // table below passes `data: embeddings || []`.
+  const visibleIds = useMemo(
+    () => (Array.isArray(embeddings) ? embeddings.map((e) => e.id) : []),
+    [embeddings],
+  )
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id))
+
+  const toggleId = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
   const columns = useMemo(
     () => [
+      columnHelper.display({
+        id: 'select',
+        header: () => (
+          <Checkbox
+            aria-label="Select all rows"
+            checked={
+              allVisibleSelected
+                ? true
+                : someVisibleSelected
+                  ? 'indeterminate'
+                  : false
+            }
+            onCheckedChange={(e) =>
+              setSelectedIds(e.checked ? new Set(visibleIds) : new Set())
+            }
+          />
+        ),
+        cell: (info) => (
+          <Checkbox
+            aria-label={`Select row ${info.row.original.id}`}
+            checked={selectedIds.has(info.row.original.id)}
+            onCheckedChange={(e) =>
+              toggleId(info.row.original.id, !!e.checked)
+            }
+          />
+        ),
+      }),
       columnHelper.accessor('id', {
         cell: (info) => info.getValue(),
         footer: (info) => info.column.id,
@@ -954,7 +1016,13 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
         cell: (info) => JSON.stringify(info.getValue()),
       }),
     ],
-    [columnHelper],
+    [
+      columnHelper,
+      selectedIds,
+      visibleIds,
+      allVisibleSelected,
+      someVisibleSelected,
+    ],
   )
 
   const table = useReactTable({
@@ -1081,26 +1149,27 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
     fetchCollectionData()
   }, [currentCollection])
 
-  useEffect(() => {
-    const fetchRowCount = async () => {
-      if (!currentCollection) return
-      setLoading(true)
-      const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
-        collectionName: currentCollection,
-        ids: activeSearch?.ids,
-        whereFilter: activeSearch?.whereFilter,
+  const fetchRowCount = async () => {
+    if (!currentCollection) return
+    setLoading(true)
+    const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
+      collectionName: currentCollection,
+      ids: activeSearch?.ids,
+      whereFilter: activeSearch?.whereFilter,
+    })
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        setError(error)
       })
-      match(result)
-        .with({ type: 'error' }, ({ error }) => {
-          console.error(error)
-          setError(error)
-        })
-        .with({ type: 'success' }, ({ result }) => {
-          setRowCount(result)
-        })
-        .exhaustive()
-      setLoading(false)
-    }
+      .with({ type: 'success' }, ({ result }) => {
+        setRowCount(result)
+      })
+      .exhaustive()
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchRowCount()
   }, [pageSize, currentCollection, activeSearch])
 
@@ -1145,6 +1214,9 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
 
   useEffect(() => {
     fetchEmbeddings()
+    // Selection is scoped to the rows on screen, so it cannot survive a change
+    // of page, page size, collection or search.
+    setSelectedIds(new Set())
   }, [pageIndex, pageSize, currentCollection, activeSearch])
 
   const fetchAndCacheEmbedding = useCallback(
@@ -1202,6 +1274,43 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
         // Refresh the page of rows so the table and sidebar show the new values.
         fetchEmbeddings()
         return true
+      })
+      .exhaustive()
+  }
+
+  const deleteRecords = async () => {
+    const ids = Array.from(selectedIds)
+    setDeleting(true)
+    const result = await invokeWrapper<null>(TauriCommand.DELETE_RECORDS, {
+      collectionName: currentCollection,
+      ids,
+    })
+    setDeleting(false)
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        toaster.create({
+          title: 'Failed to delete records',
+          description: error,
+          type: 'error',
+          duration: 2000,
+        })
+      })
+      .with({ type: 'success' }, () => {
+        toaster.create({
+          title: `Deleted ${ids.length} record(s)`,
+          type: 'success',
+          duration: 2000,
+        })
+        setConfirmDeleteOpen(false)
+        setSelectedIds(new Set())
+        // The open detail sidebar may be showing one of the deleted records.
+        if (selectedRowId !== null && ids.includes(selectedRowId)) {
+          setSelectedRowId(null)
+        }
+        // Both the row count badge and the page count go stale otherwise.
+        fetchRowCount()
+        fetchEmbeddings()
       })
       .exhaustive()
   }
@@ -1651,9 +1760,16 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                                   ? "'JetBrains Mono', monospace"
                                   : undefined
                               }
-                              onClick={() => {
-                                setSelectedRowId(row.original.id)
-                              }}
+                              w={cell.column.id === 'select' ? '1%' : undefined}
+                              onClick={
+                                // Ticking a checkbox must not also open the
+                                // detail sidebar.
+                                cell.column.id === 'select'
+                                  ? undefined
+                                  : () => {
+                                      setSelectedRowId(row.original.id)
+                                    }
+                              }
                             >
                               {flexRender(
                                 cell.column.columnDef.cell,
@@ -1824,6 +1940,69 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
       {fullDoc && (
         <FullDocumentModal doc={fullDoc} onClose={() => setFullDoc(null)} />
       )}
+
+      {/* ── Bulk selection action bar ───────────────────────────────── */}
+      <ActionBarRoot open={selectedIds.size > 0} closeOnInteractOutside={false}>
+        <ActionBarContent>
+          <ActionBarSelectionTrigger>
+            {selectedIds.size} selected
+          </ActionBarSelectionTrigger>
+          <ActionBarSeparator />
+          <Button
+            size="sm"
+            buttonType="critical"
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            <Icon>
+              <FiTrash2 />
+            </Icon>
+            Delete
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear
+          </Button>
+        </ActionBarContent>
+      </ActionBarRoot>
+
+      {/* Confirm bulk delete — deletion is irreversible. */}
+      <DialogRoot
+        role="alertdialog"
+        open={confirmDeleteOpen}
+        onOpenChange={(d) => setConfirmDeleteOpen(d.open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <Text>
+              This action cannot be undone. This will permanently delete{' '}
+              {selectedIds.size} record(s).
+            </Text>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              buttonType="critical"
+              loading={deleting}
+              onClick={deleteRecords}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+          <DialogCloseTrigger />
+        </DialogContent>
+      </DialogRoot>
 
       {/* ── Dev: Demo state controls ────────────────────────────────── */}
       {import.meta.env.DEV && (
