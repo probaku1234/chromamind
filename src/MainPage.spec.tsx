@@ -95,4 +95,42 @@ describe('MainPage', () => {
     const box = await screen.findByText('Reset Chroma')
     expect(box).toBeInTheDocument()
   })
+
+  test('keeps Collections mounted but hidden when another menu is active', async () => {
+    const mockCommandHandler = <T,>(
+      cmd: string,
+      _: InvokeArgs | undefined,
+    ): Promise<T> => {
+      return match(cmd)
+        .with('fetch_collections', () => Promise.resolve([] as unknown as T))
+        .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+    }
+
+    mockIPC(mockCommandHandler)
+
+    // Mounted (so it keeps its fetched data) but hidden.
+    const { unmount } = renderWithProvider(
+      <ChakraProvider>
+        <MainPage />
+      </ChakraProvider>,
+      { initialState: { currentMenu: 'Home', currentCollection: 'test' } },
+    )
+
+    const hidden = screen.getByTestId('collections-root')
+    expect(getComputedStyle(hidden).display).toBe('none')
+    unmount()
+
+    renderWithProvider(
+      <ChakraProvider>
+        <MainPage />
+      </ChakraProvider>,
+      {
+        initialState: { currentMenu: 'Collections', currentCollection: 'test' },
+      },
+    )
+
+    expect(
+      getComputedStyle(screen.getByTestId('collections-root')).display,
+    ).toBe('flex')
+  })
 })

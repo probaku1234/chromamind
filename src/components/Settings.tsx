@@ -41,7 +41,7 @@ import createCache from '@emotion/cache'
 import { defaultCustomConfig } from '@/theme.ts'
 import Preview from '@/components/Preview'
 import Editor from '@monaco-editor/react'
-import { RepeatIcon } from '@chakra-ui/icons'
+import { FiRefreshCw } from 'react-icons/fi'
 
 const Settings: React.FC = () => {
   const [checksum, setChecksum] = useState(0)
@@ -235,7 +235,7 @@ const Settings: React.FC = () => {
                                   right={0}
                                   onClick={() => setChecksum((c) => c + 1)}
                                 >
-                                  <RepeatIcon />
+                                  <FiRefreshCw />
                                 </IconButton>
                                 <Preview />
                               </ChakraProvider>

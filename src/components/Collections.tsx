@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import {
   Badge,
   Box,
+  BoxProps,
   Flex,
   FlexProps,
   Icon,
@@ -30,7 +31,7 @@ import {
   SelectTrigger,
   SelectValueText,
 } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
+import { Button, ButtonProps } from '@/components/ui/button'
 import {
   DialogActionTrigger,
   DialogBody,
@@ -61,18 +62,15 @@ import {
   VisibilityState,
 } from '@tanstack/react-table'
 import {
-  ArrowBackIcon,
-  ArrowForwardIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  RepeatIcon,
-} from '@chakra-ui/icons'
-
-import {
+  FiArrowLeft,
+  FiArrowRight,
   FiCheck,
+  FiChevronLeft,
+  FiChevronRight,
   FiClipboard,
   FiCopy,
   FiPlus,
+  FiRefreshCw,
   FiStar,
   FiX,
 } from 'react-icons/fi'
@@ -112,6 +110,26 @@ const frameworks = createListCollection({
 })
 
 // ── Not-selected state ────────────────────────────────────────────────────
+/**
+ * Small inline text action ("Show", "Copy", "View full") used in the detail
+ * sidebar. Kept local to this file — it exists only to avoid repeating the
+ * same seven style props four times.
+ */
+const InlineAction: React.FC<ButtonProps> = (props) => (
+  <Button
+    variant="plain"
+    height="auto"
+    minW="auto"
+    px={0}
+    py={0}
+    fontSize="10px"
+    fontWeight="500"
+    color="brand.600"
+    gap="4px"
+    {...props}
+  />
+)
+
 const ListIcon = () => (
   <svg
     width="44"
@@ -318,7 +336,7 @@ const DetailSidebar = ({
             >
               Embedding vector
             </Text>
-            <button
+            <InlineAction
               data-testid="embedding-toggle-btn"
               disabled={embeddingLoading}
               onClick={async () => {
@@ -342,22 +360,13 @@ const DetailSidebar = ({
                   setEmbeddingLoading(false)
                 }
               }}
-              style={{
-                fontSize: 10,
-                color: 'var(--chakra-colors-brand-600)',
-                background: 'none',
-                border: 'none',
-                cursor: embeddingLoading ? 'default' : 'pointer',
-                fontWeight: 500,
-                fontFamily: 'Inter, sans-serif',
-              }}
             >
               {embeddingLoading
                 ? 'Loading…'
                 : embeddingVisible
                   ? 'Hide'
                   : 'Show'}
-            </button>
+            </InlineAction>
           </Flex>
           {embeddingError && (
             <Text fontSize="11px" color="red.500" mt={1}>
@@ -392,7 +401,7 @@ const DetailSidebar = ({
                 </Text>
               )}
               <Box mt={1} w="100%">
-                <button
+                <InlineAction
                   onClick={() => {
                     copyClipboard(
                       JSON.stringify(embeddingValues),
@@ -410,21 +419,9 @@ const DetailSidebar = ({
                         }),
                     )
                   }}
-                  style={{
-                    fontSize: 10,
-                    color: 'var(--chakra-colors-brand-600)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    fontFamily: 'Inter, sans-serif',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
                 >
                   Copy full vector
-                </button>
+                </InlineAction>
               </Box>
             </Box>
           )}
@@ -471,42 +468,18 @@ const DetailSidebar = ({
                 Document
               </Text>
               <Flex gap="5px" align="center">
-                <button
-                  onClick={() => onShowFullDoc(row.document)}
-                  style={{
-                    fontSize: 10,
-                    color: 'var(--chakra-colors-brand-600)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                >
+                <InlineAction onClick={() => onShowFullDoc(row.document)}>
                   View full
-                </button>
+                </InlineAction>
                 <Text fontSize="10px" color="gray.300">
                   |
                 </Text>
-                <button
+                <InlineAction
                   onClick={copyDoc}
-                  style={{
-                    fontSize: 10,
-                    color: docCopied
-                      ? 'var(--chakra-colors-green-500)'
-                      : 'var(--chakra-colors-brand-600)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    fontFamily: 'Inter, sans-serif',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 3,
-                  }}
+                  color={docCopied ? 'green.500' : 'brand.600'}
                 >
                   {docCopied ? 'Copied' : 'Copy'}
-                </button>
+                </InlineAction>
               </Flex>
             </Flex>
             <Box
@@ -665,7 +638,9 @@ const DetailSidebar = ({
 }
 
 // ── Collections ───────────────────────────────────────────────────────────
-const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
+const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
+  display,
+}) => {
   const url = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}_url`) || ''
   const currentCollection = useSelector<State, string>(
     (state: State) => state.currentCollection,
@@ -948,7 +923,12 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
   )
 
   return (
-    <Box display="flex" h="100vh" overflow="hidden" style={style}>
+    <Box
+      data-testid="collections-root"
+      display={display ?? 'flex'}
+      h="100vh"
+      overflow="hidden"
+    >
       <Toaster />
 
       {/* ── Left: Collection list panel ─────────────────────────────── */}
@@ -1039,7 +1019,7 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                 }}
                 aria-label="Refresh Collections"
               >
-                <RepeatIcon />
+                <FiRefreshCw />
               </IconButton>
             </Tooltip>
             <GuidePopup
@@ -1251,7 +1231,7 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                 </Badge>
                 {collectionDimension !== null && (
                   <Badge
-                    colorPalette="purple"
+                    colorPalette="brand"
                     fontSize="12px"
                     borderRadius="md"
                     px={2}
@@ -1415,7 +1395,7 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                             }}
                             disabled={!table.getCanPreviousPage()}
                           >
-                            <ArrowBackIcon />
+                            <FiArrowLeft />
                           </Button>
                           <Button
                             size="sm"
@@ -1423,7 +1403,7 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                             disabled={!table.getCanPreviousPage()}
                             data-testid="data-view-previous-button"
                           >
-                            <ChevronLeftIcon />
+                            <FiChevronLeft />
                           </Button>
                           <Text
                             fontSize="12px"
@@ -1439,7 +1419,7 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                             disabled={!table.getCanNextPage()}
                             data-testid="data-view-next-button"
                           >
-                            <ChevronRightIcon />
+                            <FiChevronRight />
                           </Button>
                           <Button
                             size="sm"
@@ -1449,7 +1429,7 @@ const Collections: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
                             }}
                             disabled={!table.getCanNextPage()}
                           >
-                            <ArrowForwardIcon />
+                            <FiArrowRight />
                           </Button>
                         </Flex>
                         <Flex align="center" gap={2} ml={4}>
@@ -1644,7 +1624,7 @@ const CollectionNavItem = ({
   return (
     <Box
       as="a"
-      style={{ textDecoration: 'none' }}
+      textDecoration="none"
       _focus={{ boxShadow: 'none' }}
       onDoubleClick={() => {
         dispatch(updateCollection(name))

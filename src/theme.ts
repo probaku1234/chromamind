@@ -2,6 +2,7 @@ import {
   createSystem,
   defaultConfig,
   defineConfig,
+  mergeConfigs,
   SystemConfig,
 } from '@chakra-ui/react'
 import { CUSTOM_THEME_KEY } from './types'
@@ -23,26 +24,16 @@ export const defaultCustomConfig: SystemConfig = {
     tokens: {
       colors: {
         brand: {
-          // @ts-expect-error number key
-          50: '#faf5ff',
-          // @ts-expect-error number key
-          100: '#f3e8ff',
-          // @ts-expect-error number key
-          200: '#e9d5ff',
-          // @ts-expect-error number key
-          300: '#d8b4fe',
-          // @ts-expect-error number key
-          400: '#c084fc',
-          // @ts-expect-error number key
-          500: '#a855f7',
-          // @ts-expect-error number key
-          600: '#9333ea', // Primary Purple
-          // @ts-expect-error number key
-          700: '#7e22ce',
-          // @ts-expect-error number key
-          800: '#6b21a8',
-          // @ts-expect-error number key
-          900: '#581c87',
+          50: { value: '#faf5ff' },
+          100: { value: '#f3e8ff' },
+          200: { value: '#e9d5ff' },
+          300: { value: '#d8b4fe' },
+          400: { value: '#c084fc' },
+          500: { value: '#a855f7' },
+          600: { value: '#9333ea' }, // Primary Purple
+          700: { value: '#7e22ce' },
+          800: { value: '#6b21a8' },
+          900: { value: '#581c87' },
         },
         firstBg: {
           value: '#f6f6f6',
@@ -54,11 +45,10 @@ export const defaultCustomConfig: SystemConfig = {
           value: 'black',
         },
         buttonSelectedBg: {
-          value: 'var(--chakra-colors-brand-300)',
+          value: '{colors.brand.300}',
         },
         collectionNavHoverBg: {
-          value:
-            'linear-gradient(to right, #FFFFFF, var(--chakra-colors-brand-500))',
+          value: 'linear-gradient(to right, #FFFFFF, {colors.brand.500})',
         },
         sidebar: {
           value: '#18181b',
@@ -77,26 +67,28 @@ export const defaultCustomConfig: SystemConfig = {
         },
       },
     },
-    recipes: {
-      buttons: {
-        base: {
-          bg: 'brand.500',
-          color: 'white',
-          cursor: 'pointer',
-          _hover: {
-            bg: 'brand.300',
-            transition: 'background-color 0.2s ease-in-out',
-          },
+    // Required for `colorPalette="brand"` to resolve. Chakra maps every
+    // `colorPalette` consumer (Button, Badge, …) onto these seven roles.
+    semanticTokens: {
+      colors: {
+        brand: {
+          solid: { value: '{colors.brand.500}' },
+          contrast: { value: '{colors.brand.50}' },
+          fg: { value: '{colors.brand.700}' },
+          muted: { value: '{colors.brand.100}' },
+          subtle: { value: '{colors.brand.50}' },
+          emphasized: { value: '{colors.brand.300}' },
+          focusRing: { value: '{colors.brand.500}' },
         },
-        variants: {
-          visual: {
-            critical: {
-              bg: 'red.500',
-              _hover: {
-                bg: 'red.300',
-              },
-            },
-          },
+      },
+    },
+    recipes: {
+      // Extends Chakra's built-in button recipe rather than overlaying a
+      // separate one, so `variant`/`size` keep working.
+      button: {
+        base: {
+          colorPalette: 'brand',
+          cursor: 'pointer',
         },
       },
       layoutNavs: {
@@ -133,7 +125,7 @@ export const defaultCustomConfig: SystemConfig = {
       layoutCollectionNavs: {
         base: {
           _hover: {
-            background: 'var(--chakra-colors-collection-nav-hover-bg)', // TODO: token this style
+            background: 'collectionNavHoverBg',
           },
         },
       },
@@ -151,6 +143,10 @@ try {
   )
   localStorage.removeItem(CUSTOM_THEME_KEY)
 }
-const customConfig = defineConfig({ ...defaultCustomConfig, ...themeConfig })
+// Deep merge — a spread would let a custom theme that only sets `theme.tokens`
+// replace the whole `theme` key, dropping every recipe and brand token with it.
+const customConfig = defineConfig(
+  mergeConfigs(defaultCustomConfig, themeConfig),
+)
 
 export const system = createSystem(defaultConfig, customConfig)

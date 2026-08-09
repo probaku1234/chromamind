@@ -42,6 +42,26 @@ describe('theme — startup', () => {
     expect(system).toBeDefined()
   })
 
+  test('a partial custom theme merges into the defaults instead of replacing them', async () => {
+    // Regression: a shallow spread let `theme` from the saved config replace
+    // the default `theme` wholesale, dropping every brand token and recipe.
+    const partialTheme = JSON.stringify({
+      theme: { tokens: { colors: { firstBg: { value: '#ff0000' } } } },
+    })
+    localStorage.setItem(CUSTOM_THEME_KEY, partialTheme)
+
+    const { system } = await import('./theme')
+    const vars = system.tokens.cssVarMap.get('base')
+    expect(vars).toBeDefined()
+
+    // The user's override wins...
+    expect(vars?.get('--chakra-colors-first-bg')).toBe('#ff0000')
+    // ...while untouched defaults survive.
+    expect(vars?.get('--chakra-colors-brand-500')).toBe('#a855f7')
+    expect(vars?.get('--chakra-colors-sidebar')).toBe('#18181b')
+    expect(Object.keys(system.getRecipe('layoutNavs', {}))).not.toHaveLength(0)
+  })
+
   test('does not log an error or touch localStorage when theme JSON is valid', async () => {
     const validTheme = JSON.stringify({ theme: {} })
     localStorage.setItem(CUSTOM_THEME_KEY, validTheme)
