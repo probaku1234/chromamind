@@ -25,11 +25,12 @@ cd src-tauri && cargo clippy  # Rust linting (strict — see Cargo.toml [lints.c
 
 ### Tests
 ```bash
-npm run test:frontend      # Vitest (jsdom, React Testing Library)
-npm run test:backend       # Cargo tests (must run with --test-threads=1, uses testcontainers)
+npm run test:frontend        # Vitest, single run (jsdom, React Testing Library)
+npm run test:frontend:watch  # same, in watch mode
+npm run test:backend         # Cargo tests (must run with --test-threads=1, uses testcontainers)
 
-# Run a single frontend test file
-npx vitest src/components/Home.spec.tsx
+# Run a single frontend test file (omit `run` to watch it)
+npx vitest run src/components/Home.spec.tsx
 
 # Run a single Rust test
 cd src-tauri && cargo test test_health_check -- --test-threads=1
