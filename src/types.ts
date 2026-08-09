@@ -96,6 +96,7 @@ export enum TauriCommand {
   DELETE_COLLECTION = 'delete_collection',
   FETCH_EMBEDDING = 'fetch_embedding',
   UPDATE_RECORD_METADATA = 'update_record_metadata',
+  DELETE_RECORDS = 'delete_records',
 }
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'
