@@ -701,6 +701,48 @@ async fn update_record_metadata(
     Ok(())
 }
 
+/// Deletes records by id.
+///
+/// Returns nothing rather than a count: the server's `deleted` field is
+/// `#[serde(default)]` and ChromaDB 1.0.16 does not send it, so it always
+/// deserializes as 0. Callers should report the number of ids they requested.
+#[tauri::command]
+async fn delete_records(
+    collection_name: &str,
+    ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    log::info!(
+        "(delete_records) Deleting {} record(s) from collection: {}",
+        ids.len(),
+        collection_name
+    );
+
+    // `delete` treats an empty id list as "no filter", so refuse it here rather
+    // than send an ambiguous request.
+    if ids.is_empty() {
+        log::error!("(delete_records) No record ids provided");
+        return Err("No record ids provided".to_string());
+    }
+
+    let client = state.get_client()?;
+
+    let collection = client.get_collection(collection_name).await.map_err(|e| {
+        log::error!("(delete_records) Error fetching collection: {}", e);
+        format!("Error fetching collection: {}", e)
+    })?;
+
+    collection
+        .delete(Some(ids), None, None)
+        .await
+        .map_err(|e| {
+            log::error!("(delete_records) Error deleting records: {}", e);
+            format!("Error deleting records: {}", e)
+        })?;
+
+    Ok(())
+}
+
 #[tauri::command]
 async fn fetch_collection_data(
     collection_name: &str,
@@ -942,6 +984,7 @@ pub fn run() {
             delete_collection,
             fetch_embedding,
             update_record_metadata,
+            delete_records,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -982,6 +1025,7 @@ mod tests {
         DeleteCollection,
         FetchEmbedding,
         UpdateRecordMetadata,
+        DeleteRecords,
     }
 
     impl TauriCommand {
@@ -1001,6 +1045,7 @@ mod tests {
                 TauriCommand::DeleteCollection => "delete_collection",
                 TauriCommand::FetchEmbedding => "fetch_embedding",
                 TauriCommand::UpdateRecordMetadata => "update_record_metadata",
+                TauriCommand::DeleteRecords => "delete_records",
             }
         }
     }
@@ -1046,6 +1091,7 @@ mod tests {
                 delete_collection,
                 fetch_embedding,
                 update_record_metadata,
+                delete_records,
             ])
             // remove the string argument to use your app's config file
             .build(mock_context(noop_assets()))
@@ -2416,6 +2462,125 @@ mod tests {
             documents.into_iter().next().flatten(),
             Some("First document".to_string()),
             "document was modified by a metadata-only update"
+        );
+    }
+
+    #[test]
+    fn test_delete_records() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteRecords.as_str(),
+            json!({
+                "collectionName": "test_collection_delete_records",
+                "ids": vec!["doc1".to_string()],
+            }),
+        );
+
+        assert!(res.is_err(), "delete_records should fail without a client");
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "delete_records failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: connect_url.as_str().parse().unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collection_name = "test_collection_delete_records";
+        let collection = rt
+            .block_on(client.get_or_create_collection(collection_name, None, None))
+            .unwrap();
+
+        rt.block_on(collection.add(
+            vec!["doc1".to_string(), "doc2".to_string(), "doc3".to_string()],
+            vec![
+                vec![0.1_f32, 0.2_f32, 0.3_f32],
+                vec![0.4_f32, 0.5_f32, 0.6_f32],
+                vec![0.7_f32, 0.8_f32, 0.9_f32],
+            ],
+            Some(vec![
+                Some("First".to_string()),
+                Some("Second".to_string()),
+                Some("Third".to_string()),
+            ]),
+            None,
+            None,
+        ))
+        .unwrap();
+
+        // An empty id list must be refused rather than sent as "no filter".
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteRecords.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "ids": Vec::<String>::new(),
+            }),
+        );
+
+        assert!(res.is_err(), "delete_records should reject an empty id list");
+        assert_eq!(
+            res.err().unwrap(),
+            "No record ids provided",
+            "empty id list rejected with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::DeleteRecords.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "ids": vec!["doc1".to_string(), "doc3".to_string()],
+            }),
+        );
+
+        assert!(res.is_ok(), "delete_records failed: {:?}", res.err());
+
+        let get_result = rt
+            .block_on(collection.get(
+                None,
+                None,
+                Some(10u32),
+                None,
+                Some(IncludeList(vec![Include::Document])),
+            ))
+            .unwrap();
+
+        assert_eq!(
+            get_result.ids,
+            vec!["doc2".to_string()],
+            "only the untouched record should remain"
         );
     }
 }
