@@ -2,11 +2,13 @@ pub mod structs;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 use chroma::client::ChromaAuthMethod;
-use chroma::types::{Include, IncludeList, Metadata, MetadataValue, Where};
+use chroma::types::{
+    Include, IncludeList, Metadata, MetadataValue, UpdateMetadata, UpdateMetadataValue, Where,
+};
 use chroma::{ChromaHttpClient, ChromaHttpClientOptions};
 use chroma_types::RawWhereFields;
 use parking_lot::Mutex;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::env;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -625,6 +627,80 @@ async fn fetch_embedding(
         .ok_or_else(|| format!("Embedding not found for id {}", id))
 }
 
+/// Updates a single record's metadata.
+///
+/// `metadata` is the full desired key/value map and `removed_keys` are the keys
+/// to drop. Both are needed because Chroma *merges* the supplied metadata into
+/// the existing record rather than replacing it — a key only disappears when it
+/// is explicitly sent as `UpdateMetadataValue::None`. Renaming a key is
+/// therefore "new key in `metadata`, old key in `removed_keys`".
+#[tauri::command]
+async fn update_record_metadata(
+    collection_name: &str,
+    id: &str,
+    metadata: Map<String, Value>,
+    removed_keys: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    log::info!(
+        "(update_record_metadata) Updating metadata for id: {} in collection: {}",
+        id,
+        collection_name
+    );
+    log::debug!(
+        "(update_record_metadata) metadata: {:?}, removed_keys: {:?}",
+        metadata,
+        removed_keys
+    );
+    let client = state.get_client()?;
+
+    let mut update_metadata: UpdateMetadata = metadata
+        .into_iter()
+        .map(|(k, v)| {
+            let value = match v {
+                Value::Bool(b) => UpdateMetadataValue::Bool(b),
+                Value::Number(n) => match n.as_i64() {
+                    Some(i) => UpdateMetadataValue::Int(i),
+                    None => match n.as_f64() {
+                        Some(f) => UpdateMetadataValue::Float(f),
+                        None => return Err(format!("Unsupported metadata number for key {}", k)),
+                    },
+                },
+                Value::String(s) => UpdateMetadataValue::Str(s),
+                Value::Null | Value::Array(_) | Value::Object(_) => {
+                    return Err(format!("Unsupported metadata value for key {}", k))
+                }
+            };
+            Ok((k, value))
+        })
+        .collect::<Result<UpdateMetadata, String>>()?;
+
+    for key in removed_keys {
+        update_metadata.insert(key, UpdateMetadataValue::None);
+    }
+
+    let collection = client.get_collection(collection_name).await.map_err(|e| {
+        log::error!("(update_record_metadata) Error fetching collection: {}", e);
+        format!("Error fetching collection: {}", e)
+    })?;
+
+    collection
+        .update(
+            vec![id.to_string()],
+            None,
+            None,
+            None,
+            Some(vec![Some(update_metadata)]),
+        )
+        .await
+        .map_err(|e| {
+            log::error!("(update_record_metadata) Error updating metadata: {}", e);
+            format!("Error updating metadata: {}", e)
+        })?;
+
+    Ok(())
+}
+
 #[tauri::command]
 async fn fetch_collection_data(
     collection_name: &str,
@@ -865,6 +941,7 @@ pub fn run() {
             create_collection,
             delete_collection,
             fetch_embedding,
+            update_record_metadata,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -904,6 +981,7 @@ mod tests {
         CreateCollection,
         DeleteCollection,
         FetchEmbedding,
+        UpdateRecordMetadata,
     }
 
     impl TauriCommand {
@@ -922,6 +1000,7 @@ mod tests {
                 TauriCommand::CreateCollection => "create_collection",
                 TauriCommand::DeleteCollection => "delete_collection",
                 TauriCommand::FetchEmbedding => "fetch_embedding",
+                TauriCommand::UpdateRecordMetadata => "update_record_metadata",
             }
         }
     }
@@ -966,6 +1045,7 @@ mod tests {
                 create_collection,
                 delete_collection,
                 fetch_embedding,
+                update_record_metadata,
             ])
             // remove the string argument to use your app's config file
             .build(mock_context(noop_assets()))
@@ -2192,5 +2272,150 @@ mod tests {
         let collection = rt.block_on(client.get_collection(collection_name));
 
         assert!(collection.is_err(), "collection should not exist");
+    }
+
+    #[test]
+    fn test_update_record_metadata() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let container = create_chroma_container();
+
+        let host = container.get_host().unwrap();
+        let port = container.get_host_port_ipv4(8000).unwrap();
+
+        let connect_url = format!("http://{}:{}", host, port);
+
+        let app = before_each(mock_builder());
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::UpdateRecordMetadata.as_str(),
+            json!({
+                "collectionName": "test_collection_update",
+                "id": "doc1",
+                "metadata": {},
+                "removedKeys": Vec::<String>::new(),
+            }),
+        );
+
+        assert!(
+            res.is_err(),
+            "update_record_metadata should fail without a client"
+        );
+        assert_eq!(
+            res.err().unwrap(),
+            "ChromaDB client not initialized",
+            "update_record_metadata failed with different error"
+        );
+
+        let res = get_command_response(
+            &webview,
+            TauriCommand::CreateClient.as_str(),
+            json!({
+                "config": {
+                    "mode": "local",
+                    "url": connect_url,
+                    "tenant": "default_tenant",
+                    "database": "default_database"
+                }
+            }),
+        );
+
+        assert!(res.is_ok(), "create_client failed: {:?}", res.err());
+
+        let client = ChromaHttpClient::new(ChromaHttpClientOptions {
+            endpoint: connect_url.as_str().parse().unwrap(),
+            auth_method: ChromaAuthMethod::None,
+            ..Default::default()
+        });
+
+        let collection_name = "test_collection_update";
+        let collection = rt
+            .block_on(client.get_or_create_collection(collection_name, None, None))
+            .unwrap();
+
+        let seed_metadata: Metadata = [
+            ("keep".to_string(), MetadataValue::Str("original".to_string())),
+            ("drop".to_string(), MetadataValue::Str("gone".to_string())),
+            ("score".to_string(), MetadataValue::Int(1)),
+        ]
+        .into_iter()
+        .collect();
+
+        rt.block_on(collection.add(
+            vec!["doc1".to_string()],
+            vec![vec![0.1_f32, 0.2_f32, 0.3_f32]],
+            Some(vec![Some("First document".to_string())]),
+            None,
+            Some(vec![Some(seed_metadata)]),
+        ))
+        .unwrap();
+
+        // Change a value, add a new key, and drop an existing one in one call.
+        let res = get_command_response(
+            &webview,
+            TauriCommand::UpdateRecordMetadata.as_str(),
+            json!({
+                "collectionName": collection_name,
+                "id": "doc1",
+                "metadata": {
+                    "keep": "updated",
+                    "score": 7,
+                    "added": true,
+                },
+                "removedKeys": vec!["drop".to_string()],
+            }),
+        );
+
+        assert!(
+            res.is_ok(),
+            "update_record_metadata failed: {:?}",
+            res.err()
+        );
+
+        let get_result = rt
+            .block_on(collection.get(
+                Some(vec!["doc1".to_string()]),
+                None,
+                Some(1u32),
+                None,
+                Some(IncludeList(vec![Include::Metadata, Include::Document])),
+            ))
+            .unwrap();
+
+        let metadata = get_result
+            .metadatas
+            .unwrap_or_default()
+            .into_iter()
+            .next()
+            .flatten()
+            .expect("record should still have metadata");
+
+        assert_eq!(
+            metadata.get("keep"),
+            Some(&MetadataValue::Str("updated".to_string())),
+            "existing key was not updated"
+        );
+        assert_eq!(
+            metadata.get("score"),
+            Some(&MetadataValue::Int(7)),
+            "numeric key was not updated"
+        );
+        assert_eq!(
+            metadata.get("added"),
+            Some(&MetadataValue::Bool(true)),
+            "new key was not added"
+        );
+        assert_eq!(metadata.get("drop"), None, "removed key still present");
+
+        // The document must be left untouched by a metadata-only update.
+        let documents = get_result.documents.unwrap_or_default();
+        assert_eq!(
+            documents.into_iter().next().flatten(),
+            Some("First document".to_string()),
+            "document was modified by a metadata-only update"
+        );
     }
 }
