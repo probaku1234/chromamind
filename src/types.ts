@@ -67,6 +67,19 @@ export interface ActiveSearch {
   whereFilter?: Record<string, unknown>
 }
 
+// ---------------------------------------------------------------------------
+// Record metadata editing
+// ---------------------------------------------------------------------------
+
+// One row of the metadata editor. `value` is always held as text while editing
+// and coerced to `type` on save; `id` keeps React keys stable across renames.
+export interface MetadataEditRow {
+  id: string
+  key: string
+  value: string
+  type: MetadataValueType
+}
+
 export enum TauriCommand {
   GREAT = 'great',
   CREATE_CLIENT = 'create_client',
@@ -82,6 +95,7 @@ export enum TauriCommand {
   CREATE_COLLECTION = 'create_collection',
   DELETE_COLLECTION = 'delete_collection',
   FETCH_EMBEDDING = 'fetch_embedding',
+  UPDATE_RECORD_METADATA = 'update_record_metadata',
 }
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'
