@@ -612,8 +612,13 @@ describe('Collections', () => {
     })
 
     describe('metadata editing', () => {
+      const DEFAULT_EDIT_METADATA = { foo: 'bar', score: 42 }
+
       const editMockHandler =
-        (updateResult: 'ok' | 'error') =>
+        (
+          updateResult: 'ok' | 'error',
+          metadata: Record<string, unknown> = DEFAULT_EDIT_METADATA,
+        ) =>
         <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
           match(cmd)
             .with(TauriCommand.FETCH_COLLECTIONS, () =>
@@ -629,7 +634,7 @@ describe('Collections', () => {
               Promise.resolve([
                 {
                   id: '1',
-                  metadata: { foo: 'bar', score: 42 },
+                  metadata,
                   document: 'test document 1',
                 },
               ] as unknown as T),
@@ -644,8 +649,11 @@ describe('Collections', () => {
 
       // Renders Collections, opens the sidebar on the first row and enters
       // metadata edit mode. Returns the invoke spy for payload assertions.
-      const openEditor = async (updateResult: 'ok' | 'error' = 'ok') => {
-        mockIPC(editMockHandler(updateResult))
+      const openEditor = async (
+        updateResult: 'ok' | 'error' = 'ok',
+        metadata: Record<string, unknown> = DEFAULT_EDIT_METADATA,
+      ) => {
+        mockIPC(editMockHandler(updateResult, metadata))
 
         // @ts-ignore
         const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
@@ -833,6 +841,62 @@ describe('Collections', () => {
         await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
         // Inputs are still on screen with the user's pending edit intact.
         expect(screen.getByLabelText('Metadata value 1')).toHaveValue('baz')
+      })
+
+      // `fetch_embeddings` flattens metadata types this UI cannot render (arrays,
+      // sparse vectors) to `null`. Those keys must never round-trip back to the
+      // server: Chroma merges the update, so omitting them preserves the real
+      // value, while sending them would overwrite it with the string "null".
+      describe('unsupported metadata values', () => {
+        const WITH_UNSUPPORTED = { foo: 'bar', tags: null }
+
+        test('should not send an unsupported key when another key is edited', async () => {
+          const mock = await openEditor('ok', WITH_UNSUPPORTED)
+
+          fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+            target: { value: 'baz' },
+          })
+          fireEvent.click(screen.getByText('Save'))
+
+          await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+          expect(updateCalls(mock)[0][1]).toEqual({
+            collectionName: 'test',
+            id: '1',
+            metadata: { foo: 'baz' },
+            removedKeys: [],
+          })
+        })
+
+        test('should render the unsupported row read-only', async () => {
+          await openEditor('ok', WITH_UNSUPPORTED)
+
+          expect(screen.getByLabelText('Metadata key 2')).toHaveValue('tags')
+          // No value input and no type dropdown — nothing here is editable.
+          expect(
+            screen.queryByLabelText('Metadata value 2'),
+          ).not.toBeInTheDocument()
+          expect(
+            screen.queryByLabelText('Metadata type 2'),
+          ).not.toBeInTheDocument()
+          expect(screen.getByLabelText('Metadata key 2')).toHaveAttribute(
+            'readonly',
+          )
+        })
+
+        test('should still allow explicitly removing an unsupported key', async () => {
+          const mock = await openEditor('ok', WITH_UNSUPPORTED)
+
+          fireEvent.click(screen.getByLabelText('Remove metadata 2'))
+          fireEvent.click(screen.getByText('Save'))
+
+          await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+          expect(updateCalls(mock)[0][1]).toEqual({
+            collectionName: 'test',
+            id: '1',
+            metadata: { foo: 'bar' },
+            removedKeys: ['tags'],
+          })
+        })
       })
 
       test('should discard pending edits on Cancel', async () => {

@@ -57,6 +57,7 @@ import {
   ActiveSearch,
   EmbeddingsData,
   MetadataEditRow,
+  MetadataEditRowType,
   MetadataValueType,
   State,
 } from '../types'
@@ -266,7 +267,10 @@ const METADATA_TYPE_OPTIONS: MetadataValueType[] = [
 let metadataRowId = 0
 const nextMetadataRowId = () => `metadata-row-${++metadataRowId}`
 
-const inferMetadataType = (value: unknown): MetadataValueType => {
+// `null` reaches the UI only from metadata the backend could not represent as
+// JSON (arrays, sparse vectors) — see `fetch_embeddings` in lib.rs.
+const inferMetadataType = (value: unknown): MetadataEditRowType => {
+  if (value === null) return 'unsupported'
   if (typeof value === 'number') return 'number'
   if (typeof value === 'boolean') return 'boolean'
   return 'string'
@@ -276,11 +280,16 @@ const toEditRows = (metadata: EmbeddingsData['metadata']): MetadataEditRow[] =>
   Object.entries(metadata).map(([key, value]) => ({
     id: nextMetadataRowId(),
     key,
-    value: String(value),
+    value: value === null ? '' : String(value),
     type: inferMetadataType(value),
   }))
 
-const coerceRowValue = (row: MetadataEditRow): string | number | boolean =>
+type EditableRow = MetadataEditRow & { type: MetadataValueType }
+
+const isEditableRow = (row: MetadataEditRow): row is EditableRow =>
+  row.type !== 'unsupported'
+
+const coerceRowValue = (row: EditableRow): string | number | boolean =>
   match(row.type)
     .with('number', () => Number(row.value))
     .with('boolean', () => row.value === 'true')
@@ -367,8 +376,11 @@ const DetailSidebar = ({
     }
     setSaving(true)
     setSaveError(null)
+    // Unsupported rows are omitted rather than sent: Chroma merges the update
+    // into the existing record, so leaving a key out preserves its real value.
+    // Sending one would clobber the array/sparse value the UI cannot render.
     const metadata = Object.fromEntries(
-      editRows.map((r) => [r.key, coerceRowValue(r)]),
+      editRows.filter(isEditableRow).map((r) => [r.key, coerceRowValue(r)]),
     )
     const removedKeys = originalKeys.filter(
       (k) => !editRows.some((r) => r.key === k),
@@ -669,6 +681,7 @@ const DetailSidebar = ({
                           placeholder="Key"
                           aria-label={`Metadata key ${index + 1}`}
                           value={editRow.key}
+                          readOnly={editRow.type === 'unsupported'}
                           onChange={(e) =>
                             updateEditRow(index, { key: e.target.value })
                           }
@@ -686,52 +699,60 @@ const DetailSidebar = ({
                           <FiX />
                         </IconButton>
                       </Flex>
-                      <Flex align="center" gap={1}>
-                        <NativeSelect.Root size="xs" w="88px" flexShrink={0}>
-                          <NativeSelect.Field
-                            aria-label={`Metadata type ${index + 1}`}
-                            value={editRow.type}
-                            onChange={(e) =>
-                              updateEditRow(index, {
-                                type: e.target.value as MetadataValueType,
-                              })
-                            }
-                          >
-                            {METADATA_TYPE_OPTIONS.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
-                              </option>
-                            ))}
-                          </NativeSelect.Field>
-                          <NativeSelect.Indicator />
-                        </NativeSelect.Root>
-                        {editRow.type === 'boolean' ? (
-                          <NativeSelect.Root size="xs" flex={1}>
+                      {editRow.type === 'unsupported' ? (
+                        <Text fontSize="11px" color="fg.muted">
+                          Unsupported type (array or sparse vector) — kept as-is
+                        </Text>
+                      ) : (
+                        <Flex align="center" gap={1}>
+                          <NativeSelect.Root size="xs" w="88px" flexShrink={0}>
                             <NativeSelect.Field
+                              aria-label={`Metadata type ${index + 1}`}
+                              value={editRow.type}
+                              onChange={(e) =>
+                                updateEditRow(index, {
+                                  type: e.target.value as MetadataValueType,
+                                })
+                              }
+                            >
+                              {METADATA_TYPE_OPTIONS.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </NativeSelect.Field>
+                            <NativeSelect.Indicator />
+                          </NativeSelect.Root>
+                          {editRow.type === 'boolean' ? (
+                            <NativeSelect.Root size="xs" flex={1}>
+                              <NativeSelect.Field
+                                aria-label={`Metadata value ${index + 1}`}
+                                value={editRow.value}
+                                onChange={(e) =>
+                                  updateEditRow(index, {
+                                    value: e.target.value,
+                                  })
+                                }
+                              >
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                              </NativeSelect.Field>
+                              <NativeSelect.Indicator />
+                            </NativeSelect.Root>
+                          ) : (
+                            <Input
+                              size="xs"
+                              flex={1}
+                              placeholder="Value"
                               aria-label={`Metadata value ${index + 1}`}
                               value={editRow.value}
                               onChange={(e) =>
                                 updateEditRow(index, { value: e.target.value })
                               }
-                            >
-                              <option value="true">true</option>
-                              <option value="false">false</option>
-                            </NativeSelect.Field>
-                            <NativeSelect.Indicator />
-                          </NativeSelect.Root>
-                        ) : (
-                          <Input
-                            size="xs"
-                            flex={1}
-                            placeholder="Value"
-                            aria-label={`Metadata value ${index + 1}`}
-                            value={editRow.value}
-                            onChange={(e) =>
-                              updateEditRow(index, { value: e.target.value })
-                            }
-                          />
-                        )}
-                      </Flex>
+                            />
+                          )}
+                        </Flex>
+                      )}
                     </Box>
                   ))}
                   <Button
@@ -996,9 +1017,7 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
           <Checkbox
             aria-label={`Select row ${info.row.original.id}`}
             checked={selectedIds.has(info.row.original.id)}
-            onCheckedChange={(e) =>
-              toggleId(info.row.original.id, !!e.checked)
-            }
+            onCheckedChange={(e) => toggleId(info.row.original.id, !!e.checked)}
           />
         ),
       }),

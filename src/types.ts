@@ -71,13 +71,19 @@ export interface ActiveSearch {
 // Record metadata editing
 // ---------------------------------------------------------------------------
 
+// A metadata row can additionally be 'unsupported': the record holds a type the
+// editor cannot represent (array, sparse vector), which `fetch_embeddings`
+// flattens to `null`. Kept separate from `MetadataValueType` so the search
+// filter builder — which shares that type — is unaffected.
+export type MetadataEditRowType = MetadataValueType | 'unsupported'
+
 // One row of the metadata editor. `value` is always held as text while editing
 // and coerced to `type` on save; `id` keeps React keys stable across renames.
 export interface MetadataEditRow {
   id: string
   key: string
   value: string
-  type: MetadataValueType
+  type: MetadataEditRowType
 }
 
 export enum TauriCommand {
