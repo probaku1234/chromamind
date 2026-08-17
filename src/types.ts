@@ -67,6 +67,25 @@ export interface ActiveSearch {
   whereFilter?: Record<string, unknown>
 }
 
+// ---------------------------------------------------------------------------
+// Record metadata editing
+// ---------------------------------------------------------------------------
+
+// A metadata row can additionally be 'unsupported': the record holds a type the
+// editor cannot represent (array, sparse vector), which `fetch_embeddings`
+// flattens to `null`. Kept separate from `MetadataValueType` so the search
+// filter builder — which shares that type — is unaffected.
+export type MetadataEditRowType = MetadataValueType | 'unsupported'
+
+// One row of the metadata editor. `value` is always held as text while editing
+// and coerced to `type` on save; `id` keeps React keys stable across renames.
+export interface MetadataEditRow {
+  id: string
+  key: string
+  value: string
+  type: MetadataEditRowType
+}
+
 export enum TauriCommand {
   GREAT = 'great',
   CREATE_CLIENT = 'create_client',
@@ -82,6 +101,8 @@ export enum TauriCommand {
   CREATE_COLLECTION = 'create_collection',
   DELETE_COLLECTION = 'delete_collection',
   FETCH_EMBEDDING = 'fetch_embedding',
+  UPDATE_RECORD_METADATA = 'update_record_metadata',
+  DELETE_RECORDS = 'delete_records',
 }
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'chromamind'

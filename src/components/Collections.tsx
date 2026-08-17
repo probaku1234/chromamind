@@ -8,6 +8,7 @@ import {
   Icon,
   IconButton,
   Input,
+  NativeSelect,
   NumberInput,
   Spacer,
   Table as CKTable,
@@ -32,6 +33,13 @@ import {
   SelectValueText,
 } from '@/components/ui/select'
 import { Button, ButtonProps } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  ActionBarContent,
+  ActionBarRoot,
+  ActionBarSelectionTrigger,
+  ActionBarSeparator,
+} from '@/components/ui/action-bar'
 import {
   DialogActionTrigger,
   DialogBody,
@@ -45,7 +53,14 @@ import {
 } from '@/components/ui/dialog.tsx'
 import { createListCollection } from '@chakra-ui/react'
 import { useDispatch, useSelector } from 'react-redux'
-import { ActiveSearch, EmbeddingsData, State } from '../types'
+import {
+  ActiveSearch,
+  EmbeddingsData,
+  MetadataEditRow,
+  MetadataEditRowType,
+  MetadataValueType,
+  State,
+} from '../types'
 import SearchToolbar from './collection_components/SearchToolbar'
 import {
   ColumnFiltersState,
@@ -72,6 +87,7 @@ import {
   FiPlus,
   FiRefreshCw,
   FiStar,
+  FiTrash2,
   FiX,
 } from 'react-icons/fi'
 import { MiddleTruncate } from '@re-dev/react-truncate'
@@ -239,23 +255,140 @@ const FullDocumentModal = ({
   )
 }
 
+// ── Metadata editing helpers ──────────────────────────────────────────────
+const METADATA_TYPE_OPTIONS: MetadataValueType[] = [
+  'string',
+  'number',
+  'boolean',
+]
+
+// Row identities only need to be unique within one editing session; a counter
+// avoids depending on crypto.randomUUID being present in the test environment.
+let metadataRowId = 0
+const nextMetadataRowId = () => `metadata-row-${++metadataRowId}`
+
+// `null` reaches the UI only from metadata the backend could not represent as
+// JSON (arrays, sparse vectors) — see `fetch_embeddings` in lib.rs.
+const inferMetadataType = (value: unknown): MetadataEditRowType => {
+  if (value === null) return 'unsupported'
+  if (typeof value === 'number') return 'number'
+  if (typeof value === 'boolean') return 'boolean'
+  return 'string'
+}
+
+const toEditRows = (metadata: EmbeddingsData['metadata']): MetadataEditRow[] =>
+  Object.entries(metadata).map(([key, value]) => ({
+    id: nextMetadataRowId(),
+    key,
+    value: value === null ? '' : String(value),
+    type: inferMetadataType(value),
+  }))
+
+type EditableRow = MetadataEditRow & { type: MetadataValueType }
+
+const isEditableRow = (row: MetadataEditRow): row is EditableRow =>
+  row.type !== 'unsupported'
+
+const coerceRowValue = (row: EditableRow): string | number | boolean =>
+  match(row.type)
+    .with('number', () => Number(row.value))
+    .with('boolean', () => row.value === 'true')
+    .with('string', () => row.value)
+    .exhaustive()
+
+/** Returns the first problem with the rows, or null when they are all valid. */
+const validateEditRows = (rows: MetadataEditRow[]): string | null => {
+  const seen = new Set<string>()
+  for (const row of rows) {
+    if (row.key.trim() === '') return 'Key cannot be empty'
+    if (seen.has(row.key)) return `Duplicate key: ${row.key}`
+    seen.add(row.key)
+    if (
+      row.type === 'number' &&
+      (row.value.trim() === '' || Number.isNaN(Number(row.value)))
+    ) {
+      return `${row.key} must be a number`
+    }
+  }
+  return null
+}
+
 // ── Detail Sidebar ────────────────────────────────────────────────────────
 const DetailSidebar = ({
   row,
   onClose,
   onShowFullDoc,
   fetchAndCacheEmbedding,
+  onSaveMetadata,
 }: {
   row: EmbeddingsData
   onClose: () => void
   onShowFullDoc: (doc: string) => void
   fetchAndCacheEmbedding: (id: string) => Promise<number[]>
+  onSaveMetadata: (
+    id: string,
+    metadata: Record<string, string | number | boolean>,
+    removedKeys: string[],
+  ) => Promise<boolean>
 }) => {
   const [docCopied, setDocCopied] = useState(false)
   const [embeddingVisible, setEmbeddingVisible] = useState(false)
   const [embeddingValues, setEmbeddingValues] = useState<number[] | null>(null)
   const [embeddingLoading, setEmbeddingLoading] = useState(false)
   const [embeddingError, setEmbeddingError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [editRows, setEditRows] = useState<MetadataEditRow[]>([])
+  const [originalKeys, setOriginalKeys] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const startEditing = () => {
+    setEditRows(toEditRows(row.metadata))
+    setOriginalKeys(Object.keys(row.metadata))
+    setSaveError(null)
+    setEditing(true)
+  }
+
+  const updateEditRow = (index: number, patch: Partial<MetadataEditRow>) => {
+    setEditRows((rows) =>
+      rows.map((r, i) => {
+        if (i !== index) return r
+        const next = { ...r, ...patch }
+        // A boolean row has no free-text input, so an out-of-range value would
+        // never be correctable by the user. Match the dropdown's default.
+        if (
+          patch.type === 'boolean' &&
+          next.value !== 'true' &&
+          next.value !== 'false'
+        ) {
+          next.value = 'true'
+        }
+        return next
+      }),
+    )
+  }
+
+  const saveMetadata = async () => {
+    const problem = validateEditRows(editRows)
+    if (problem !== null) {
+      setSaveError(problem)
+      return
+    }
+    setSaving(true)
+    setSaveError(null)
+    // Unsupported rows are omitted rather than sent: Chroma merges the update
+    // into the existing record, so leaving a key out preserves its real value.
+    // Sending one would clobber the array/sparse value the UI cannot render.
+    const metadata = Object.fromEntries(
+      editRows.filter(isEditableRow).map((r) => [r.key, coerceRowValue(r)]),
+    )
+    const removedKeys = originalKeys.filter(
+      (k) => !editRows.some((r) => r.key === k),
+    )
+    const ok = await onSaveMetadata(row.id, metadata, removedKeys)
+    setSaving(false)
+    if (ok) setEditing(false)
+  }
 
   const copyDoc = () => {
     copyClipboard(
@@ -516,18 +649,159 @@ const DetailSidebar = ({
 
           {/* Metadata */}
           <Box>
-            <Text
-              fontSize="10px"
-              fontWeight="600"
-              color="gray.400"
-              textTransform="uppercase"
-              letterSpacing="wide"
-              mb={2}
-            >
-              Metadata
-            </Text>
+            <Flex align="center" justify="space-between" mb={2}>
+              <Text
+                fontSize="10px"
+                fontWeight="600"
+                color="gray.400"
+                textTransform="uppercase"
+                letterSpacing="wide"
+              >
+                Metadata
+              </Text>
+              {!editing && typeof row.metadata === 'object' && (
+                <InlineAction onClick={startEditing}>Edit</InlineAction>
+              )}
+            </Flex>
             <Box data-testid="detail-view-metadata">
-              {typeof row.metadata === 'object' && row.metadata !== null ? (
+              {editing ? (
+                <Flex direction="column" gap={2}>
+                  {editRows.map((editRow, index) => (
+                    <Box
+                      key={editRow.id}
+                      borderWidth="1px"
+                      borderColor="border"
+                      borderRadius="md"
+                      p="6px"
+                    >
+                      <Flex align="center" gap={1} mb={1}>
+                        <Input
+                          size="xs"
+                          flex={1}
+                          placeholder="Key"
+                          aria-label={`Metadata key ${index + 1}`}
+                          value={editRow.key}
+                          readOnly={editRow.type === 'unsupported'}
+                          onChange={(e) =>
+                            updateEditRow(index, { key: e.target.value })
+                          }
+                        />
+                        <IconButton
+                          size="xs"
+                          variant="ghost"
+                          aria-label={`Remove metadata ${index + 1}`}
+                          onClick={() =>
+                            setEditRows((rows) =>
+                              rows.filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          <FiX />
+                        </IconButton>
+                      </Flex>
+                      {editRow.type === 'unsupported' ? (
+                        <Text fontSize="11px" color="fg.muted">
+                          Unsupported type (array or sparse vector) — kept as-is
+                        </Text>
+                      ) : (
+                        <Flex align="center" gap={1}>
+                          <NativeSelect.Root size="xs" w="88px" flexShrink={0}>
+                            <NativeSelect.Field
+                              aria-label={`Metadata type ${index + 1}`}
+                              value={editRow.type}
+                              onChange={(e) =>
+                                updateEditRow(index, {
+                                  type: e.target.value as MetadataValueType,
+                                })
+                              }
+                            >
+                              {METADATA_TYPE_OPTIONS.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </NativeSelect.Field>
+                            <NativeSelect.Indicator />
+                          </NativeSelect.Root>
+                          {editRow.type === 'boolean' ? (
+                            <NativeSelect.Root size="xs" flex={1}>
+                              <NativeSelect.Field
+                                aria-label={`Metadata value ${index + 1}`}
+                                value={editRow.value}
+                                onChange={(e) =>
+                                  updateEditRow(index, {
+                                    value: e.target.value,
+                                  })
+                                }
+                              >
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                              </NativeSelect.Field>
+                              <NativeSelect.Indicator />
+                            </NativeSelect.Root>
+                          ) : (
+                            <Input
+                              size="xs"
+                              flex={1}
+                              placeholder="Value"
+                              aria-label={`Metadata value ${index + 1}`}
+                              value={editRow.value}
+                              onChange={(e) =>
+                                updateEditRow(index, { value: e.target.value })
+                              }
+                            />
+                          )}
+                        </Flex>
+                      )}
+                    </Box>
+                  ))}
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    alignSelf="flex-start"
+                    onClick={() =>
+                      setEditRows((rows) => [
+                        ...rows,
+                        {
+                          id: nextMetadataRowId(),
+                          key: '',
+                          value: '',
+                          type: 'string',
+                        },
+                      ])
+                    }
+                  >
+                    <FiPlus /> Add metadata
+                  </Button>
+                  {saveError && (
+                    <Text fontSize="11px" color="red.500">
+                      {saveError}
+                    </Text>
+                  )}
+                  <Flex gap={2} mt={1}>
+                    <Button
+                      size="xs"
+                      flex={1}
+                      loading={saving}
+                      onClick={saveMetadata}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="xs"
+                      flex={1}
+                      variant="outline"
+                      disabled={saving}
+                      onClick={() => {
+                        setEditing(false)
+                        setSaveError(null)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </Flex>
+                </Flex>
+              ) : typeof row.metadata === 'object' && row.metadata !== null ? (
                 Object.entries(row.metadata).map(([k, v]) => (
                   <Flex
                     key={k}
@@ -661,6 +935,12 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
   const [rowCount, setRowCount] = useState<number | undefined>()
   const [activeSearch, setActiveSearch] = useState<ActiveSearch | null>(null)
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
+  // Checkbox selection for bulk actions, keyed by record id. Deliberately not
+  // TanStack's rowSelection: the table has no `getRowId`, so its row ids are
+  // array indices, and switching would change every cell id (and test id).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [embeddingCache, setEmbeddingCache] = useState<Map<string, number[]>>(
     new Map(),
   )
@@ -693,8 +973,54 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
       ? (embeddings.find((e) => e.id === selectedRowId) ?? null)
       : null
 
+  // Selection acts on the rows currently on screen — pagination is server-side,
+  // so no other row exists client-side to select.
+  // Guarded because `embeddings` is not always an array — the same reason the
+  // table below passes `data: embeddings || []`.
+  const visibleIds = useMemo(
+    () => (Array.isArray(embeddings) ? embeddings.map((e) => e.id) : []),
+    [embeddings],
+  )
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id))
+
+  const toggleId = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
   const columns = useMemo(
     () => [
+      columnHelper.display({
+        id: 'select',
+        header: () => (
+          <Checkbox
+            aria-label="Select all rows"
+            checked={
+              allVisibleSelected
+                ? true
+                : someVisibleSelected
+                  ? 'indeterminate'
+                  : false
+            }
+            onCheckedChange={(e) =>
+              setSelectedIds(e.checked ? new Set(visibleIds) : new Set())
+            }
+          />
+        ),
+        cell: (info) => (
+          <Checkbox
+            aria-label={`Select row ${info.row.original.id}`}
+            checked={selectedIds.has(info.row.original.id)}
+            onCheckedChange={(e) => toggleId(info.row.original.id, !!e.checked)}
+          />
+        ),
+      }),
       columnHelper.accessor('id', {
         cell: (info) => info.getValue(),
         footer: (info) => info.column.id,
@@ -709,7 +1035,13 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
         cell: (info) => JSON.stringify(info.getValue()),
       }),
     ],
-    [columnHelper],
+    [
+      columnHelper,
+      selectedIds,
+      visibleIds,
+      allVisibleSelected,
+      someVisibleSelected,
+    ],
   )
 
   const table = useReactTable({
@@ -836,26 +1168,27 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
     fetchCollectionData()
   }, [currentCollection])
 
-  useEffect(() => {
-    const fetchRowCount = async () => {
-      if (!currentCollection) return
-      setLoading(true)
-      const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
-        collectionName: currentCollection,
-        ids: activeSearch?.ids,
-        whereFilter: activeSearch?.whereFilter,
+  const fetchRowCount = async () => {
+    if (!currentCollection) return
+    setLoading(true)
+    const result = await invokeWrapper<number>(TauriCommand.FETCH_ROW_COUNT, {
+      collectionName: currentCollection,
+      ids: activeSearch?.ids,
+      whereFilter: activeSearch?.whereFilter,
+    })
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        setError(error)
       })
-      match(result)
-        .with({ type: 'error' }, ({ error }) => {
-          console.error(error)
-          setError(error)
-        })
-        .with({ type: 'success' }, ({ result }) => {
-          setRowCount(result)
-        })
-        .exhaustive()
-      setLoading(false)
-    }
+      .with({ type: 'success' }, ({ result }) => {
+        setRowCount(result)
+      })
+      .exhaustive()
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchRowCount()
   }, [pageSize, currentCollection, activeSearch])
 
@@ -900,6 +1233,9 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
 
   useEffect(() => {
     fetchEmbeddings()
+    // Selection is scoped to the rows on screen, so it cannot survive a change
+    // of page, page size, collection or search.
+    setSelectedIds(new Set())
   }, [pageIndex, pageSize, currentCollection, activeSearch])
 
   const fetchAndCacheEmbedding = useCallback(
@@ -921,6 +1257,82 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
     },
     [embeddingCache, currentCollection],
   )
+
+  // Returns whether the save succeeded so the sidebar knows to leave edit mode.
+  const updateRecordMetadata = async (
+    id: string,
+    metadata: Record<string, string | number | boolean>,
+    removedKeys: string[],
+  ): Promise<boolean> => {
+    const result = await invokeWrapper<null>(
+      TauriCommand.UPDATE_RECORD_METADATA,
+      {
+        collectionName: currentCollection,
+        id,
+        metadata,
+        removedKeys,
+      },
+    )
+    return match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        toaster.create({
+          title: 'Failed to update metadata',
+          description: error,
+          type: 'error',
+          duration: 2000,
+        })
+        return false
+      })
+      .with({ type: 'success' }, () => {
+        toaster.create({
+          title: 'Metadata updated',
+          type: 'success',
+          duration: 2000,
+        })
+        // Refresh the page of rows so the table and sidebar show the new values.
+        fetchEmbeddings()
+        return true
+      })
+      .exhaustive()
+  }
+
+  const deleteRecords = async () => {
+    const ids = Array.from(selectedIds)
+    setDeleting(true)
+    const result = await invokeWrapper<null>(TauriCommand.DELETE_RECORDS, {
+      collectionName: currentCollection,
+      ids,
+    })
+    setDeleting(false)
+    match(result)
+      .with({ type: 'error' }, ({ error }) => {
+        console.error(error)
+        toaster.create({
+          title: 'Failed to delete records',
+          description: error,
+          type: 'error',
+          duration: 2000,
+        })
+      })
+      .with({ type: 'success' }, () => {
+        toaster.create({
+          title: `Deleted ${ids.length} record(s)`,
+          type: 'success',
+          duration: 2000,
+        })
+        setConfirmDeleteOpen(false)
+        setSelectedIds(new Set())
+        // The open detail sidebar may be showing one of the deleted records.
+        if (selectedRowId !== null && ids.includes(selectedRowId)) {
+          setSelectedRowId(null)
+        }
+        // Both the row count badge and the page count go stale otherwise.
+        fetchRowCount()
+        fetchEmbeddings()
+      })
+      .exhaustive()
+  }
 
   return (
     <Box
@@ -1367,9 +1779,16 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
                                   ? "'JetBrains Mono', monospace"
                                   : undefined
                               }
-                              onClick={() => {
-                                setSelectedRowId(row.original.id)
-                              }}
+                              w={cell.column.id === 'select' ? '1%' : undefined}
+                              onClick={
+                                // Ticking a checkbox must not also open the
+                                // detail sidebar.
+                                cell.column.id === 'select'
+                                  ? undefined
+                                  : () => {
+                                      setSelectedRowId(row.original.id)
+                                    }
+                              }
                             >
                               {flexRender(
                                 cell.column.columnDef.cell,
@@ -1525,10 +1944,14 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
       {/* ── Right: Detail sidebar ───────────────────────────────────── */}
       {selectedRow && (
         <DetailSidebar
+          // Remount on record change so per-record state (shown embedding,
+          // in-progress metadata edits) never leaks to the next selection.
+          key={selectedRow.id}
           row={selectedRow}
           onClose={() => setSelectedRowId(null)}
           onShowFullDoc={(doc) => setFullDoc(doc)}
           fetchAndCacheEmbedding={fetchAndCacheEmbedding}
+          onSaveMetadata={updateRecordMetadata}
         />
       )}
 
@@ -1536,6 +1959,69 @@ const Collections: React.FC<{ display?: BoxProps['display'] }> = ({
       {fullDoc && (
         <FullDocumentModal doc={fullDoc} onClose={() => setFullDoc(null)} />
       )}
+
+      {/* ── Bulk selection action bar ───────────────────────────────── */}
+      <ActionBarRoot open={selectedIds.size > 0} closeOnInteractOutside={false}>
+        <ActionBarContent>
+          <ActionBarSelectionTrigger>
+            {selectedIds.size} selected
+          </ActionBarSelectionTrigger>
+          <ActionBarSeparator />
+          <Button
+            size="sm"
+            buttonType="critical"
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            <Icon>
+              <FiTrash2 />
+            </Icon>
+            Delete
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear
+          </Button>
+        </ActionBarContent>
+      </ActionBarRoot>
+
+      {/* Confirm bulk delete — deletion is irreversible. */}
+      <DialogRoot
+        role="alertdialog"
+        open={confirmDeleteOpen}
+        onOpenChange={(d) => setConfirmDeleteOpen(d.open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <Text>
+              This action cannot be undone. This will permanently delete{' '}
+              {selectedIds.size} record(s).
+            </Text>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              buttonType="critical"
+              loading={deleting}
+              onClick={deleteRecords}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+          <DialogCloseTrigger />
+        </DialogContent>
+      </DialogRoot>
 
       {/* ── Dev: Demo state controls ────────────────────────────────── */}
       {import.meta.env.DEV && (

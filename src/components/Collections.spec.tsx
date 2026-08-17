@@ -610,6 +610,484 @@ describe('Collections', () => {
       ).length
       expect(fetchEmbeddingCallCountAfter).toBe(1) // still 1 — cache was used
     })
+
+    describe('metadata editing', () => {
+      const DEFAULT_EDIT_METADATA = { foo: 'bar', score: 42 }
+
+      const editMockHandler =
+        (
+          updateResult: 'ok' | 'error',
+          metadata: Record<string, unknown> = DEFAULT_EDIT_METADATA,
+        ) =>
+        <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+          match(cmd)
+            .with(TauriCommand.FETCH_COLLECTIONS, () =>
+              Promise.resolve([] as unknown as T),
+            )
+            .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+              Promise.resolve({ id: 1, metadata: {} } as unknown as T),
+            )
+            .with(TauriCommand.FETCH_ROW_COUNT, () =>
+              Promise.resolve(1 as unknown as T),
+            )
+            .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+              Promise.resolve([
+                {
+                  id: '1',
+                  metadata,
+                  document: 'test document 1',
+                },
+              ] as unknown as T),
+            )
+            .with(TauriCommand.UPDATE_RECORD_METADATA, () =>
+              updateResult === 'ok'
+                ? Promise.resolve(null as unknown as T)
+                : // Tauri rejects with the command's `Err(String)`, not an Error.
+                  Promise.reject('backend exploded' as unknown as T),
+            )
+            .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+
+      // Renders Collections, opens the sidebar on the first row and enters
+      // metadata edit mode. Returns the invoke spy for payload assertions.
+      const openEditor = async (
+        updateResult: 'ok' | 'error' = 'ok',
+        metadata: Record<string, unknown> = DEFAULT_EDIT_METADATA,
+      ) => {
+        mockIPC(editMockHandler(updateResult, metadata))
+
+        // @ts-ignore
+        const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+        renderWithProvider(
+          <Provider>
+            <Collections />
+          </Provider>,
+          {
+            initialState: {
+              currentMenu: 'Collections',
+              currentCollection: 'test',
+            },
+          },
+        )
+
+        await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+          timeout: 5000,
+        })
+
+        fireEvent.click(screen.getByTestId('0_document'))
+        fireEvent.click(screen.getByText('Edit'))
+
+        return mock
+      }
+
+      const updateCalls = (mock: Awaited<ReturnType<typeof openEditor>>) =>
+        mock.mock.calls.filter(
+          ([cmd]: [string]) => cmd === TauriCommand.UPDATE_RECORD_METADATA,
+        )
+
+      test('should prefill the editor from the record metadata', async () => {
+        await openEditor()
+
+        expect(screen.getByLabelText('Metadata key 1')).toHaveValue('foo')
+        expect(screen.getByLabelText('Metadata value 1')).toHaveValue('bar')
+        expect(screen.getByLabelText('Metadata type 1')).toHaveValue('string')
+
+        expect(screen.getByLabelText('Metadata key 2')).toHaveValue('score')
+        expect(screen.getByLabelText('Metadata value 2')).toHaveValue('42')
+        // The type is inferred from the value's runtime type.
+        expect(screen.getByLabelText('Metadata type 2')).toHaveValue('number')
+      })
+
+      test('should send an edited value and refetch the rows', async () => {
+        const mock = await openEditor()
+
+        const fetchEmbeddingsBefore = mock.mock.calls.filter(
+          ([cmd]: [string]) => cmd === TauriCommand.FETCH_EMBEDDINGS,
+        ).length
+
+        fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+          target: { value: 'baz' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { foo: 'baz', score: 42 },
+          removedKeys: [],
+        })
+
+        // The table and sidebar refresh from the server after a save.
+        await waitFor(() =>
+          expect(
+            mock.mock.calls.filter(
+              ([cmd]: [string]) => cmd === TauriCommand.FETCH_EMBEDDINGS,
+            ).length,
+          ).toBe(fetchEmbeddingsBefore + 1),
+        )
+
+        // Editor closes on success.
+        await waitFor(() =>
+          expect(
+            screen.queryByLabelText('Metadata key 1'),
+          ).not.toBeInTheDocument(),
+        )
+      })
+
+      test('should send a newly added key', async () => {
+        const mock = await openEditor()
+
+        fireEvent.click(screen.getByText('Add metadata'))
+        fireEvent.change(screen.getByLabelText('Metadata key 3'), {
+          target: { value: 'active' },
+        })
+        fireEvent.change(screen.getByLabelText('Metadata type 3'), {
+          target: { value: 'boolean' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { foo: 'bar', score: 42, active: true },
+          removedKeys: [],
+        })
+      })
+
+      test('should report a removed key in removedKeys', async () => {
+        const mock = await openEditor()
+
+        fireEvent.click(screen.getByLabelText('Remove metadata 2'))
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { foo: 'bar' },
+          removedKeys: ['score'],
+        })
+      })
+
+      test('should treat a renamed key as add-new plus remove-old', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata key 1'), {
+          target: { value: 'renamed' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        expect(updateCalls(mock)[0][1]).toEqual({
+          collectionName: 'test',
+          id: '1',
+          metadata: { renamed: 'bar', score: 42 },
+          removedKeys: ['foo'],
+        })
+      })
+
+      test('should block saving a non-numeric value on a number row', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata value 2'), {
+          target: { value: 'not a number' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        expect(
+          await screen.findByText('score must be a number'),
+        ).toBeInTheDocument()
+        expect(updateCalls(mock)).toHaveLength(0)
+      })
+
+      test('should block saving an empty key', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata key 1'), {
+          target: { value: '' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        expect(
+          await screen.findByText('Key cannot be empty'),
+        ).toBeInTheDocument()
+        expect(updateCalls(mock)).toHaveLength(0)
+      })
+
+      test('should block saving duplicate keys', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata key 2'), {
+          target: { value: 'foo' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        expect(
+          await screen.findByText('Duplicate key: foo'),
+        ).toBeInTheDocument()
+        expect(updateCalls(mock)).toHaveLength(0)
+      })
+
+      test('should stay in edit mode when the backend fails', async () => {
+        const mock = await openEditor('error')
+
+        fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+          target: { value: 'baz' },
+        })
+        fireEvent.click(screen.getByText('Save'))
+
+        await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+        // Inputs are still on screen with the user's pending edit intact.
+        expect(screen.getByLabelText('Metadata value 1')).toHaveValue('baz')
+      })
+
+      // `fetch_embeddings` flattens metadata types this UI cannot render (arrays,
+      // sparse vectors) to `null`. Those keys must never round-trip back to the
+      // server: Chroma merges the update, so omitting them preserves the real
+      // value, while sending them would overwrite it with the string "null".
+      describe('unsupported metadata values', () => {
+        const WITH_UNSUPPORTED = { foo: 'bar', tags: null }
+
+        test('should not send an unsupported key when another key is edited', async () => {
+          const mock = await openEditor('ok', WITH_UNSUPPORTED)
+
+          fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+            target: { value: 'baz' },
+          })
+          fireEvent.click(screen.getByText('Save'))
+
+          await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+          expect(updateCalls(mock)[0][1]).toEqual({
+            collectionName: 'test',
+            id: '1',
+            metadata: { foo: 'baz' },
+            removedKeys: [],
+          })
+        })
+
+        test('should render the unsupported row read-only', async () => {
+          await openEditor('ok', WITH_UNSUPPORTED)
+
+          expect(screen.getByLabelText('Metadata key 2')).toHaveValue('tags')
+          // No value input and no type dropdown — nothing here is editable.
+          expect(
+            screen.queryByLabelText('Metadata value 2'),
+          ).not.toBeInTheDocument()
+          expect(
+            screen.queryByLabelText('Metadata type 2'),
+          ).not.toBeInTheDocument()
+          expect(screen.getByLabelText('Metadata key 2')).toHaveAttribute(
+            'readonly',
+          )
+        })
+
+        test('should still allow explicitly removing an unsupported key', async () => {
+          const mock = await openEditor('ok', WITH_UNSUPPORTED)
+
+          fireEvent.click(screen.getByLabelText('Remove metadata 2'))
+          fireEvent.click(screen.getByText('Save'))
+
+          await waitFor(() => expect(updateCalls(mock)).toHaveLength(1))
+          expect(updateCalls(mock)[0][1]).toEqual({
+            collectionName: 'test',
+            id: '1',
+            metadata: { foo: 'bar' },
+            removedKeys: ['tags'],
+          })
+        })
+      })
+
+      test('should discard pending edits on Cancel', async () => {
+        const mock = await openEditor()
+
+        fireEvent.change(screen.getByLabelText('Metadata value 1'), {
+          target: { value: 'baz' },
+        })
+        fireEvent.click(screen.getByText('Cancel'))
+
+        expect(updateCalls(mock)).toHaveLength(0)
+        // Back to the read-only list showing the original value.
+        const { getByText } = within(screen.getByTestId('detail-view-metadata'))
+        expect(getByText('bar')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('bulk delete', () => {
+    const deleteMockHandler =
+      (deleteResult: 'ok' | 'error') =>
+      <T,>(cmd: string, _: InvokeArgs | undefined): Promise<T> =>
+        match(cmd)
+          .with(TauriCommand.FETCH_COLLECTIONS, () =>
+            Promise.resolve([] as unknown as T),
+          )
+          .with(TauriCommand.FETCH_COLLECTION_DATA, () =>
+            Promise.resolve({ id: 1, metadata: {} } as unknown as T),
+          )
+          // More than one page's worth, so the Next button is enabled.
+          .with(TauriCommand.FETCH_ROW_COUNT, () =>
+            Promise.resolve(25 as unknown as T),
+          )
+          .with(TauriCommand.FETCH_EMBEDDINGS, () =>
+            Promise.resolve([
+              { id: 'a', metadata: {}, document: 'doc a' },
+              { id: 'b', metadata: {}, document: 'doc b' },
+            ] as unknown as T),
+          )
+          .with(TauriCommand.DELETE_RECORDS, () =>
+            deleteResult === 'ok'
+              ? Promise.resolve(null as unknown as T)
+              : // Tauri rejects with the command's `Err(String)`, not an Error.
+                Promise.reject('backend exploded' as unknown as T),
+          )
+          .otherwise(() => Promise.resolve('unknown command' as unknown as T))
+
+    const renderTable = async (deleteResult: 'ok' | 'error' = 'ok') => {
+      mockIPC(deleteMockHandler(deleteResult))
+
+      // @ts-ignore
+      const mock = vi.spyOn(window.__TAURI_INTERNALS__, 'invoke')
+
+      renderWithProvider(
+        <Provider>
+          <Collections />
+        </Provider>,
+        {
+          initialState: {
+            currentMenu: 'Collections',
+            currentCollection: 'test',
+          },
+        },
+      )
+
+      await waitFor(() => expect(mock).toHaveBeenCalledTimes(4), {
+        timeout: 5000,
+      })
+
+      return mock
+    }
+
+    const deleteCalls = (mock: Awaited<ReturnType<typeof renderTable>>) =>
+      mock.mock.calls.filter(
+        ([cmd]: [string]) => cmd === TauriCommand.DELETE_RECORDS,
+      )
+
+    const countOf = (
+      mock: Awaited<ReturnType<typeof renderTable>>,
+      command: TauriCommand,
+    ) => mock.mock.calls.filter(([cmd]: [string]) => cmd === command).length
+
+    test('should not show the action bar until a row is selected', async () => {
+      await renderTable()
+
+      expect(screen.queryByText('1 selected')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+
+      expect(await screen.findByText('1 selected')).toBeInTheDocument()
+    })
+
+    test('should select every row on the page from the header checkbox', async () => {
+      await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select all rows'))
+
+      expect(await screen.findByText('2 selected')).toBeInTheDocument()
+    })
+
+    test('should not open the detail sidebar when ticking a checkbox', async () => {
+      await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+
+      expect(await screen.findByText('1 selected')).toBeInTheDocument()
+      // The sidebar renders this heading; the row click handler must not fire.
+      expect(screen.queryByText('Row Detail')).not.toBeInTheDocument()
+    })
+
+    test('should delete the selected ids after confirming', async () => {
+      const mock = await renderTable()
+
+      const embeddingsBefore = countOf(mock, TauriCommand.FETCH_EMBEDDINGS)
+      const rowCountBefore = countOf(mock, TauriCommand.FETCH_ROW_COUNT)
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      fireEvent.click(screen.getByLabelText('Select row b'))
+      fireEvent.click(await screen.findByText('Delete'))
+
+      expect(await screen.findByText('Are you sure?')).toBeInTheDocument()
+      expect(
+        screen.getByText(/permanently delete 2 record\(s\)/),
+      ).toBeInTheDocument()
+
+      // The dialog's Delete is the second one on screen (action bar + dialog).
+      const deleteButtons = screen.getAllByText('Delete')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+
+      await waitFor(() => expect(deleteCalls(mock)).toHaveLength(1))
+      expect(deleteCalls(mock)[0][1]).toEqual({
+        collectionName: 'test',
+        ids: ['a', 'b'],
+      })
+
+      // Both the rows and the total count must be refreshed.
+      await waitFor(() => {
+        expect(countOf(mock, TauriCommand.FETCH_EMBEDDINGS)).toBe(
+          embeddingsBefore + 1,
+        )
+        expect(countOf(mock, TauriCommand.FETCH_ROW_COUNT)).toBe(
+          rowCountBefore + 1,
+        )
+      })
+
+      // Selection cleared, so the action bar goes away.
+      await waitFor(() =>
+        expect(screen.queryByText('2 selected')).not.toBeInTheDocument(),
+      )
+    })
+
+    test('should not delete anything when the dialog is cancelled', async () => {
+      const mock = await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      fireEvent.click(await screen.findByText('Delete'))
+      expect(await screen.findByText('Are you sure?')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Cancel'))
+
+      expect(deleteCalls(mock)).toHaveLength(0)
+      // Selection survives a cancel.
+      expect(screen.getByText('1 selected')).toBeInTheDocument()
+    })
+
+    test('should keep the selection when the backend fails', async () => {
+      const mock = await renderTable('error')
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      fireEvent.click(await screen.findByText('Delete'))
+      expect(await screen.findByText('Are you sure?')).toBeInTheDocument()
+
+      const deleteButtons = screen.getAllByText('Delete')
+      fireEvent.click(deleteButtons[deleteButtons.length - 1])
+
+      await waitFor(() => expect(deleteCalls(mock)).toHaveLength(1))
+      expect(screen.getByText('1 selected')).toBeInTheDocument()
+    })
+
+    test('should clear the selection when the page changes', async () => {
+      await renderTable()
+
+      fireEvent.click(screen.getByLabelText('Select row a'))
+      expect(await screen.findByText('1 selected')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('data-view-next-button'))
+
+      await waitFor(() =>
+        expect(screen.queryByText('1 selected')).not.toBeInTheDocument(),
+      )
+    })
   })
 
   describe('Collection Nav', () => {
