@@ -1,3 +1,13 @@
+## [0.3.0](https://github.com/probaku1234/chromamind/compare/v0.2.0...v0.3.0) (2026-08-22)
+
+### 🍕 Features
+
+* add delete vectors and update metadata ([c61a9fb](https://github.com/probaku1234/chromamind/commit/c61a9fbed46746cf95768d0744b8da383393b5ea))
+
+### ✅ Tests
+
+* improve test error messages ([3c83b8a](https://github.com/probaku1234/chromamind/commit/3c83b8a276ed55828f145d641d27c89c7acd7a49))
+
 ## [0.2.0](https://github.com/probaku1234/chromamind/compare/v0.1.0...v0.2.0) (2026-08-01)
 
 ### 🍕 Features
